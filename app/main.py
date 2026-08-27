@@ -1,12 +1,19 @@
 import os
-import json
+import uuid
+import io
+import asyncio
 import secrets
-import mimetypes
-from datetime import datetime, timezone, timedelta
+import logging
+import requests
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlparse
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Request, Response, Depends, Header, UploadFile, File, Form
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Header, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
 
@@ -39,10 +46,10 @@ def verify_auth(authorization: Optional[str] = Header(None), request: Request = 
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
-    if not token and request and request.cookies.get("session_token"):
-        token = request.cookies.get("session_token")
+    elif request and "session_token" in request.cookies:
+        token = request.cookies["session_token"]
     if not token or not session_is_valid(token):
-        raise HTTPException(status_code=401, detail="Chưa xác thực hoặc phiên đăng nhập đã hết hạn.")
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập hoặc phiên đã hết hạn")
     role = get_session_role(token)
     return {"token": token, "role": role}
 
@@ -51,30 +58,72 @@ def verify_admin_auth(auth: dict = Depends(verify_auth)) -> dict:
         raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền truy cập cấu hình.")
     return auth
 
-app = FastAPI(title="Auto Social Poster", version="10.5")
-init_db()
+def _safe_media_name(name: str) -> str:
+    safe = Path(name).name
+    if not safe or safe != name:
+        raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
+    return safe
 
-@app.middleware("http")
-async def add_no_cache_header(request: Request, call_next):
-    response = await call_next(request)
-    path = request.url.path
-    if path.endswith((".html", ".js", ".css")) or path == "/":
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     configure_logging()
+    init_db()
     start_scheduler()
-
-@app.on_event("shutdown")
-def shutdown_event():
+    yield
     shutdown_scheduler()
 
+app = FastAPI(title="Auto Social Poster", lifespan=lifespan)
+
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    resp = await call_next(request)
+    if request.url.path in ["/", "/index.html"] or request.url.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+    return resp
+
+@app.get("/api/health")
+def api_health():
+    """Unauthenticated, non-sensitive status endpoint for local monitoring."""
+    return {"status": "ok", "service": "social-auto-poster"}
+
+# --- MODELS ---
 class LoginRequest(BaseModel):
     password: str
+
+class PostCreateRequest(BaseModel):
+    fb_caption: str = ""
+    ig_caption: str = ""
+    google_caption: str = ""
+    images: List[str] = []
+    target_fb: bool = True
+    target_ig: bool = True
+    target_story: bool = False
+    target_google: bool = False
+    google_action_type: str = "LEARN_MORE"
+    google_action_url: Optional[str] = None
+    story_image: Optional[str] = None
+    story_template: str = "glassmorphism"
+    story_hook: str = ""
+    story_link: str = ""
+    action: str = "now"
+    scheduled_time: Optional[str] = None
+
+class StoryPreviewRequest(BaseModel):
+    image_name: str
+    caption: str = ""
+    template: str = "glassmorphism"
+    hook: str = ""
+    link: str = ""
+
+class AICaptionRequest(BaseModel):
+    images: List[str] = []
+    user_hint: str = ""
+
+class BulkImportRequest(BaseModel):
+    posts: List[dict]
 
 class SettingsUpdateRequest(BaseModel):
     fb_page_id: Optional[str] = None
@@ -88,193 +137,229 @@ class SettingsUpdateRequest(BaseModel):
     gemini_model: Optional[str] = None
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
+    google_account_id: Optional[str] = None
     google_location_id: Optional[str] = None
     google_location_name: Optional[str] = None
+    max_upload_mb: Optional[int] = None
+    max_upload_batch_mb: Optional[int] = None
+    media_retention_days: Optional[int] = None
 
-class TestSettingsRequest(BaseModel):
+class SettingsTestRequest(BaseModel):
     fb_page_id: Optional[str] = None
     fb_page_access_token: Optional[str] = None
     ig_business_account_id: Optional[str] = None
 
-class MetaExchangeRequest(BaseModel):
-    user_access_token: str
-    app_id: str
-    app_secret: str
-    target_page_id: Optional[str] = None
-
-class PostCreateRequest(BaseModel):
-    title: Optional[str] = ""
-    fb_caption: Optional[str] = ""
-    ig_caption: Optional[str] = ""
-    google_caption: Optional[str] = ""
-    images: Optional[List[str]] = []
-    target_fb: Optional[bool] = True
-    target_ig: Optional[bool] = True
-    target_story: Optional[bool] = False
-    target_google: Optional[bool] = False
-    google_action_type: Optional[str] = "LEARN_MORE"
-    google_action_url: Optional[str] = ""
-    story_image: Optional[str] = None
-    story_template: Optional[str] = "glassmorphism"
-    story_hook: Optional[str] = ""
-    story_link: Optional[str] = ""
-    action: Optional[str] = "now"
-    scheduled_time: Optional[str] = None
-
-class GenerateCaptionsRequest(BaseModel):
-    prompt: str
-    brand_voice: Optional[str] = "Thân thiện"
-    include_emojis: Optional[bool] = True
-    generate_hashtags: Optional[bool] = True
-    model_name: Optional[str] = None
-    aspect_ratio: Optional[str] = "1:1"
-
-class GenerateStoryRequest(BaseModel):
-    image_filename: str
-    template_name: Optional[str] = "glassmorphism"
-    hook_text: Optional[str] = ""
-    product_name: Optional[str] = ""
-    price_tag: Optional[str] = ""
-    badge_text: Optional[str] = ""
-    call_to_action: Optional[str] = ""
-
-class BulkImportRequest(BaseModel):
-    posts: List[dict]
-
-class HashtagGroupRequest(BaseModel):
-    name: str
-    hashtags: str
-    category: Optional[str] = "Chung"
-
-class CaptionTemplateRequest(BaseModel):
-    name: str
-    content: str
-    category: Optional[str] = "Sản phẩm"
-    brand_voice: Optional[str] = "Bán hàng"
-
-class ApprovalActionRequest(BaseModel):
-    action: Optional[str] = "publish_now"
-
-class RejectionActionRequest(BaseModel):
-    reason: Optional[str] = ""
-
-@app.get("/api/auth/check")
-def api_auth_check(request: Request):
-    token = request.cookies.get("session_token")
-    if token and session_is_valid(token):
-        role = get_session_role(token)
-        return {"authenticated": True, "role": role}
-    return {"authenticated": False, "role": ""}
+# --- AUTH ROUTES ---
 
 @app.post("/api/auth/login")
-def api_login(req: LoginRequest, response: Response):
+def api_login(req: LoginRequest):
     settings = get_settings()
     role = verify_user_role(req.password, settings)
     if not role:
-        raise HTTPException(status_code=401, detail="Mật khẩu không chính xác.")
+        raise HTTPException(status_code=401, detail="Mật khẩu không đúng")
     token = create_session_token(role=role)
-    response.set_cookie("session_token", token, httponly=True, samesite="lax", max_age=604800)
-    return {"success": True, "role": role, "token": token}
+    resp = JSONResponse({"success": True, "token": token, "role": role})
+    resp.set_cookie(
+        "session_token",
+        token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=7 * 24 * 3600
+    )
+    return resp
+
+@app.get("/api/auth/check")
+def api_auth_check(auth: dict = Depends(verify_auth)):
+    return {"authenticated": True, "role": auth.get("role", "staff")}
 
 @app.post("/api/auth/logout")
-def api_logout(response: Response, auth: dict = Depends(verify_auth)):
-    delete_session(auth["token"])
+def api_logout(authorization: Optional[str] = Header(None), request: Request = None):
+    token = request.cookies.get("session_token") if request else None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+    if token:
+        delete_session(token)
+    response = JSONResponse({"success": True, "message": "Đã đăng xuất"})
     response.delete_cookie("session_token")
-    return {"success": True}
+    return response
 
-@app.get("/api/settings", dependencies=[Depends(verify_admin_auth)])
-def api_get_settings():
-    s = get_settings()
-    token = s.get("fb_page_access_token", "")
-    masked_token = (token[:6] + "..." + token[-4:]) if len(token) > 10 else ("***" if token else "")
-    secret = s.get("google_client_secret", "")
-    masked_secret = (secret[:3] + "..." + secret[-3:]) if len(secret) > 6 else ("***" if secret else "")
-    return {
-        "fb_page_id": s.get("fb_page_id", ""),
-        "fb_page_access_token": "",
-        "masked_token": masked_token,
-        "ig_business_account_id": s.get("ig_business_account_id", ""),
-        "imgbb_api_key": s.get("imgbb_api_key", ""),
-        "has_imgbb_api_key": bool(s.get("imgbb_api_key")),
-        "has_gemini_api_key": bool(s.get("gemini_api_key")),
-        "gemini_model": s.get("gemini_model", "gemini-flash-latest"),
-        "google_client_id": s.get("google_client_id", ""),
-        "has_google_client_secret": bool(secret),
-        "masked_google_client_secret": masked_secret,
-        "google_connected": bool(s.get("google_refresh_token")),
-        "google_location_id": s.get("google_location_id", ""),
-        "google_location_name": s.get("google_location_name", ""),
-        "has_admin_password": bool(s.get("admin_password") or s.get("admin_password_hash") or s.get("app_password") or s.get("app_password_hash")),
-        "has_staff_password": bool(s.get("staff_password") or s.get("staff_password_hash")),
-        "app_password": ""
-    }
+# --- GOOGLE BUSINESS ROUTES ---
 
-@app.post("/api/settings", dependencies=[Depends(verify_admin_auth)])
-def api_update_settings(req: SettingsUpdateRequest):
-    updates = req.dict(exclude_unset=True)
-    update_settings(updates)
-    return {"success": True, "message": "Đã lưu cài đặt thành công."}
+@app.get("/api/google/auth-url", dependencies=[Depends(verify_auth)])
+def api_google_auth_url(request: Request):
+    settings = get_settings()
+    client_id = settings.get("google_client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập Google Client ID trong Cài đặt trước.")
+    
+    redirect_uri = "http://localhost:8000/api/google/callback"
+    state = secrets.token_urlsafe(32)
+    save_oauth_state(state, (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat())
+    url = get_google_auth_url(client_id, redirect_uri, state)
+    return {"auth_url": url}
 
-@app.post("/api/settings/test", dependencies=[Depends(verify_admin_auth)])
-def api_test_settings(req: TestSettingsRequest):
-    s = get_settings()
-    page_id = req.fb_page_id or s.get("fb_page_id")
-    token = req.fb_page_access_token or s.get("fb_page_access_token")
-    ig_id = req.ig_business_account_id or s.get("ig_business_account_id")
-    if not page_id or not token:
-        raise HTTPException(status_code=400, detail="Thiếu Facebook Page ID hoặc Access Token.")
-    result = test_meta_connection(page_id, token, ig_id)
-    return result
+@app.get("/api/google/callback")
+def api_google_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    if error:
+        return RedirectResponse(url=f"/?google_error={error}")
+    if not code:
+        return RedirectResponse(url="/?google_error=missing_code")
+    if not state or not consume_oauth_state(state):
+        return RedirectResponse(url="/?google_error=invalid_state")
 
-@app.post("/api/meta/exchange-permanent-token", dependencies=[Depends(verify_admin_auth)])
-def api_exchange_permanent_token(req: MetaExchangeRequest):
-    res = exchange_for_permanent_page_token(
-        req.user_access_token,
-        req.app_id,
-        req.app_secret,
-        req.target_page_id
-    )
-    if not res.get("success"):
-        raise HTTPException(status_code=400, detail=res.get("error", "Không thể lấy Permanent Token."))
-    update_settings({
-        "fb_page_access_token": res["page_access_token"],
-        "fb_page_id": res["page_id"]
-    })
-    return res
+    settings = get_settings()
+    client_id = settings.get("google_client_id")
+    client_secret = settings.get("google_client_secret")
+    redirect_uri = "http://localhost:8000/api/google/callback"
+    
+    try:
+        exchange_google_code(code, client_id, client_secret, redirect_uri)
+        return RedirectResponse(url="/?google_success=1")
+    except Exception as e:
+        return RedirectResponse(url=f"/?google_error={str(e)}")
+
+@app.get("/api/google/locations", dependencies=[Depends(verify_auth)])
+def api_google_locations():
+    try:
+        locations = get_google_locations()
+        return {"locations": locations}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# --- MEDIA ROUTES ---
 
 @app.post("/api/media/upload", dependencies=[Depends(verify_auth)])
-async def api_upload_media(files: List[UploadFile] = File(...)):
-    saved_files = []
-    for file in files:
-        if not file.filename:
-            continue
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
-            raise HTTPException(status_code=400, detail=f"Định dạng file không được hỗ trợ: {ext}")
-        unique_name = f"{secrets.token_hex(16)}{ext}"
-        target_path = UPLOAD_DIR / unique_name
-        content = await file.read()
-        target_path.write_bytes(content)
-        register_media_file(target_path, original_name=file.filename)
-        saved_files.append(unique_name)
-    return {"success": True, "files": saved_files, "uploaded": saved_files}
+def api_upload_media(files: List[UploadFile] = File(...)):
+    settings = get_settings()
+    max_mb = settings.get("max_upload_mb", 12)
+    max_batch_mb = settings.get("max_upload_batch_mb", 48)
+    max_bytes = max_mb * 1024 * 1024
+    max_batch_bytes = max_batch_mb * 1024 * 1024
 
-@app.post("/api/posts")
-@app.post("/api/posts/create")
+    uploaded_names = []
+    total_size = 0
+
+    for file in files:
+        raw = file.file.read()
+        file_len = len(raw)
+        total_size += file_len
+        if file_len > max_bytes:
+            raise HTTPException(status_code=400, detail=f"File {file.filename} vượt quá giới hạn cho phép ({max_mb} MB)")
+        if total_size > max_batch_bytes:
+            raise HTTPException(status_code=400, detail=f"Tổng dung lượng tải lên vượt quá giới hạn ({max_batch_mb} MB)")
+
+        content_type = file.content_type or ""
+        if not content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail=f"File {file.filename} không phải là ảnh hợp lệ")
+
+        try:
+            img = Image.open(io.BytesIO(raw))
+            img.verify()
+        except (UnidentifiedImageError, Exception):
+            raise HTTPException(status_code=400, detail=f"File {file.filename} bị hỏng hoặc không đúng định dạng ảnh")
+
+        ext = Path(file.filename).suffix.lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+            ext = ".jpg"
+
+        clean_uid = uuid.uuid4().hex
+        filename = f"{clean_uid}{ext}"
+        target = UPLOAD_DIR / filename
+        target.write_bytes(raw)
+
+        register_media_file(target, original_name=file.filename)
+        uploaded_names.append(filename)
+
+    return {"uploaded": uploaded_names, "files": uploaded_names}
+
+@app.get("/api/media/library", dependencies=[Depends(verify_auth)])
+def api_get_media_library(search: Optional[str] = None, tag: Optional[str] = None, page: int = 1, page_size: int = 50):
+    offset = (page - 1) * page_size
+    items = get_media_items(search=search or "", tag=tag or "", limit=page_size, offset=offset)
+    return {"items": items, "page": page, "page_size": page_size}
+
+class MediaTagUpdateRequest(BaseModel):
+    filename: str
+    tags: List[str]
+
+@app.post("/api/media/tags", dependencies=[Depends(verify_auth)])
+def api_update_media_tags(req: MediaTagUpdateRequest):
+    update_media_tags(req.filename, req.tags)
+    return {"success": True, "message": "Đã cập nhật tag ảnh"}
+
+class MediaBatchDeleteRequest(BaseModel):
+    filenames: List[str]
+
+@app.post("/api/media/batch-delete", dependencies=[Depends(verify_auth)])
+def api_batch_delete_media(req: MediaBatchDeleteRequest):
+    deleted_count = 0
+    for filename in req.filenames:
+        try:
+            safe_name = _safe_media_name(filename)
+            delete_media_item(safe_name)
+            p = UPLOAD_DIR / safe_name
+            if p.is_file():
+                p.unlink()
+            thumb = THUMB_DIR / f"thumb_{safe_name}"
+            if thumb.is_file():
+                thumb.unlink()
+            deleted_count += 1
+        except Exception:
+            pass
+    return {"success": True, "deleted_count": deleted_count}
+
+@app.delete("/api/media/{filename}", dependencies=[Depends(verify_auth)])
+def api_delete_media(filename: str):
+    safe_name = _safe_media_name(filename)
+    delete_media_item(safe_name)
+    p = UPLOAD_DIR / safe_name
+    if p.is_file():
+        p.unlink()
+    thumb = THUMB_DIR / f"thumb_{safe_name}"
+    if thumb.is_file():
+        thumb.unlink()
+    return {"success": True, "message": "Đã xóa ảnh khỏi thư viện"}
+
+@app.get("/api/media/{filename}")
+def api_get_media(filename: str):
+    safe_name = _safe_media_name(filename)
+    p = UPLOAD_DIR / safe_name
+    if not p.is_file():
+        raise HTTPException(status_code=404, detail="File không tồn tại")
+    return FileResponse(p)
+
+@app.get("/api/media/thumb/{filename}")
+def api_get_media_thumb(filename: str):
+    safe_name = _safe_media_name(filename)
+    thumb_path = THUMB_DIR / f"thumb_{safe_name}"
+    if thumb_path.is_file():
+        return FileResponse(thumb_path)
+    orig_path = UPLOAD_DIR / safe_name
+    if orig_path.is_file():
+        created_thumb = create_thumbnail(orig_path)
+        if created_thumb and created_thumb.is_file():
+            return FileResponse(created_thumb)
+        return FileResponse(orig_path)
+    raise HTTPException(status_code=404, detail="Ảnh thumbnail không tồn tại")
+
+# --- POSTS & QUEUE ROUTES ---
+
+@app.post("/api/posts", dependencies=[Depends(verify_auth)])
 def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
-    if not req.fb_caption and not req.ig_caption and not req.google_caption and not req.story_hook:
-        raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất một nội dung đăng bài.")
-    if req.action == "schedule" and not req.scheduled_time:
-        raise HTTPException(status_code=400, detail="Vui lòng chọn thời gian lên lịch.")
+    user_role = auth.get("role", "admin")
+    if not req.fb_caption and not req.ig_caption and not req.google_caption:
+        raise HTTPException(status_code=400, detail="Cần ít nhất nội dung Facebook, Instagram hoặc Google Business.")
 
     if req.target_ig and not req.images:
         raise HTTPException(status_code=400, detail="Instagram yêu cầu ít nhất một ảnh.")
+
     if req.target_story and not req.images and not req.story_image:
         raise HTTPException(status_code=400, detail="Story yêu cầu ít nhất một ảnh hoặc ảnh Story đã tạo.")
+
     if req.action not in {"now", "schedule"}:
         raise HTTPException(status_code=400, detail="Hành động đăng không hợp lệ.")
 
-    user_role = auth.get("role", "admin")
     if user_role == "staff":
         initial_status = "pending_approval"
     else:
@@ -282,7 +367,12 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
 
     scheduled_time = None
     if req.action == "schedule" or req.scheduled_time:
-        scheduled_time = normalize_schedule(req.scheduled_time) if req.scheduled_time else None
+        if not req.scheduled_time:
+            raise HTTPException(status_code=400, detail="Chưa chọn thời gian lên lịch.")
+        try:
+            scheduled_time = normalize_schedule(req.scheduled_time)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err))
 
     post_id = create_post(
         fb_caption=req.fb_caption,
@@ -294,14 +384,13 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
         target_story=req.target_story,
         target_google=req.target_google,
         google_action_type=req.google_action_type,
-        google_action_url=req.google_action_url,
+        google_action_url=req.google_action_url or "",
         status=initial_status,
         scheduled_time=scheduled_time,
-        title=req.title,
         story_image=req.story_image,
         story_template=req.story_template,
         story_hook=req.story_hook,
-        story_link=req.story_link
+        story_link=req.story_link or ""
     )
 
     if user_role == "staff":
@@ -309,160 +398,298 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
             "success": True,
             "status": "pending_approval",
             "message": "Bài viết đã được gửi vào hàng đợi chờ Quản trị viên (Admin) phê duyệt.",
-            "post": get_post_by_id(post_id)
+            "post_id": post_id
         }
 
     if req.action == "now":
         result = publish_single_post(post_id)
-        return {
-            "success": result["success"],
-            "status": "published" if result["success"] else "failed",
-            "post": get_post_by_id(post_id),
-            "result": result
-        }
+        return {"success": result["status"] == "success", "result": result, "post_id": post_id}
 
-    return {
-        "success": True,
-        "status": "scheduled",
-        "post": get_post_by_id(post_id)
-    }
+    return {"success": True, "post_id": post_id, "scheduled_time": scheduled_time}
+
+class PostApprovalRequest(BaseModel):
+    action: Optional[str] = "publish_now"
 
 @app.post("/api/posts/{post_id}/approve", dependencies=[Depends(verify_admin_auth)])
-def api_approve_post(post_id: int, req: ApprovalActionRequest):
+def api_approve_post(post_id: int, req: PostApprovalRequest):
     post = get_post_by_id(post_id)
     if not post:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết.")
-    
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
     if req.action == "publish_now":
         approve_post(post_id, action="publish_now")
         result = publish_single_post(post_id)
-        return {
-            "success": result["success"],
-            "message": "Đã duyệt và xuất bản bài viết thành công!" if result["success"] else "Duyệt thành công nhưng đăng thất bại.",
-            "post": get_post_by_id(post_id),
-            "result": result
-        }
+        updated = get_post_by_id(post_id)
+        return {"success": True, "post": updated, "result": result, "message": "Đã duyệt và xuất bản ngay thành công!"}
     else:
         approve_post(post_id, action="keep_schedule")
-        return {
-            "success": True,
-            "message": "Đã duyệt bài viết vào lịch đăng tự động!",
-            "post": get_post_by_id(post_id)
-        }
+        updated = get_post_by_id(post_id)
+        return {"success": True, "post": updated, "message": "Đã phê duyệt và đưa vào Lịch đăng tự động!"}
+
+class PostRejectRequest(BaseModel):
+    reason: Optional[str] = ""
 
 @app.post("/api/posts/{post_id}/reject", dependencies=[Depends(verify_admin_auth)])
-def api_reject_post(post_id: int, req: RejectionActionRequest):
+def api_reject_post(post_id: int, req: PostRejectRequest):
     post = get_post_by_id(post_id)
     if not post:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết.")
-    reject_post(post_id, reason=req.reason)
-    return {"success": True, "message": "Đã từ chối bài viết.", "post": get_post_by_id(post_id)}
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
+    reject_post(post_id, reason=req.reason or "Bị từ chối bởi Admin")
+    updated = get_post_by_id(post_id)
+    return {"success": True, "post": updated, "message": "Đã từ chối bài viết."}
 
-@app.get("/api/posts", dependencies=[Depends(verify_auth)])
-def api_get_posts(filter_type: Optional[str] = "all"):
-    if filter_type == "scheduled":
-        posts = get_posts(status="scheduled")
-    elif filter_type == "pending":
-        posts = get_posts(status="pending_approval")
-    elif filter_type == "history":
-        all_p = get_posts()
-        posts = [p for p in all_p if p["status"] not in ["scheduled", "pending_approval"]]
-    else:
-        posts = get_posts()
-    return {"posts": posts}
+@app.post("/api/posts/{post_id}/publish-now", dependencies=[Depends(verify_auth)])
+def api_publish_now(post_id: int, auth: dict = Depends(verify_auth)):
+    if auth.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên mới có quyền xuất bản bài trực tiếp.")
+    post = get_post_by_id(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
+    result = publish_single_post(post_id)
+    updated = get_post_by_id(post_id)
+    return {"post": updated, "result": result}
 
 @app.delete("/api/posts/{post_id}", dependencies=[Depends(verify_auth)])
 def api_delete_post(post_id: int):
+    post = get_post_by_id(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
     delete_post(post_id)
-    return {"success": True}
+    return {"success": True, "message": "Đã xóa bài viết"}
 
-@app.post("/api/posts/{post_id}/publish-now", dependencies=[Depends(verify_auth)])
-def api_publish_now(post_id: int):
-    result = publish_single_post(post_id)
-    return result
+@app.post("/api/maintenance/run", dependencies=[Depends(verify_admin_auth)])
+def api_run_maintenance():
+    backup = backup_database()
+    deleted_media = cleanup_orphaned_media()
+    return {"success": True, "backup": backup.name, "deleted_orphaned_media": deleted_media}
 
-@app.post("/api/ai/generate", dependencies=[Depends(verify_auth)])
-def api_generate_captions(req: GenerateCaptionsRequest):
+@app.get("/api/settings", dependencies=[Depends(verify_admin_auth)])
+def api_get_settings():
     s = get_settings()
-    api_key = s.get("gemini_api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Chưa cấu hình GEMINI_API_KEY trong Cài đặt.")
-    model = req.model_name or s.get("gemini_model") or "gemini-flash-latest"
-    result = generate_social_captions(
-        prompt=req.prompt,
-        brand_voice=req.brand_voice,
-        include_emojis=req.include_emojis,
-        generate_hashtags=req.generate_hashtags,
-        api_key=api_key,
-        model_name=model
-    )
-    return result
+    token = s.get("fb_page_access_token", "")
+    masked_token = f"{token[:8]}...{token[-6:]}" if len(token) > 14 else token
+    return {
+        "fb_page_id": s.get("fb_page_id"),
+        "masked_token": masked_token,
+        "ig_business_account_id": s.get("ig_business_account_id"),
+        "has_imgbb_api_key": bool(s.get("imgbb_api_key")),
+        "has_gemini_api_key": bool(s.get("gemini_api_key")),
+        "gemini_model": s.get("gemini_model", "gemini-3.5-flash-lite"),
+        "google_client_id": s.get("google_client_id", ""),
+        "has_google_client_secret": bool(s.get("google_client_secret")),
+        "google_connected": bool(s.get("google_refresh_token")),
+        "google_location_name": s.get("google_location_name", ""),
+        "google_location_id": s.get("google_location_id", ""),
+        "host": s.get("host"),
+        "port": s.get("port"),
+        "has_password": bool(s.get("app_password") or s.get("app_password_hash") or s.get("admin_password")),
+        "has_admin_password": bool(s.get("admin_password") or s.get("admin_password_hash") or s.get("app_password") or s.get("app_password_hash")),
+        "has_staff_password": bool(s.get("staff_password") or s.get("staff_password_hash")),
+        "max_upload_mb": s.get("max_upload_mb"),
+        "max_upload_batch_mb": s.get("max_upload_batch_mb"),
+        "media_retention_days": s.get("media_retention_days"),
+    }
 
-@app.post("/api/story/render", dependencies=[Depends(verify_auth)])
-def api_render_story(req: GenerateStoryRequest):
-    source_path = UPLOAD_DIR / req.image_filename
-    if not source_path.exists():
-        raise HTTPException(status_code=404, detail="Không tìm thấy file ảnh gốc.")
-    output_filename = f"story_{secrets.token_hex(12)}.png"
-    out_path = UPLOAD_DIR / output_filename
-    created = create_story_image(
-        source_image_path=str(source_path),
-        output_image_path=str(out_path),
-        template=req.template_name,
-        hook_text=req.hook_text,
-        product_name=req.product_name,
-        price_tag=req.price_tag,
-        badge_text=req.badge_text,
-        call_to_action=req.call_to_action
-    )
-    register_media_file(out_path, original_name=f"Story - {req.image_filename}")
-    return {"success": True, "story_image": output_filename, "url": f"/api/media/{output_filename}"}
+@app.post("/api/settings", dependencies=[Depends(verify_admin_auth)])
+def api_save_settings(req: SettingsUpdateRequest):
+    updates = req.model_dump(exclude_unset=True)
+    secret_fields = ["app_password", "admin_password", "staff_password", "fb_page_access_token", "imgbb_api_key", "gemini_api_key", "google_client_secret"]
+    for field in secret_fields:
+        val = updates.get(field)
+        if val is None or not str(val).strip() or "..." in str(val) or "•" in str(val):
+            updates.pop(field, None)
+    if "admin_password" in updates and len(updates["admin_password"]) < 4:
+        raise HTTPException(status_code=400, detail="Mật khẩu Admin mới cần ít nhất 4 ký tự.")
+    if "staff_password" in updates and len(updates["staff_password"]) < 4:
+        raise HTTPException(status_code=400, detail="Mật khẩu Nhân viên mới cần ít nhất 4 ký tự.")
+    if "app_password" in updates and len(updates["app_password"]) < 4:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới cần ít nhất 4 ký tự.")
+    new_settings = update_settings(updates)
+    return {"success": True, "settings": {k: v for k, v in new_settings.items() if not k.endswith("_password")}}
 
-@app.get("/api/media/{filename}")
-def api_serve_media(filename: str):
-    file_path = UPLOAD_DIR / filename
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File không tồn tại.")
-    return FileResponse(str(file_path))
+class ExchangeTokenRequest(BaseModel):
+    short_token: str
+    app_id: str
+    app_secret: str
+    page_id: Optional[str] = None
 
-@app.get("/api/media/thumbnail/{filename}")
-def api_serve_thumbnail(filename: str):
-    thumb_path = THUMB_DIR / filename
-    if not thumb_path.exists():
-        orig_path = UPLOAD_DIR / filename
-        if orig_path.exists():
-            thumb_path = create_thumbnail(orig_path)
-    if thumb_path and thumb_path.exists():
-        return FileResponse(str(thumb_path))
-    return FileResponse(str(UPLOAD_DIR / filename))
+@app.post("/api/meta/exchange-permanent-token", dependencies=[Depends(verify_admin_auth)])
+def api_exchange_permanent_token(req: ExchangeTokenRequest):
+    try:
+        res = exchange_for_permanent_page_token(
+            short_token=req.short_token,
+            app_id=req.app_id,
+            app_secret=req.app_secret,
+            page_id=req.page_id
+        )
+        updates = {
+            "fb_page_access_token": res["page_access_token"],
+            "fb_page_id": res["page_id"]
+        }
+        if res.get("ig_business_account_id"):
+            updates["ig_business_account_id"] = res["ig_business_account_id"]
+        update_settings(updates)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/media/library", dependencies=[Depends(verify_auth)])
-def api_get_media_library(search: Optional[str] = "", tag: Optional[str] = "all", page: int = 1, page_size: int = 40):
-    offset = (page - 1) * page_size
-    items = get_media_items(search=search, tag=tag, limit=page_size, offset=offset)
-    return {"items": items, "page": page, "page_size": page_size}
+@app.post("/api/settings/test", dependencies=[Depends(verify_admin_auth)])
+def api_test_settings(req: Optional[SettingsTestRequest] = None):
+    settings = get_settings()
+    page_id = (req.fb_page_id if req else None) or settings.get("fb_page_id")
+    page_token = (req.fb_page_access_token if req else None)
+    if not page_token or "..." in page_token:
+        page_token = settings.get("fb_page_access_token")
+    ig_account_id = (req.ig_business_account_id if req else None) or settings.get("ig_business_account_id")
+    
+    test_result = test_meta_connection(page_id, page_token, ig_account_id)
+    return test_result
 
+# ─────────────────────────────────────────────────────────────
+# ROOTS.VN PRODUCT CATALOG & QUICK GENERATE
+# ─────────────────────────────────────────────────────────────
 @app.get("/api/roots/categories", dependencies=[Depends(verify_auth)])
-def api_roots_categories():
-    cats = fetch_roots_categories()
-    return {"categories": cats}
+def api_get_roots_categories():
+    return {"categories": fetch_roots_categories()}
 
 @app.get("/api/roots/products", dependencies=[Depends(verify_auth)])
-def api_roots_products(category: Optional[str] = None, page: int = 1, page_size: int = 20):
-    products = fetch_roots_products(category=category or "", page=page, page_size=page_size)
-    return products
+def api_get_roots_products(
+    search: Optional[str] = None,
+    category: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20
+):
+    return fetch_roots_products(search=search or "", category=category or "", page=page, page_size=page_size)
 
-@app.post("/api/roots/1click-post", dependencies=[Depends(verify_auth)])
-def api_roots_1click(product: dict):
-    res = quick_generate_post_from_product(product)
-    return res
+@app.get("/api/roots/flash-sale", dependencies=[Depends(verify_auth)])
+def api_get_roots_flash_sale(page: int = 1, page_size: int = 30):
+    return fetch_roots_flash_sale(page=page, page_size=page_size)
 
+class RootsQuickGenerateRequest(BaseModel):
+    product: dict
+    aspect_ratio: Optional[str] = "4:5"
+
+@app.post("/api/roots/quick-generate", dependencies=[Depends(verify_auth)])
+async def api_roots_quick_generate(req: RootsQuickGenerateRequest):
+    try:
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, quick_generate_post_from_product, req.product, req.aspect_ratio or "4:5")
+        return {"success": True, "data": data}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo bài tự động: {str(e)}")
+
+class RootsComboGenerateRequest(BaseModel):
+    products: List[dict]
+    user_hint: Optional[str] = ""
+
+@app.post("/api/roots/combo-generate", dependencies=[Depends(verify_auth)])
+async def api_roots_combo_generate(req: RootsComboGenerateRequest):
+    if not req.products or len(req.products) == 0:
+        raise HTTPException(status_code=400, detail="Vui lòng chọn ít nhất 1 sản phẩm để tạo combo.")
+    loop = asyncio.get_running_loop()
+    try:
+        data = await loop.run_in_executor(None, generate_combo_campaign_and_prompts, req.products, req.user_hint or "")
+        return {"success": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo chiến dịch combo: {str(e)}")
+
+@app.get("/api/roots/download-product-image")
+def api_download_roots_product_image(img: str, name: Optional[str] = "product"):
+    import unicodedata
+    safe_img = img.split("?")[0].strip()
+    if not safe_img:
+        raise HTTPException(status_code=400, detail="Thiếu tên ảnh.")
+    roots_url = safe_img if safe_img.startswith(("http://", "https://")) else f"https://img.roots.vn/products/{safe_img}"
+    try:
+        res = requests.get(roots_url, timeout=20)
+        if res.status_code == 200:
+            raw_name = str(name or "product").replace("Đ", "D").replace("đ", "d")
+            nfkd = unicodedata.normalize("NFKD", raw_name)
+            ascii_name = "".join([c for c in nfkd if not unicodedata.combining(c)])
+            clean_ascii = "".join([c if (c.isalnum() or c in "._- ") else "_" for c in ascii_name]).strip()
+            while "__" in clean_ascii:
+                clean_ascii = clean_ascii.replace("__", "_")
+            clean_ascii = clean_ascii[:60].strip(" _") or "product"
+
+            ext = ".jpg"
+            lower_url = safe_img.lower()
+            if ".png" in lower_url:
+                ext = ".png"
+            elif ".webp" in lower_url:
+                ext = ".webp"
+            content_type = res.headers.get("content-type", "image/jpeg")
+            return StreamingResponse(
+                io.BytesIO(res.content),
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{clean_ascii}{ext}"'
+                }
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Không tìm thấy ảnh trên máy chủ ROOTS.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tải ảnh: {str(e)}")
+
+@app.post("/api/roots/start-quick-generate", dependencies=[Depends(verify_auth)])
+async def api_start_quick_generate(req: RootsQuickGenerateRequest):
+    try:
+        job_id = job_manager.create_job(job_type="quick_generate")
+        asyncio.create_task(run_1click_studio_job(job_id, req.product, req.aspect_ratio or "4:5"))
+        return {"success": True, "job_id": job_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khởi tạo tác vụ: {str(e)}")
+
+@app.get("/api/jobs/{job_id}", dependencies=[Depends(verify_auth)])
+def api_get_job(job_id: str):
+    job = job_manager.get_job_status(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Tác vụ không tồn tại")
+    return job
+
+# ─────────────────────────────────────────────────────────────
+# AI & STORY GENERATION
+# ─────────────────────────────────────────────────────────────
+@app.post("/api/ai/generate-caption", dependencies=[Depends(verify_auth)])
+def api_generate_caption(req: AICaptionRequest):
+    settings = get_settings()
+    api_key = settings.get("gemini_api_key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="Chưa cấu hình Google Gemini API Key trong Cài đặt.")
+    
+    captions = generate_social_captions(
+        images=req.images,
+        user_hint=req.user_hint,
+        api_key=api_key,
+        model_name=settings.get("gemini_model", "gemini-3.5-flash-lite")
+    )
+    return {"captions": captions}
+
+@app.post("/api/story/preview", dependencies=[Depends(verify_auth)])
+def api_story_preview(req: StoryPreviewRequest):
+    output_filename = create_story_image(
+        image_name=req.image_name,
+        caption_hint=req.caption,
+        template=req.template,
+        hook_text=req.hook,
+        story_link=req.link
+    )
+    return {"story_image": output_filename}
+
+# ─────────────────────────────────────────────────────────────
+# HASHTAG GROUPS & CAPTION TEMPLATES ROUTES
+# ─────────────────────────────────────────────────────────────
 @app.get("/api/hashtag-groups", dependencies=[Depends(verify_auth)])
 def api_get_hashtag_groups():
     return {"groups": get_hashtag_groups()}
 
+class CreateHashtagGroupReq(BaseModel):
+    name: str
+    hashtags: str
+    category: Optional[str] = "Chung"
+
 @app.post("/api/hashtag-groups", dependencies=[Depends(verify_auth)])
-def api_create_hashtag_group(req: HashtagGroupRequest):
+def api_create_hashtag_group(req: CreateHashtagGroupReq):
     gid = create_hashtag_group(req.name, req.hashtags, req.category)
     return {"success": True, "id": gid}
 
@@ -475,8 +702,14 @@ def api_delete_hashtag_group(group_id: int):
 def api_get_caption_templates():
     return {"templates": get_caption_templates()}
 
+class CreateCaptionTemplateReq(BaseModel):
+    name: str
+    content: str
+    category: Optional[str] = "Sản phẩm"
+    brand_voice: Optional[str] = "Bán hàng"
+
 @app.post("/api/caption-templates", dependencies=[Depends(verify_auth)])
-def api_create_caption_template(req: CaptionTemplateRequest):
+def api_create_caption_template(req: CreateCaptionTemplateReq):
     tid = create_caption_template(req.name, req.content, req.category, req.brand_voice)
     return {"success": True, "id": tid}
 
@@ -485,68 +718,70 @@ def api_delete_caption_template(template_id: int):
     delete_caption_template(template_id)
     return {"success": True}
 
+# ─────────────────────────────────────────────────────────────
+# CONTENT CALENDAR & BULK ROUTES
+# ─────────────────────────────────────────────────────────────
 @app.get("/api/calendar/events", dependencies=[Depends(verify_auth)])
 def api_get_calendar_events():
     posts = get_posts(limit=300)
     events = []
     for p in posts:
-        time_val = p.get("scheduled_time") or p.get("created_at")
+        time_val = p.get("scheduled_time") or p.get("published_at") or p.get("created_at")
         events.append({
             "id": p["id"],
-            "title": p.get("title") or (p.get("fb_caption", "")[:30] + "..."),
+            "title": p.get("fb_caption") or p.get("ig_caption") or p.get("google_caption") or "Bài viết",
             "start": time_val,
             "status": p.get("status"),
             "target_fb": bool(p.get("target_fb")),
             "target_ig": bool(p.get("target_ig")),
             "target_google": bool(p.get("target_google")),
-            "target_story": bool(p.get("target_story"))
+            "target_story": bool(p.get("target_story")),
+            "images": p.get("images", [])
         })
     return {"events": events}
 
-@app.get("/api/google/auth-url", dependencies=[Depends(verify_admin_auth)])
-def api_google_auth_url():
-    s = get_settings()
-    client_id = s.get("google_client_id")
-    client_secret = s.get("google_client_secret")
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=400, detail="Vui lòng cấu hình Google Client ID và Secret.")
-    url = get_google_auth_url(client_id)
-    return {"auth_url": url}
-
-@app.get("/api/google/oauth2callback")
-def api_google_oauth_callback(code: str, state: Optional[str] = None):
-    exchange_google_code(code)
-    return HTMLResponse("<html><body style='font-family:sans-serif;text-align:center;padding:50px;'><h2>✅ Đã liên kết Google Business thành công!</h2><p>Bạn có thể đóng tab này và quay lại trang chính.</p><script>setTimeout(()=>{window.location.href='/';}, 2000);</script></body></html>")
-
 @app.get("/api/bulk/template")
-def api_download_bulk_template():
-    buf = generate_bulk_excel_template()
-    return Response(
-        content=buf.getvalue(),
+def api_bulk_template():
+    excel_stream = generate_bulk_excel_template()
+    return StreamingResponse(
+        excel_stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=roots_social_template.xlsx"}
+        headers={"Content-Disposition": "attachment; filename=mau_dang_bai_hang_loat_roots.xlsx"}
     )
 
 @app.post("/api/bulk/preview", dependencies=[Depends(verify_auth)])
-async def api_preview_bulk(file: UploadFile = File(...)):
-    content = await file.read()
-    posts = parse_bulk_file(content, file.filename)
-    return {"posts": posts}
+def api_bulk_preview(file: UploadFile = File(...)):
+    raw = file.file.read()
+    posts = parse_bulk_file(raw, file.filename)
+    return {"posts": posts, "count": len(posts)}
 
 @app.post("/api/bulk/import", dependencies=[Depends(verify_auth)])
-def api_import_bulk(req: BulkImportRequest):
+def api_bulk_import(req: BulkImportRequest):
     count = import_bulk_posts(req.posts)
     return {"success": True, "count": count}
 
-@app.get("/api/jobs/{job_id}", dependencies=[Depends(verify_auth)])
-def api_get_job(job_id: str):
-    res = job_manager.get_job_status(job_id)
-    if not res:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return res
+@app.get("/api/posts", dependencies=[Depends(verify_auth)])
+def api_get_posts(filter_type: Optional[str] = None):
+    all_posts = get_posts(limit=200)
+    if filter_type == "scheduled":
+        filtered = [p for p in all_posts if p["status"] == "scheduled"]
+    elif filter_type == "pending":
+        filtered = [p for p in all_posts if p["status"] == "pending_approval"]
+    elif filter_type == "history":
+        filtered = [p for p in all_posts if p["status"] in ["success", "partial_failed", "failed", "publishing", "rejected"]]
+    else:
+        filtered = all_posts
+    return {"posts": filtered}
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+@app.get("/api/posts/{post_id}", dependencies=[Depends(verify_auth)])
+def api_get_post(post_id: int):
+    post = get_post_by_id(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
+    return {"post": post}
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 def serve_index():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    return FileResponse(STATIC_DIR / "index.html")
