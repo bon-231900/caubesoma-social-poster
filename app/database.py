@@ -146,6 +146,16 @@ def init_db():
             )
         """)
 
+        # Product AI Cache Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_ai_cache (
+                product_id TEXT PRIMARY KEY,
+                cache_key TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
         # Background Jobs Table (Dramatiq / Task Queue Pattern)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS background_jobs (
@@ -512,3 +522,80 @@ def delete_caption_template(template_id: int):
     with get_db() as conn:
         conn.execute("DELETE FROM caption_templates WHERE id = ?", (template_id,))
         conn.commit()
+
+# ─────────────────────────────────────────────────────────────
+# PRODUCT AI CACHE
+# ─────────────────────────────────────────────────────────────
+def get_product_ai_cache(product_id: str) -> dict:
+    if not product_id:
+        return None
+    with get_db() as conn:
+        row = conn.execute("SELECT payload_json FROM product_ai_cache WHERE product_id = ?", (str(product_id),)).fetchone()
+        if row:
+            try:
+                return json.loads(row["payload_json"])
+            except Exception:
+                return None
+    return None
+
+def set_product_ai_cache(product_id: str, cache_key: str, payload: dict):
+    if not product_id:
+        return
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO product_ai_cache (product_id, cache_key, payload_json, updated_at) VALUES (?, ?, ?, ?)",
+            (str(product_id), cache_key, json.dumps(payload, ensure_ascii=False), utc_now_iso())
+        )
+        conn.commit()
+
+# ─────────────────────────────────────────────────────────────
+# BACKGROUND JOBS CRUD
+# ─────────────────────────────────────────────────────────────
+def create_job_record(job_id: str, job_type: str, status: str = "pending", progress: int = 0, current_step: str = "") -> dict:
+    now = utc_now_iso()
+    with get_db() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO background_jobs (job_id, job_type, status, progress, current_step, result_json, error_message, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, '{}', '', ?, ?)
+        """, (job_id, job_type, status, progress, current_step, now, now))
+        conn.commit()
+    return get_job_record(job_id)
+
+def update_job_record(job_id: str, status: str = None, progress: int = None, current_step: str = None, result: dict = None, error: str = None):
+    updates = []
+    params = []
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+    if progress is not None:
+        updates.append("progress = ?")
+        params.append(progress)
+    if current_step is not None:
+        updates.append("current_step = ?")
+        params.append(current_step)
+    if result is not None:
+        updates.append("result_json = ?")
+        params.append(json.dumps(result, ensure_ascii=False))
+    if error is not None:
+        updates.append("error_message = ?")
+        params.append(error)
+    
+    updates.append("updated_at = ?")
+    params.append(utc_now_iso())
+    params.append(job_id)
+
+    with get_db() as conn:
+        conn.execute(f"UPDATE background_jobs SET {', '.join(updates)} WHERE job_id = ?", params)
+        conn.commit()
+
+def get_job_record(job_id: str) -> dict:
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM background_jobs WHERE job_id = ?", (job_id,)).fetchone()
+        if row:
+            d = dict(row)
+            try:
+                d["result"] = json.loads(d.get("result_json") or "{}")
+            except Exception:
+                d["result"] = {}
+            return d
+    return None
