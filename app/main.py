@@ -204,6 +204,8 @@ def api_get_settings():
         "google_connected": bool(s.get("google_refresh_token")),
         "google_location_id": s.get("google_location_id", ""),
         "google_location_name": s.get("google_location_name", ""),
+        "has_admin_password": bool(s.get("admin_password") or s.get("admin_password_hash") or s.get("app_password") or s.get("app_password_hash")),
+        "has_staff_password": bool(s.get("staff_password") or s.get("staff_password_hash")),
         "app_password": ""
     }
 
@@ -447,8 +449,8 @@ def api_roots_categories():
 
 @app.get("/api/roots/products", dependencies=[Depends(verify_auth)])
 def api_roots_products(category: Optional[str] = None, page: int = 1, page_size: int = 20):
-    products = fetch_roots_products(category_name=category, page=page, limit=page_size)
-    return {"products": products, "page": page, "page_size": page_size}
+    products = fetch_roots_products(category=category or "", page=page, page_size=page_size)
+    return products
 
 @app.post("/api/roots/1click-post", dependencies=[Depends(verify_auth)])
 def api_roots_1click(product: dict):
