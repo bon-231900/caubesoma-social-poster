@@ -167,7 +167,7 @@ def publish_to_google_business(
     account_id = settings.get("google_account_id")
     location_id = settings.get("google_location_id")
     
-    if not account_id or not location_id:
+    if not location_id:
         # Fallback: try fetching location dynamically
         token = get_valid_google_access_token()
         locs = get_google_locations(token)
@@ -180,7 +180,7 @@ def publish_to_google_business(
                 "google_location_name": locs[0]["title"]
             })
         else:
-            raise ValueError("Không tìm thấy địa điểm Google Business nào trên tài khoản này.")
+            raise ValueError("Chưa cấu hình Location ID của Google Business. Vui lòng nhập Business Profile ID trong Cài đặt hoặc bỏ chọn Google Maps.")
 
     access_token = get_valid_google_access_token()
     headers = {
@@ -215,7 +215,13 @@ def publish_to_google_business(
             "url": action_url
         }
 
-    post_url = f"{GOOGLE_MYBUSINESS_BASE}/accounts/{account_id}/locations/{location_id}/localPosts"
+    clean_loc_id = str(location_id).replace("locations/", "").strip()
+    if account_id:
+        clean_acc_id = str(account_id).replace("accounts/", "").strip()
+        post_url = f"{GOOGLE_MYBUSINESS_BASE}/accounts/{clean_acc_id}/locations/{clean_loc_id}/localPosts"
+    else:
+        post_url = f"{GOOGLE_MYBUSINESS_BASE}/locations/{clean_loc_id}/localPosts"
+
     res = requests.post(post_url, headers=headers, json=post_payload, timeout=30)
     data = res.json()
 
@@ -230,5 +236,7 @@ def publish_to_google_business(
             "data": data
         }
     else:
+        if res.status_code == 429 or "RESOURCE_EXHAUSTED" in str(data):
+            raise RuntimeError("Google Cloud Project của bạn đang bị giới hạn Quota API = 0 (cần gửi yêu cầu tăng Quota trên Google Cloud Console). Nếu chỉ đăng Facebook & Instagram, vui lòng bỏ tích ô Google Maps.")
         err = data.get("error", {}).get("message", str(data))
         raise RuntimeError(f"Lỗi đăng bài Google Business: {err}")
