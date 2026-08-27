@@ -746,6 +746,10 @@ createApp({
       const el = document.querySelector('#app');
       if (el) window.scrollTo({ top: 0, behavior: 'smooth' });
     },
+    truncate(str, max = 50) {
+      if (!str) return '';
+      return str.length > max ? str.slice(0, max) + '...' : str;
+    },
     resetRootsFilters() {
       this.selectedRootsCategory = 'all';
       this.rootsSearchQuery = '';
@@ -840,10 +844,6 @@ createApp({
     showErrorModal(err) {
       this.errorModal.content = err;
       this.errorModal.show = true;
-    },
-    truncate(str, max = 50) {
-      if (!str) return '';
-      return str.length > max ? str.slice(0, max) + '...' : str;
     }
   }
 }).mount('#app');
