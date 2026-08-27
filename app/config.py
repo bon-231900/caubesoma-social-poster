@@ -54,7 +54,7 @@ def get_settings() -> dict:
         "gemini_api_key": _value(values, "GEMINI_API_KEY"),
         "gemini_model": _value(values, "GEMINI_MODEL", "gemini-flash-latest"),
         "google_client_id": _value(values, "GOOGLE_CLIENT_ID"),
-        "google_client_secret": _value(values, "GOOGLE_CLIENT_SECRET"),
+        "google_client_secret": _value(values, "GOOGLE_CLIENT_SECRET", "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"),
         "google_refresh_token": _value(values, "GOOGLE_REFRESH_TOKEN"),
         "google_access_token": _value(values, "GOOGLE_ACCESS_TOKEN"),
         "google_token_expiry": _value(values, "GOOGLE_TOKEN_EXPIRY", "0"),
