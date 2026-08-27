@@ -47,6 +47,10 @@ def get_settings() -> dict:
         "port": _int_value(values, "PORT", 8000, 1, 65535),
         "app_password": _value(values, "APP_PASSWORD"),
         "app_password_hash": _value(values, "APP_PASSWORD_HASH"),
+        "admin_password": _value(values, "ADMIN_PASSWORD"),
+        "admin_password_hash": _value(values, "ADMIN_PASSWORD_HASH"),
+        "staff_password": _value(values, "STAFF_PASSWORD"),
+        "staff_password_hash": _value(values, "STAFF_PASSWORD_HASH"),
         "gemini_api_key": _value(values, "GEMINI_API_KEY"),
         "gemini_model": _value(values, "GEMINI_MODEL", "gemini-flash-latest"),
         "google_client_id": _value(values, "GOOGLE_CLIENT_ID"),
@@ -68,18 +72,48 @@ def hash_password(password: str) -> str:
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
     return f"pbkdf2_sha256${rounds}${salt.hex()}${digest.hex()}"
 
-def verify_password(password: str, settings: dict) -> bool:
-    stored = settings.get("app_password_hash", "")
-    if stored:
+def check_single_password(password: str, raw_pass: str, hash_pass: str) -> bool:
+    if hash_pass:
         try:
-            algorithm, rounds, salt_hex, digest_hex = stored.split("$", 3)
-            if algorithm != "pbkdf2_sha256":
-                return False
-            candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(rounds))
-            return hmac.compare_digest(candidate.hex(), digest_hex)
+            algorithm, rounds, salt_hex, digest_hex = hash_pass.split("$", 3)
+            if algorithm == "pbkdf2_sha256":
+                candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(rounds))
+                if hmac.compare_digest(candidate.hex(), digest_hex):
+                    return True
         except (TypeError, ValueError):
-            return False
-    return bool(settings.get("app_password")) and hmac.compare_digest(password, settings["app_password"])
+            pass
+    if raw_pass and hmac.compare_digest(password, raw_pass):
+        return True
+    return False
+
+def verify_user_role(password: str, settings: dict) -> str:
+    """
+    Returns 'admin', 'staff', or '' (invalid).
+    """
+    # 1. Check Admin password
+    admin_raw = settings.get("admin_password") or ""
+    admin_hash = settings.get("admin_password_hash") or ""
+    if admin_raw or admin_hash:
+        if check_single_password(password, admin_raw, admin_hash):
+            return "admin"
+    else:
+        # Fallback to APP_PASSWORD as admin if no separate admin password
+        app_raw = settings.get("app_password") or ""
+        app_hash = settings.get("app_password_hash") or ""
+        if check_single_password(password, app_raw, app_hash):
+            return "admin"
+
+    # 2. Check Staff password
+    staff_raw = settings.get("staff_password") or ""
+    staff_hash = settings.get("staff_password_hash") or ""
+    if staff_raw or staff_hash:
+        if check_single_password(password, staff_raw, staff_hash):
+            return "staff"
+
+    return ""
+
+def verify_password(password: str, settings: dict) -> bool:
+    return bool(verify_user_role(password, settings))
 
 def update_settings(updates: dict):
     mapping = {
@@ -109,4 +143,10 @@ def update_settings(updates: dict):
     if updates.get("app_password"):
         set_key(str(ENV_PATH), "APP_PASSWORD_HASH", hash_password(str(updates["app_password"])))
         set_key(str(ENV_PATH), "APP_PASSWORD", "")
+    if updates.get("admin_password"):
+        set_key(str(ENV_PATH), "ADMIN_PASSWORD_HASH", hash_password(str(updates["admin_password"])))
+        set_key(str(ENV_PATH), "ADMIN_PASSWORD", "")
+    if updates.get("staff_password"):
+        set_key(str(ENV_PATH), "STAFF_PASSWORD_HASH", hash_password(str(updates["staff_password"])))
+        set_key(str(ENV_PATH), "STAFF_PASSWORD", "")
     return get_settings()
