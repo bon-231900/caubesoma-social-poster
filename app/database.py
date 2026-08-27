@@ -90,10 +90,16 @@ def init_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
+                role TEXT DEFAULT 'admin',
                 expires_at TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
         """)
+        cursor.execute("PRAGMA table_info(sessions)")
+        sess_cols = [r["name"] for r in cursor.fetchall()]
+        if "role" not in sess_cols:
+            cursor.execute("ALTER TABLE sessions ADD COLUMN role TEXT DEFAULT 'admin'")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS oauth_states (
                 state_hash TEXT PRIMARY KEY,
@@ -155,18 +161,14 @@ def init_db():
             )
         """)
 
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_posts_due ON posts(status, scheduled_time)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_hash ON media_items(file_hash)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON background_jobs(status)")
-
-        # Seed default hashtag groups if empty
-        cursor.execute("SELECT count(*) FROM hashtag_groups")
-        if cursor.fetchone()[0] == 0:
+        # Insert default Hashtag Groups if empty
+        cursor.execute("SELECT COUNT(*) as count FROM hashtag_groups")
+        if cursor.fetchone()["count"] == 0:
             defaults_ht = [
-                ("🌿 Sống Khỏe & Hữu Cơ", "#ROOTSOrganic #OrganicFood #HealthyLifestyle #CleanEating #EatCleanVN #ThucPhamHuuCo", "Hữu cơ"),
-                ("🍹 Nước Ép & Detox", "#ROOTSJuiceBar #ColdPressedJuice #DetoxJuice #NuocEpHuuCo #FreshJuice #JuiceCleanse", "Đồ uống"),
-                ("🔥 Deal Hot & Flash Sale", "#ROOTSFlashSale #SieuUuDai #GiaTotMoiNgay #HotDeal #KhuyenMaiHot #DealChopNhoang", "Khuyến mãi"),
-                ("🍞 Bánh & Đồ Ăn Sáng", "#OrganicBakery #BanhMiHuuCo #BreakfastHealthy #HealthySnacks #EatFresh", "Bánh ngọt")
+                ("Thương Hiệu & Siêu Thị", "#ROOTS #RootsOrganic #OrganicStore #HealthyLiving #OrganicFood #ThucPhamHuuCo", "Thương hiệu"),
+                ("Rau Củ Quả Hữu Cơ", "#RauHuuCo #TraiCayNhapKhau #CleanFood #FreshOrganic #VietGAP #OrganicVegetables", "Sản phẩm"),
+                ("Juice Bar & Đồ Uống", "#JuiceBar #ColdPressedJuice #Smoothie #Detox #HealthyDrinks #NuocEpNguyenChat", "Đồ uống"),
+                ("Chăm Sóc & Sức Khỏe", "#HealthCare #OrganicCare #Wellness #EcoFriendly #SongKhoe #SongXanh", "Sức khỏe"),
             ]
             for name, tags, cat in defaults_ht:
                 cursor.execute(
@@ -174,9 +176,9 @@ def init_db():
                     (name, tags, cat, utc_now_iso())
                 )
 
-        # Seed default caption templates if empty
-        cursor.execute("SELECT count(*) FROM caption_templates")
-        if cursor.fetchone()[0] == 0:
+        # Insert default Caption Templates if empty
+        cursor.execute("SELECT COUNT(*) as count FROM caption_templates")
+        if cursor.fetchone()["count"] == 0:
             defaults_tpl = [
                 (
                     "Bán Hàng Thuyết Phục (Direct Sales)",
@@ -325,13 +327,15 @@ def delete_post(post_id: int):
         cursor.execute('DELETE FROM posts WHERE id = ?', (post_id,))
         conn.commit()
 
-def get_due_scheduled_posts(now_iso: str) -> list:
+def get_scheduled_posts() -> list:
+    now_iso = utc_now_iso()
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT * FROM posts 
-            WHERE status = 'scheduled' AND scheduled_time IS NOT NULL AND scheduled_time <= ?
-            ORDER BY scheduled_time ASC
+            WHERE status = 'scheduled' 
+            AND scheduled_time IS NOT NULL 
+            AND scheduled_time <= ?
         """, (now_iso,))
         rows = cursor.fetchall()
         result = []
@@ -352,16 +356,16 @@ def claim_post_for_publish(post_id: int) -> bool:
             UPDATE posts
             SET status = 'publishing', attempt_count = COALESCE(attempt_count, 0) + 1,
                 last_attempt_at = ?
-            WHERE id = ? AND status IN ('draft', 'scheduled', 'failed', 'partial_failed')
+            WHERE id = ? AND status IN ('draft', 'scheduled', 'failed', 'partial_failed', 'approved')
         """, (utc_now_iso(), post_id))
         conn.commit()
         return cursor.rowcount == 1
 
-def create_session(token: str, expires_at: str):
+def create_session(token: str, expires_at: str, role: str = "admin"):
     with get_db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO sessions(token_hash, expires_at, created_at) VALUES (?, ?, ?)",
-            (hashlib.sha256(token.encode()).hexdigest(), expires_at, utc_now_iso()),
+            "INSERT OR REPLACE INTO sessions(token_hash, role, expires_at, created_at) VALUES (?, ?, ?, ?)",
+            (hashlib.sha256(token.encode()).hexdigest(), role, expires_at, utc_now_iso()),
         )
         conn.execute("DELETE FROM sessions WHERE expires_at < ?", (utc_now_iso(),))
         conn.commit()
@@ -373,6 +377,33 @@ def session_is_valid(token: str) -> bool:
             (hashlib.sha256(token.encode()).hexdigest(), utc_now_iso()),
         ).fetchone()
         return row is not None
+
+def get_session_role(token: str) -> str:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT role FROM sessions WHERE token_hash = ? AND expires_at > ?",
+            (hashlib.sha256(token.encode()).hexdigest(), utc_now_iso()),
+        ).fetchone()
+        if row and row["role"]:
+            return str(row["role"])
+        return "admin"
+
+def approve_post(post_id: int, action: str = "publish_now") -> bool:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if action == "publish_now":
+            cursor.execute("UPDATE posts SET status = 'draft', scheduled_time = NULL WHERE id = ?", (post_id,))
+        else:
+            cursor.execute("UPDATE posts SET status = 'scheduled' WHERE id = ?", (post_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+def reject_post(post_id: int, reason: str = "") -> bool:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE posts SET status = 'rejected', error_log = ? WHERE id = ?", (reason or "Bị từ chối bởi Admin", post_id))
+        conn.commit()
+        return cursor.rowcount > 0
 
 def delete_session(token: str):
     with get_db() as conn:
@@ -418,27 +449,19 @@ def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: in
         query += " ORDER BY id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
         rows = conn.execute(query, params).fetchall()
-        items = []
+        result = []
         for r in rows:
             d = dict(r)
-            d["tags"] = json.loads(d.get("tags") or "[]")
-            items.append(d)
-        return items
-
-def get_media_by_hash(file_hash: str) -> dict:
-    if not file_hash:
-        return None
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM media_items WHERE file_hash = ? LIMIT 1", (file_hash,)).fetchone()
-        if row:
-            d = dict(row)
-            d["tags"] = json.loads(d.get("tags") or "[]")
-            return d
-    return None
+            try:
+                d["tags"] = json.loads(d.get("tags") or "[]")
+            except Exception:
+                d["tags"] = []
+            result.append(d)
+        return result
 
 def update_media_tags(filename: str, tags: list):
     with get_db() as conn:
-        conn.execute("UPDATE media_items SET tags = ? WHERE filename = ?", (json.dumps(tags), filename))
+        conn.execute("UPDATE media_items SET tags = ? WHERE filename = ?", (json.dumps(tags or []), filename))
         conn.commit()
 
 def delete_media_item(filename: str):
