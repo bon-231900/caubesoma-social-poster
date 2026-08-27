@@ -17,6 +17,7 @@ def configure_logging():
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         handlers=[logging.FileHandler(LOG_DIR / "social-poster.log", encoding="utf-8"), logging.StreamHandler()],
     )
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 def backup_database() -> Path:
     destination = BACKUP_DIR / f"automation-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db"
