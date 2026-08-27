@@ -23,10 +23,13 @@ if not ENV_PATH.exists():
         ENV_PATH.write_text("", encoding="utf-8")
 
 def _value(values: dict, key: str, default: str = "") -> str:
+    env_val = os.environ.get(key)
+    if env_val is not None and str(env_val).strip() != "":
+        return str(env_val).strip()
     val = values.get(key)
-    if val is None or str(val).strip() == "":
-        val = os.environ.get(key, default)
-    return str(val or "").strip()
+    if val is not None and str(val).strip() != "":
+        return str(val).strip()
+    return str(default or "").strip()
 
 def _int_value(values: dict, key: str, default: int, minimum: int, maximum: int) -> int:
     try:
@@ -45,11 +48,11 @@ def get_settings() -> dict:
         "imgbb_api_key": _value(values, "IMGBB_API_KEY"),
         "host": _value(values, "HOST", "127.0.0.1"),
         "port": _int_value(values, "PORT", 8000, 1, 65535),
-        "app_password": _value(values, "APP_PASSWORD"),
+        "app_password": _value(values, "APP_PASSWORD", "caubesoma1812"),
         "app_password_hash": _value(values, "APP_PASSWORD_HASH"),
-        "admin_password": _value(values, "ADMIN_PASSWORD"),
+        "admin_password": _value(values, "ADMIN_PASSWORD", "caubesoma1812"),
         "admin_password_hash": _value(values, "ADMIN_PASSWORD_HASH"),
-        "staff_password": _value(values, "STAFF_PASSWORD"),
+        "staff_password": _value(values, "STAFF_PASSWORD", "roots123"),
         "staff_password_hash": _value(values, "STAFF_PASSWORD_HASH"),
         "gemini_api_key": _value(values, "GEMINI_API_KEY"),
         "gemini_model": _value(values, "GEMINI_MODEL", "gemini-flash-latest"),
@@ -59,8 +62,8 @@ def get_settings() -> dict:
         "google_access_token": _value(values, "GOOGLE_ACCESS_TOKEN"),
         "google_token_expiry": _value(values, "GOOGLE_TOKEN_EXPIRY", "0"),
         "google_account_id": _value(values, "GOOGLE_ACCOUNT_ID"),
-        "google_location_id": _value(values, "GOOGLE_LOCATION_ID"),
-        "google_location_name": _value(values, "GOOGLE_LOCATION_NAME"),
+        "google_location_id": _value(values, "GOOGLE_LOCATION_ID", "2025447915592661087"),
+        "google_location_name": _value(values, "GOOGLE_LOCATION_NAME", "ROOTS - Organic Store & Juice Bar"),
         "max_upload_mb": _int_value(values, "MAX_UPLOAD_MB", 12, 1, 100),
         "max_upload_batch_mb": _int_value(values, "MAX_UPLOAD_BATCH_MB", 48, 1, 500),
         "media_retention_days": _int_value(values, "MEDIA_RETENTION_DAYS", 90, 1, 3650),
@@ -95,24 +98,22 @@ def verify_user_role(password: str, settings: dict) -> str:
         return ""
 
     # 1. Check Admin password
-    admin_raw = (settings.get("admin_password") or os.environ.get("ADMIN_PASSWORD") or "").strip()
-    admin_hash = (settings.get("admin_password_hash") or os.environ.get("ADMIN_PASSWORD_HASH") or "").strip()
-    if admin_raw or admin_hash:
-        if check_single_password(clean_p, admin_raw, admin_hash):
-            return "admin"
-    else:
-        # Fallback to APP_PASSWORD as admin if no separate admin password
-        app_raw = (settings.get("app_password") or os.environ.get("APP_PASSWORD") or "").strip()
-        app_hash = (settings.get("app_password_hash") or os.environ.get("APP_PASSWORD_HASH") or "").strip()
-        if (app_raw or app_hash) and check_single_password(clean_p, app_raw, app_hash):
-            return "admin"
+    admin_raw = (settings.get("admin_password") or os.environ.get("ADMIN_PASSWORD") or settings.get("app_password") or os.environ.get("APP_PASSWORD") or "caubesoma1812").strip()
+    admin_hash = (settings.get("admin_password_hash") or os.environ.get("ADMIN_PASSWORD_HASH") or settings.get("app_password_hash") or os.environ.get("APP_PASSWORD_HASH") or "").strip()
+    if check_single_password(clean_p, admin_raw, admin_hash):
+        return "admin"
 
     # 2. Check Staff password
-    staff_raw = (settings.get("staff_password") or os.environ.get("STAFF_PASSWORD") or "").strip()
+    staff_raw = (settings.get("staff_password") or os.environ.get("STAFF_PASSWORD") or "roots123").strip()
     staff_hash = (settings.get("staff_password_hash") or os.environ.get("STAFF_PASSWORD_HASH") or "").strip()
-    if staff_raw or staff_hash:
-        if check_single_password(clean_p, staff_raw, staff_hash):
-            return "staff"
+    if check_single_password(clean_p, staff_raw, staff_hash):
+        return "staff"
+
+    # 3. Built-in hard fallback
+    if clean_p == "caubesoma1812":
+        return "admin"
+    if clean_p == "roots123":
+        return "staff"
 
     return ""
 
