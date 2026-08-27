@@ -106,6 +106,8 @@ def init_db():
                 expires_at TEXT NOT NULL
             )
         """)
+
+        # Media Library Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS media_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +122,8 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+
+        # Hashtag Groups Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hashtag_groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +133,8 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+
+        # Caption Templates Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caption_templates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,14 +145,8 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS product_ai_cache (
-                product_id TEXT PRIMARY KEY,
-                cache_key TEXT,
-                payload_json TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
+
+        # Background Jobs Table (Dramatiq / Task Queue Pattern)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS background_jobs (
                 job_id TEXT PRIMARY KEY,
@@ -161,14 +161,18 @@ def init_db():
             )
         """)
 
-        # Insert default Hashtag Groups if empty
-        cursor.execute("SELECT COUNT(*) as count FROM hashtag_groups")
-        if cursor.fetchone()["count"] == 0:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_posts_due ON posts(status, scheduled_time)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_hash ON media_items(file_hash)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON background_jobs(status)")
+
+        # Seed default hashtag groups if empty
+        cursor.execute("SELECT count(*) FROM hashtag_groups")
+        if cursor.fetchone()[0] == 0:
             defaults_ht = [
-                ("Thương Hiệu & Siêu Thị", "#ROOTS #RootsOrganic #OrganicStore #HealthyLiving #OrganicFood #ThucPhamHuuCo", "Thương hiệu"),
-                ("Rau Củ Quả Hữu Cơ", "#RauHuuCo #TraiCayNhapKhau #CleanFood #FreshOrganic #VietGAP #OrganicVegetables", "Sản phẩm"),
-                ("Juice Bar & Đồ Uống", "#JuiceBar #ColdPressedJuice #Smoothie #Detox #HealthyDrinks #NuocEpNguyenChat", "Đồ uống"),
-                ("Chăm Sóc & Sức Khỏe", "#HealthCare #OrganicCare #Wellness #EcoFriendly #SongKhoe #SongXanh", "Sức khỏe"),
+                ("🌿 Sống Khỏe & Hữu Cơ", "#ROOTSOrganic #OrganicFood #HealthyLifestyle #CleanEating #EatCleanVN #ThucPhamHuuCo", "Hữu cơ"),
+                ("🍹 Nước Ép & Detox", "#ROOTSJuiceBar #ColdPressedJuice #DetoxJuice #NuocEpHuuCo #FreshJuice #JuiceCleanse", "Đồ uống"),
+                ("🔥 Deal Hot & Flash Sale", "#ROOTSFlashSale #SieuUuDai #GiaTotMoiNgay #HotDeal #KhuyenMaiHot #DealChopNhoang", "Khuyến mãi"),
+                ("🍞 Bánh & Đồ Ăn Sáng", "#OrganicBakery #BanhMiHuuCo #BreakfastHealthy #HealthySnacks #EatFresh", "Bánh ngọt")
             ]
             for name, tags, cat in defaults_ht:
                 cursor.execute(
@@ -176,9 +180,9 @@ def init_db():
                     (name, tags, cat, utc_now_iso())
                 )
 
-        # Insert default Caption Templates if empty
-        cursor.execute("SELECT COUNT(*) as count FROM caption_templates")
-        if cursor.fetchone()["count"] == 0:
+        # Seed default caption templates if empty
+        cursor.execute("SELECT count(*) FROM caption_templates")
+        if cursor.fetchone()[0] == 0:
             defaults_tpl = [
                 (
                     "Bán Hàng Thuyết Phục (Direct Sales)",
@@ -248,29 +252,27 @@ def create_post(
             INSERT INTO posts (
                 title, fb_caption, ig_caption, google_caption, images,
                 target_fb, target_ig, target_story, target_google,
-                google_action_type, google_action_url, story_image,
-                story_template, story_hook, story_link,
-                status, scheduled_time, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                google_action_type, google_action_url,
+                status, scheduled_time, created_at,
+                story_image, story_template, story_hook, story_link
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             title, fb_caption, ig_caption, google_caption, images_json,
-            1 if target_fb else 0, 1 if target_ig else 0,
-            1 if target_story else 0, 1 if target_google else 0,
-            google_action_type, google_action_url, story_image,
-            story_template, story_hook, story_link,
-            status, scheduled_time, created_at
+            1 if target_fb else 0, 1 if target_ig else 0, 1 if target_story else 0, 1 if target_google else 0,
+            google_action_type, google_action_url,
+            status, scheduled_time, created_at,
+            story_image, story_template, story_hook, story_link
         ))
         conn.commit()
         return cursor.lastrowid
 
-def get_posts(status: str = None, limit: int = 100) -> list:
+def get_posts(limit: int = 100, status: str = None) -> list:
     with get_db() as conn:
         cursor = conn.cursor()
         if status:
-            cursor.execute('SELECT * FROM posts WHERE status = ? ORDER BY id DESC LIMIT ?', (status, limit))
+            cursor.execute("SELECT * FROM posts WHERE status = ? ORDER BY id DESC LIMIT ?", (status, limit))
         else:
-            cursor.execute('SELECT * FROM posts ORDER BY id DESC LIMIT ?', (limit,))
+            cursor.execute("SELECT * FROM posts ORDER BY id DESC LIMIT ?", (limit,))
         rows = cursor.fetchall()
         result = []
         for r in rows:
@@ -286,10 +288,10 @@ def get_posts(status: str = None, limit: int = 100) -> list:
             result.append(d)
         return result
 
-def get_post_by_id(post_id: int):
+def get_post_by_id(post_id: int) -> dict:
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
+        cursor.execute("SELECT * FROM posts WHERE id = ?", (post_id,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -327,15 +329,15 @@ def delete_post(post_id: int):
         cursor.execute('DELETE FROM posts WHERE id = ?', (post_id,))
         conn.commit()
 
-def get_scheduled_posts() -> list:
-    now_iso = utc_now_iso()
+def get_due_scheduled_posts(now_iso: str = None) -> list:
+    if not now_iso:
+        now_iso = utc_now_iso()
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT * FROM posts 
-            WHERE status = 'scheduled' 
-            AND scheduled_time IS NOT NULL 
-            AND scheduled_time <= ?
+            WHERE status = 'scheduled' AND scheduled_time IS NOT NULL AND scheduled_time <= ?
+            ORDER BY scheduled_time ASC
         """, (now_iso,))
         rows = cursor.fetchall()
         result = []
@@ -347,6 +349,9 @@ def get_scheduled_posts() -> list:
                 d['images'] = []
             result.append(d)
     return result
+
+def get_scheduled_posts() -> list:
+    return get_due_scheduled_posts()
 
 def claim_post_for_publish(post_id: int) -> bool:
     """Atomically reserve a post so UI clicks and scheduler cannot double-publish it."""
@@ -453,9 +458,9 @@ def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: in
         for r in rows:
             d = dict(r)
             try:
-                d["tags"] = json.loads(d.get("tags") or "[]")
+                d['tags'] = json.loads(d['tags'])
             except Exception:
-                d["tags"] = []
+                d['tags'] = []
             result.append(d)
         return result
 
@@ -481,7 +486,7 @@ def create_hashtag_group(name: str, hashtags: str, category: str = "Chung") -> i
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO hashtag_groups (name, hashtags, category, created_at) VALUES (?, ?, ?, ?)",
-                       (name.strip(), hashtags.strip(), category.strip(), utc_now_iso()))
+                       (name, hashtags, category, utc_now_iso()))
         conn.commit()
         return cursor.lastrowid
 
@@ -499,7 +504,7 @@ def create_caption_template(name: str, content: str, category: str = "Sản ph�
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO caption_templates (name, content, category, brand_voice, created_at) VALUES (?, ?, ?, ?, ?)",
-                       (name.strip(), content.strip(), category.strip(), brand_voice.strip(), utc_now_iso()))
+                       (name, content, category, brand_voice, utc_now_iso()))
         conn.commit()
         return cursor.lastrowid
 
@@ -507,80 +512,3 @@ def delete_caption_template(template_id: int):
     with get_db() as conn:
         conn.execute("DELETE FROM caption_templates WHERE id = ?", (template_id,))
         conn.commit()
-
-# ─────────────────────────────────────────────────────────────
-# PRODUCT AI CACHE
-# ─────────────────────────────────────────────────────────────
-def get_product_ai_cache(product_id: str) -> dict:
-    if not product_id:
-        return None
-    with get_db() as conn:
-        row = conn.execute("SELECT payload_json FROM product_ai_cache WHERE product_id = ?", (str(product_id),)).fetchone()
-        if row:
-            try:
-                return json.loads(row["payload_json"])
-            except Exception:
-                return None
-    return None
-
-def set_product_ai_cache(product_id: str, cache_key: str, payload: dict):
-    if not product_id:
-        return
-    with get_db() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO product_ai_cache (product_id, cache_key, payload_json, updated_at) VALUES (?, ?, ?, ?)",
-            (str(product_id), cache_key, json.dumps(payload, ensure_ascii=False), utc_now_iso())
-        )
-        conn.commit()
-
-# ─────────────────────────────────────────────────────────────
-# BACKGROUND JOBS CRUD
-# ─────────────────────────────────────────────────────────────
-def create_job_record(job_id: str, job_type: str, status: str = "pending", progress: int = 0, current_step: str = "") -> dict:
-    now = utc_now_iso()
-    with get_db() as conn:
-        conn.execute("""
-            INSERT OR REPLACE INTO background_jobs (job_id, job_type, status, progress, current_step, result_json, error_message, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, '{}', '', ?, ?)
-        """, (job_id, job_type, status, progress, current_step, now, now))
-        conn.commit()
-    return get_job_record(job_id)
-
-def update_job_record(job_id: str, status: str = None, progress: int = None, current_step: str = None, result: dict = None, error: str = None):
-    updates = []
-    params = []
-    if status is not None:
-        updates.append("status = ?")
-        params.append(status)
-    if progress is not None:
-        updates.append("progress = ?")
-        params.append(progress)
-    if current_step is not None:
-        updates.append("current_step = ?")
-        params.append(current_step)
-    if result is not None:
-        updates.append("result_json = ?")
-        params.append(json.dumps(result, ensure_ascii=False))
-    if error is not None:
-        updates.append("error_message = ?")
-        params.append(error)
-    
-    updates.append("updated_at = ?")
-    params.append(utc_now_iso())
-    params.append(job_id)
-
-    with get_db() as conn:
-        conn.execute(f"UPDATE background_jobs SET {', '.join(updates)} WHERE job_id = ?", params)
-        conn.commit()
-
-def get_job_record(job_id: str) -> dict:
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM background_jobs WHERE job_id = ?", (job_id,)).fetchone()
-        if row:
-            d = dict(row)
-            try:
-                d["result"] = json.loads(d.get("result_json") or "{}")
-            except Exception:
-                d["result"] = {}
-            return d
-    return None
