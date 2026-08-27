@@ -17,206 +17,243 @@ createApp({
       previewPlatform: 'fb',
       currentIgPreviewIdx: 0,
       isDragging: false,
-      isDraggingBulk: false,
+
       isSubmitting: false,
       isTesting: false,
       isSaving: false,
-      isImportingBulk: false,
-      isGeneratingStory: false,
+      isGeneratingAi: false,
       isGeneratingAiHook: false,
-      showToken: false,
+
+      scheduleEnabled: false,
+      dateInput: '',
+      timeInput: '',
 
       postForm: {
-        target_fb: true,
-        target_ig: true,
-        target_story: true,
-        target_google: false,
-        story_template: 'organic',
-        story_hook: '',
-        story_link: 'https://roots.vn',
-        story_image: '',
-        images: [],
         fb_caption: '',
         ig_caption: '',
         google_caption: '',
+        images: [],
+        target_fb: true,
+        target_ig: true,
+        target_story: false,
+        target_google: false,
         google_action_type: 'LEARN_MORE',
-        google_action_url: 'https://roots.vn',
-        action: 'now',
-        scheduled_time: ''
-      },
-
-      aiForm: {
-        prompt: '',
-        brand_voice: 'Thân thiện',
-        model_name: 'gemini-3.5-flash-lite',
-        include_emojis: true,
-        generate_hashtags: true
-      },
-
-      bulkForm: {
-        file: null,
-        fileName: ''
-      },
-      bulkPreviewPosts: [],
-
-      metaStatus: {
-        facebook: { connected: false, name: '', id: '', message: '' },
-        instagram: { connected: false, username: '', id: '', message: '' }
-      },
-
-      metaExchange: {
-        app_id: '2039281703363967',
-        app_secret: '',
-        short_token: '',
-        isExchanging: false,
-        exchangeResult: null
+        google_action_url: '',
+        story_image: null,
+        story_template: 'organic',
+        story_hook: '',
+        story_link: ''
       },
 
       settingsForm: {
         fb_page_id: '',
         fb_page_access_token: '',
-        has_fb_page_access_token: false,
         ig_business_account_id: '',
         imgbb_api_key: '',
-        has_imgbb_api_key: false,
         gemini_api_key: '',
-        has_gemini_api_key: false,
         gemini_model: 'gemini-3.5-flash-lite',
         google_client_id: '',
         google_client_secret: '',
-        has_google_client_secret: false,
         google_connected: false,
         google_location_name: '',
         google_location_id: '',
-        app_password: ''
+        has_fb_page_access_token: false,
+        has_imgbb_api_key: false,
+        has_gemini_api_key: false,
+        has_google_client_secret: false,
+        has_admin_password: false,
+        has_staff_password: false,
+        app_password: '',
+        admin_password: '',
+        staff_password: ''
       },
 
-      scheduledPosts: [],
-      historyPosts: [],
+      metaStatus: {
+        facebook: { connected: false, page_name: '', page_id: '', picture: '' },
+        instagram: { connected: false, username: '', account_id: '', profile_picture: '' }
+      },
 
-      // ROOTS 1-Click State
-      rootsCategories: [],
-      selectedRootsCategory: '',
-      rootsProducts: [],
-      rootsPage: 1,
-      rootsPageSize: 20,
-      rootsSearchQuery: '',
-      isLoadingRoots: false,
-      isGeneratingPost: false,
-      rootsFlashSaleDiscount: '30%',
-      isGeneratingFlashSale: false,
-      flashSaleStats: { selectedCount: 0, previewCount: 0 },
+      metaExchange: {
+        app_id: '2039281703363967',
+        app_secret: '',
+        short_token: ''
+      },
+      isConvertingToken: false,
 
-      // Media Library State
-      mediaItems: [],
-      selectedMediaTag: 'all',
-      mediaSearchQuery: '',
-      mediaFilterMode: 'all',
-      mediaPage: 1,
-      mediaPageSize: 40,
-      isLoadingMedia: false,
-      selectedLibraryImage: null,
-      customTagInput: '',
-
-      // Templates & Hashtags State
-      hashtagGroups: [],
-      captionTemplates: [],
-      selectedHashtagCategory: 'all',
-      selectedTemplateCategory: 'all',
-      newHashtagGroup: { name: '', hashtags: '', category: 'Chung' },
-      newTemplate: { name: '', content: '', category: 'Sản phẩm', brand_voice: 'Bán hàng' },
-
-      // Calendar State
-      calendarEvents: [],
-      currentCalendarDate: new Date(),
-
-      // Canvas Studio Modal
-      studioModal: {
+      aiModal: {
         show: false,
-        fabricCanvas: null,
-        preset: 'story',
-        currentImageUrl: '',
-        activeProduct: null,
-        showSafeZone: true,
-        safeZoneGroup: null
+        isLoading: false,
+        userHint: '',
+        result: null
       },
-
-      // Background Job / Progress
-      activeJob: {
-        id: null,
-        status: '',
-        progress: 0,
-        current_step: '',
-        error: ''
-      },
-      jobPollInterval: null,
 
       toast: {
         show: false,
         message: '',
         type: 'info'
       },
-
       errorModal: {
         show: false,
         content: ''
-      }
+      },
+
+      studioModal: {
+        show: false,
+        isExporting: false,
+        showSafeZone: true,
+        activeTemplate: 'organic',
+        fabricCanvas: null,
+        productImgObj: null,
+        safeZoneGroup: null
+      },
+      studioTemplates: [
+        { id: 'organic', name: 'Siêu Thị Hữu Cơ', icon: '🌿' },
+        { id: 'juice', name: 'Juice Bar', icon: '🍹' },
+        { id: 'sale', name: 'Giờ Vàng Sale', icon: '🔥' },
+        { id: 'magazine', name: 'Tạp Chí Ẩm Thực', icon: '✨' },
+        { id: 'polaroid', name: 'Chụp Polaroid', icon: '📷' }
+      ],
+
+      rootsProducts: [],
+      rootsCategories: {},
+      selectedRootsCategory: 'all',
+      selectedCreativeRatio: '4:5',
+      selectedComboProducts: [],
+      comboModal: {
+        show: false,
+        isLoading: false,
+        userHint: '',
+        result: null,
+        activeCaptionTab: 'fb',
+        copiedPromptIdx: null
+      },
+      rootsSearchQuery: '',
+      isFlashSaleOnly: false,
+      isLoadingRoots: false,
+      isGeneratingPost: false,
+      generatingProductId: null,
+      rootsPagination: {
+        current_page: 1,
+        total_pages: 1,
+        total_items: 0
+      },
+
+      calendarCurrentDate: new Date(),
+      calendarEvents: [],
+      selectedCalendarPost: null,
+
+      mediaLibrary: [],
+      mediaSearch: '',
+      selectedMediaTag: 'Tất cả',
+      mediaTags: ['Tất cả', 'Trái cây', 'Nước ép', 'Bánh ngọt', 'Chăm sóc', 'Khuyến mãi', 'ROOTS'],
+      isLoadingMedia: false,
+      selectedMediaFiles: [],
+      isBatchDeleting: false,
+
+      hashtagGroups: [],
+      captionTemplates: [],
+      newHashtagGroup: { name: '', hashtags: '', category: 'Chung' },
+      newTemplate: { name: '', content: '', category: 'Sản phẩm', brand_voice: 'Bán hàng' },
+      dynamicVariables: [
+        { key: '{ten_san_pham}', label: 'Tên sản phẩm', desc: 'Tên sản phẩm tự động' },
+        { key: '{gia_ban}', label: 'Giá bán', desc: 'Giá ưu đãi hiện tại' },
+        { key: '{gia_goc}', label: 'Giá gốc', desc: 'Giá trước khuyến mãi' },
+        { key: '{xuat_xu}', label: 'Xuất xứ', desc: 'Nơi sản xuất hữu cơ' },
+        { key: '{link_mua}', label: 'Link mua', desc: 'Đường dẫn roots.vn' },
+        { key: '{hotline}', label: 'Hotline', desc: 'Số điện thoại hỗ trợ' },
+        { key: '{dia_chi}', label: 'Địa chỉ', desc: 'Địa chỉ cửa hàng ROOTS' }
+      ],
+
+      bulkModal: {
+        show: false,
+        file: null,
+        isUploading: false,
+        previewData: [],
+        step: 1
+      },
+
+      activeJob: {
+        id: null,
+        status: 'idle',
+        progress: 0,
+        current_step: '',
+        error: '',
+        timer: null
+      },
+      showJobModal: false,
+
+      scheduledPosts: [],
+      historyPosts: [],
+      showToken: false
     };
   },
+  computed: {
+    calendarMonthYear() {
+      const d = this.calendarCurrentDate;
+      return `Tháng ${d.getMonth() + 1}, ${d.getFullYear()}`;
+    },
+    calendarDays() {
+      const d = this.calendarCurrentDate;
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const firstDayOfMonth = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
 
+      const days = [];
+      const startDayOffset = (firstDayOfMonth + 6) % 7;
+
+      for (let i = startDayOffset - 1; i >= 0; i--) {
+        days.push({
+          date: new Date(year, month - 1, daysInPrevMonth - i),
+          isCurrentMonth: false,
+          dayNumber: daysInPrevMonth - i
+        });
+      }
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push({
+          date: new Date(year, month, i),
+          isCurrentMonth: true,
+          dayNumber: i
+        });
+      }
+
+      const remainingDays = 42 - days.length;
+      for (let i = 1; i <= remainingDays; i++) {
+        days.push({
+          date: new Date(year, month + 1, i),
+          isCurrentMonth: false,
+          dayNumber: i
+        });
+      }
+
+      return days;
+    }
+  },
   async mounted() {
     await this.checkAuth();
+    if (this.isAuthenticated) {
+      this.initApp();
+    }
   },
-
   methods: {
-    showToast(message, type = 'info') {
-      this.toast.message = message;
-      this.toast.type = type;
-      this.toast.show = true;
-      setTimeout(() => {
-        this.toast.show = false;
-      }, 4000);
-    },
-
-    async authFetch(url, options = {}) {
-      options.credentials = 'same-origin';
-      options.headers = options.headers || {};
-      const res = await fetch(url, options);
-      if (res.status === 401) {
-        this.isAuthenticated = false;
-        this.authToken = '';
-      }
-      return res;
-    },
-
     async checkAuth() {
       try {
-        const res = await fetch('/api/auth/check', { credentials: 'same-origin' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.authenticated) {
-            this.isAuthenticated = true;
-            this.currentUserRole = data.role || 'staff';
-            if (this.currentUserRole === 'admin') {
-              this.loadSettings();
-            }
-            this.loadScheduledPosts();
-            this.loadPendingPosts();
-            this.loadRootsCategories();
-            this.loadRootsData();
-            this.loadMediaLibrary();
-            this.loadTemplatesAndHashtags();
-            this.loadCalendarEvents();
-            return;
-          }
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        if (data.authenticated) {
+          this.isAuthenticated = true;
+          this.currentUserRole = data.role || 'staff';
+        } else {
+          this.isAuthenticated = false;
         }
-        this.isAuthenticated = false;
       } catch (e) {
         this.isAuthenticated = false;
       }
     },
-
-    async handleLogin() {
+    async submitLogin() {
+      if (!this.loginPassword) return;
       this.isLoggingIn = true;
       this.loginError = '';
       try {
@@ -230,314 +267,143 @@ createApp({
           this.isAuthenticated = true;
           this.currentUserRole = data.role || 'staff';
           this.loginPassword = '';
-          const roleLabel = this.currentUserRole === 'admin' ? '👑 Quản Trị Viên (Admin)' : '🧑‍💼 Nhân Viên (Staff)';
-          this.showToast(`Đăng nhập thành công với quyền ${roleLabel}!`, 'success');
-          if (this.currentUserRole === 'admin') {
-            this.loadSettings();
-          }
-          this.loadScheduledPosts();
-          this.loadPendingPosts();
-          this.loadRootsCategories();
-          this.loadRootsData();
-          this.loadMediaLibrary();
-          this.loadTemplatesAndHashtags();
-          this.loadCalendarEvents();
+          this.initApp();
+          this.showToast(`Chào mừng bạn quay trở lại (${this.currentUserRole === 'admin' ? '👑 Quản Trị Viên' : '🧑‍💼 Nhân Viên'})!`, 'success');
         } else {
-          this.loginError = data.detail || 'Mật khẩu không chính xác';
+          this.loginError = data.detail || 'Mật khẩu không đúng. Vui lòng thử lại.';
         }
       } catch (err) {
-        this.loginError = 'Lỗi kết nối máy chủ: ' + err.message;
+        this.loginError = 'Lỗi kết nối máy chủ.';
       } finally {
         this.isLoggingIn = false;
       }
     },
-
-    async handleLogout() {
-      if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-        try {
-          await this.authFetch('/api/auth/logout', { method: 'POST' });
-        } catch (e) {}
-        this.isAuthenticated = false;
-        this.authToken = '';
-        this.showToast('Đã đăng xuất', 'info');
-      }
-    },
-
-    // ── CALENDAR METHODS ──
-    async loadCalendarEvents() {
+    async logout() {
       try {
-        const res = await this.authFetch('/api/calendar/events');
-        const data = await res.json();
-        if (res.ok) {
-          this.calendarEvents = data.events || [];
-        }
-      } catch (err) {
-        console.error('Error loading calendar events:', err);
-      }
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (e) {}
+      this.isAuthenticated = false;
+      this.currentUserRole = 'staff';
     },
-    calendarPrevMonth() {
-      const d = new Date(this.currentCalendarDate);
-      d.setMonth(d.getMonth() - 1);
-      this.currentCalendarDate = d;
-    },
-    calendarNextMonth() {
-      const d = new Date(this.currentCalendarDate);
-      d.setMonth(d.getMonth() + 1);
-      this.currentCalendarDate = d;
-    },
-    calendarToday() {
-      this.currentCalendarDate = new Date();
-    },
-    getEventsForDate(dateStr) {
-      if (!dateStr || !this.calendarEvents.length) return [];
-      return this.calendarEvents.filter(ev => {
-        if (!ev.start) return false;
-        return ev.start.startsWith(dateStr);
-      });
-    },
-
-    // ── MEDIA LIBRARY METHODS ──
-    async loadMediaLibrary() {
-      this.isLoadingMedia = true;
-      try {
-        let url = `/api/media/library?page=${this.mediaPage}&page_size=${this.mediaPageSize}`;
-        if (this.selectedMediaTag && this.selectedMediaTag !== 'all') {
-          url += `&tag=${encodeURIComponent(this.selectedMediaTag)}`;
-        }
-        if (this.mediaSearchQuery) {
-          url += `&search=${encodeURIComponent(this.mediaSearchQuery)}`;
-        }
-        const res = await this.authFetch(url);
-        const data = await res.json();
-        if (res.ok) {
-          this.mediaItems = data.items || [];
-        }
-      } catch (err) {
-        console.error('Error loading media library:', err);
-      } finally {
-        this.isLoadingMedia = false;
-      }
-    },
-    filterMediaByTag(tag) {
-      this.selectedMediaTag = tag;
-      this.mediaPage = 1;
+    initApp() {
+      this.initScheduleDateTime();
+      this.loadSettings();
+      this.loadScheduledPosts();
+      this.loadPendingPosts();
+      this.loadHistoryPosts();
+      this.loadRootsCategories();
+      this.loadRootsData();
+      this.loadCalendarEvents();
       this.loadMediaLibrary();
+      this.loadTemplatesAndHashtags();
     },
-    filterMediaByAspect(mode) {
-      this.mediaFilterMode = mode;
-    },
-    async uploadFilesToLibrary(e) {
-      const files = e.target.files || e.dataTransfer.files;
-      if (!files || !files.length) return;
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
+    async authFetch(url, options = {}) {
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        this.isAuthenticated = false;
+        throw new Error('Phiên đăng nhập đã hết hạn.');
       }
+      return res;
+    },
+    initScheduleDateTime() {
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+      this.dateInput = now.toISOString().split('T')[0];
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      this.timeInput = `${hh}:${mm}`;
+    },
+    showToast(message, type = 'info') {
+      this.toast.message = message;
+      this.toast.type = type;
+      this.toast.show = true;
+      setTimeout(() => {
+        this.toast.show = false;
+      }, 3500);
+    },
+    selectTab(tab) {
+      if (tab === 'settings' && this.currentUserRole !== 'admin') {
+        this.showToast('Bạn cần quyền Quản trị viên để mở Cài đặt.', 'warning');
+        return;
+      }
+      this.activeTab = tab;
+      if (tab === 'queue') {
+        this.loadScheduledPosts();
+        this.loadPendingPosts();
+      } else if (tab === 'history') {
+        this.loadHistoryPosts();
+      } else if (tab === 'calendar') {
+        this.loadCalendarEvents();
+      } else if (tab === 'media') {
+        this.loadMediaLibrary();
+      } else if (tab === 'templates') {
+        this.loadTemplatesAndHashtags();
+      } else if (tab === 'settings') {
+        this.loadSettings();
+      }
+    },
+    async loadPendingPosts() {
+      if (this.currentUserRole !== 'admin') return;
       try {
-        const res = await this.authFetch('/api/media/upload', {
+        const res = await this.authFetch('/api/posts?filter_type=pending');
+        const data = await res.json();
+        if (res.ok) {
+          this.pendingPosts = data.posts || [];
+        }
+      } catch (e) {}
+    },
+    async approvePost(postId, action = 'publish_now') {
+      try {
+        const res = await this.authFetch(`/api/posts/${postId}/approve`, {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
         });
         const data = await res.json();
-        if (res.ok && data.success) {
-          this.showToast(`✅ Đã tải lên ${data.files.length} ảnh vào thư viện!`, 'success');
-          this.loadMediaLibrary();
+        if (res.ok) {
+          this.showToast(data.message || '✅ Đã phê duyệt bài viết!', 'success');
+          this.loadPendingPosts();
+          this.loadScheduledPosts();
+          this.loadHistoryPosts();
         } else {
-          this.showToast(data.detail || 'Lỗi tải ảnh', 'error');
+          this.showToast(data.detail || 'Lỗi phê duyệt bài viết', 'error');
         }
       } catch (err) {
-        this.showToast('Lỗi upload: ' + err.message, 'error');
+        this.showToast(err.message, 'error');
       }
     },
-    selectMediaForComposer(item) {
-      if (!this.postForm.images.includes(item.filename)) {
-        this.postForm.images.push(item.filename);
-        this.showToast('Đã thêm ảnh vào bài viết!', 'info');
-      } else {
-        this.showToast('Ảnh này đã có trong bài viết.', 'warning');
-      }
-      this.activeTab = 'composer';
-    },
-    async addTagToMediaItem(item) {
-      if (!this.customTagInput.trim()) return;
-      const newTag = this.customTagInput.trim();
-      const tags = [...(item.tags || [])];
-      if (!tags.includes(newTag)) {
-        tags.push(newTag);
-        try {
-          const res = await this.authFetch(`/api/media/${item.filename}/tags`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tags })
-          });
-          if (res.ok) {
-            item.tags = tags;
-            this.customTagInput = '';
-            this.showToast('Đã thêm thẻ tag', 'success');
-          }
-        } catch (err) {}
-      }
-    },
-    async removeTagFromMediaItem(item, tag) {
-      const tags = (item.tags || []).filter(t => t !== tag);
+    async rejectPost(postId) {
+      const reason = prompt('Nhập lý do từ chối (tùy chọn):', 'Nội dung chưa đạt chuẩn');
+      if (reason === null) return;
       try {
-        const res = await this.authFetch(`/api/media/${item.filename}/tags`, {
+        const res = await this.authFetch(`/api/posts/${postId}/reject`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags })
-        });
-        if (res.ok) {
-          item.tags = tags;
-          this.showToast('Đã xóa tag', 'info');
-        }
-      } catch (err) {}
-    },
-    async deleteMediaFile(item) {
-      if (!confirm(`Xóa ảnh ${item.original_name || item.filename}?`)) return;
-      try {
-        const res = await this.authFetch(`/api/media/${item.filename}`, { method: 'DELETE' });
-        if (res.ok) {
-          this.showToast('Đã xóa ảnh khỏi thư viện', 'info');
-          this.loadMediaLibrary();
-        }
-      } catch (err) {}
-    },
-
-    // ── TEMPLATES & HASHTAGS METHODS ──
-    async loadTemplatesAndHashtags() {
-      try {
-        const [rHt, rTpl] = await Promise.all([
-          this.authFetch('/api/hashtag-groups'),
-          this.authFetch('/api/caption-templates')
-        ]);
-        const dHt = await rHt.json();
-        const dTpl = await rTpl.json();
-        if (rHt.ok) this.hashtagGroups = dHt.groups || [];
-        if (rTpl.ok) this.captionTemplates = dTpl.templates || [];
-      } catch (err) {
-        console.error('Error loading templates:', err);
-      }
-    },
-    insertVariable(tag) {
-      if (this.captionTab === 'fb') {
-        this.postForm.fb_caption = (this.postForm.fb_caption || '') + ' ' + tag;
-      } else if (this.captionTab === 'ig') {
-        this.postForm.ig_caption = (this.postForm.ig_caption || '') + ' ' + tag;
-      } else {
-        this.postForm.google_caption = (this.postForm.google_caption || '') + ' ' + tag;
-      }
-    },
-    insertHashtagGroup(hashtags) {
-      if (!hashtags) return;
-      if (this.captionTab === 'fb') {
-        this.postForm.fb_caption = (this.postForm.fb_caption || '') + '\n\n' + hashtags;
-      } else if (this.captionTab === 'ig') {
-        this.postForm.ig_caption = (this.postForm.ig_caption || '') + '\n\n' + hashtags;
-      } else {
-        this.postForm.google_caption = (this.postForm.google_caption || '') + '\n\n' + hashtags;
-      }
-      this.showToast('✅ Đã chèn nhóm hashtag', 'success');
-    },
-    applyCaptionTemplate(content) {
-      if (!content) return;
-      if (this.captionTab === 'fb') {
-        this.postForm.fb_caption = content;
-      } else if (this.captionTab === 'ig') {
-        this.postForm.ig_caption = content;
-      } else {
-        this.postForm.google_caption = content;
-      }
-      this.showToast('✅ Đã áp dụng mẫu nội dung', 'success');
-    },
-    async saveNewHashtagGroup() {
-      try {
-        const res = await this.authFetch('/api/hashtag-groups', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this.newHashtagGroup)
-        });
-        if (res.ok) {
-          this.showToast('✅ Đã lưu nhóm hashtag mới!', 'success');
-          this.newHashtagGroup = { name: '', hashtags: '', category: 'Chung' };
-          this.loadTemplatesAndHashtags();
-        }
-      } catch (err) {
-        this.showToast('Lỗi lưu nhóm hashtag', 'error');
-      }
-    },
-    async deleteHashtagGroupItem(id) {
-      if (!confirm('Xóa nhóm hashtag này?')) return;
-      try {
-        const res = await this.authFetch(`/api/hashtag-groups/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          this.showToast('Đã xóa nhóm hashtag', 'info');
-          this.loadTemplatesAndHashtags();
-        }
-      } catch (err) {}
-    },
-    async saveNewCaptionTemplate() {
-      try {
-        const res = await this.authFetch('/api/caption-templates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this.newTemplate)
-        });
-        if (res.ok) {
-          this.showToast('✅ Đã lưu mẫu nội dung mới!', 'success');
-          this.newTemplate = { name: '', content: '', category: 'Sản phẩm', brand_voice: 'Bán hàng' };
-          this.loadTemplatesAndHashtags();
-        }
-      } catch (err) {
-        this.showToast('Lỗi lưu mẫu nội dung', 'error');
-      }
-    },
-    async deleteCaptionTemplateItem(id) {
-      if (!confirm('Xóa mẫu nội dung này?')) return;
-      try {
-        const res = await this.authFetch('/api/caption-templates/' + id, { method: 'DELETE' });
-        if (res.ok) {
-          this.showToast('Đã xóa mẫu nội dung', 'info');
-          this.loadTemplatesAndHashtags();
-        }
-      } catch (err) {}
-    },
-
-    // ── ROOTS 1-CLICK POST GENERATION ──
-    async generatePostFromProduct(p) {
-      if (this.isGeneratingPost) return;
-      this.isGeneratingPost = true;
-      try {
-        const res = await this.authFetch('/api/roots/1click-post', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(p)
+          body: JSON.stringify({ reason: reason.trim() })
         });
         const data = await res.json();
-        if (res.ok && data.success) {
-          this.postForm.fb_caption = data.fb_caption || '';
-          this.postForm.ig_caption = data.ig_caption || '';
-          this.postForm.google_caption = data.google_caption || '';
-          this.postForm.story_hook = data.story_hook || '';
-          this.postForm.story_template = data.story_template || 'organic';
-          this.postForm.story_link = data.story_link || p.product_url || 'https://roots.vn';
-          this.postForm.google_action_url = data.story_link || p.product_url || 'https://roots.vn';
-          this.postForm.images = data.images || [];
-          this.postForm.story_image = data.story_image || '';
-          this.activeTab = 'composer';
-          this.showToast('🎉 Đã tạo bài viết và hình ảnh chuẩn ROOTS!', 'success');
+        if (res.ok) {
+          this.showToast('Đã từ chối bài viết', 'info');
+          this.loadPendingPosts();
+          this.loadHistoryPosts();
         } else {
-          this.showToast(data.detail || 'Lỗi tạo bài viết ROOTS', 'error');
+          this.showToast(data.detail || 'Lỗi từ chối bài viết', 'error');
         }
       } catch (err) {
-        this.showToast('Lỗi: ' + err.message, 'error');
-      } finally {
-        this.isGeneratingPost = false;
+        this.showToast(err.message, 'error');
       }
     },
-
-    // ── SUBMIT POST & QUEUE METHODS ──
     async submitPost() {
       if (this.isSubmitting) return;
+      if (!this.postForm.fb_caption && !this.postForm.ig_caption && !this.postForm.google_caption && !this.postForm.story_hook) {
+        this.showToast('Vui lòng nhập ít nhất 1 nội dung caption hoặc hook.', 'warning');
+        return;
+      }
+      if (this.postForm.target_ig && this.postForm.images.length === 0) {
+        this.showToast('Instagram yêu cầu ít nhất 1 hình ảnh.', 'warning');
+        return;
+      }
+
       this.isSubmitting = true;
       try {
         const payload = {
@@ -549,46 +415,40 @@ createApp({
           target_ig: this.postForm.target_ig,
           target_story: this.postForm.target_story,
           target_google: this.postForm.target_google,
-          google_action_type: this.postForm.google_action_type,
-          google_action_url: this.postForm.google_action_url,
+          google_action_type: this.postForm.google_action_type || 'LEARN_MORE',
+          google_action_url: this.postForm.google_action_url || '',
           story_image: this.postForm.story_image,
-          story_template: this.postForm.story_template,
-          story_hook: this.postForm.story_hook,
-          story_link: this.postForm.story_link,
-          action: this.postForm.action,
-          scheduled_time: this.postForm.action === 'schedule' ? this.postForm.scheduled_time : null
+          story_template: this.postForm.story_template || 'organic',
+          story_hook: this.postForm.story_hook || '',
+          story_link: this.postForm.story_link || '',
+          action: this.scheduleEnabled ? 'schedule' : 'now'
         };
 
-        const res = await this.authFetch('/api/posts/create', {
+        if (this.scheduleEnabled) {
+          payload.scheduled_time = `${this.dateInput}T${this.timeInput}:00`;
+        }
+
+        const res = await this.authFetch('/api/posts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (res.ok && (data.success || data.post)) {
-          if (data.status === 'pending_approval' || this.currentUserRole === 'staff') {
-            this.showToast('📤 Bài viết đã được gửi vào Hàng đợi chờ Admin phê duyệt!', 'success');
-            this.activeTab = 'scheduled';
-            this.loadPendingPosts();
-            this.loadScheduledPosts();
-          } else if (this.postForm.action === 'now') {
-            this.showToast('🎉 Đã đăng bài thành công lên các nền tảng!', 'success');
-            this.activeTab = 'history';
-            this.loadHistoryPosts();
+        if (res.ok) {
+          if (data.status === 'pending_approval') {
+            this.showToast('📤 Bài viết đã gửi vào Hàng Đợi chờ Admin phê duyệt!', 'info');
+          } else if (this.scheduleEnabled) {
+            this.showToast('⏰ Đã lên lịch bài viết thành công!', 'success');
           } else {
-            this.showToast('⏰ Đã lên lịch đăng bài thành công!', 'success');
-            this.activeTab = 'scheduled';
-            this.loadScheduledPosts();
+            this.showToast('🚀 Đã xuất bản bài viết thành công!', 'success');
           }
+          this.resetPostForm();
+          this.loadScheduledPosts();
+          this.loadPendingPosts();
+          this.loadHistoryPosts();
           this.loadCalendarEvents();
-          this.postForm.images = [];
-          this.postForm.fb_caption = '';
-          this.postForm.ig_caption = '';
-          this.postForm.google_caption = '';
-          this.postForm.story_hook = '';
-          this.postForm.story_image = '';
         } else {
-          throw new Error(data.detail || 'Lỗi xử lý bài viết');
+          throw new Error(data.detail || 'Lỗi tạo bài viết');
         }
       } catch (err) {
         this.showToast(err.message, 'error');
@@ -596,141 +456,130 @@ createApp({
         this.isSubmitting = false;
       }
     },
-
-    async loadPendingPosts() {
-      try {
-        const res = await this.authFetch('/api/posts?filter_type=pending');
-        const data = await res.json();
-        if (res.ok) {
-          this.pendingPosts = data.posts || [];
-        }
-      } catch (e) {}
+    resetPostForm() {
+      this.postForm = {
+        fb_caption: '',
+        ig_caption: '',
+        google_caption: '',
+        images: [],
+        target_fb: true,
+        target_ig: true,
+        target_story: false,
+        target_google: false,
+        google_action_type: 'LEARN_MORE',
+        google_action_url: '',
+        story_image: null,
+        story_template: 'organic',
+        story_hook: '',
+        story_link: ''
+      };
+      this.scheduleEnabled = false;
+      this.initScheduleDateTime();
     },
-
-    async approvePost(postId, action = 'publish_now') {
-      if (action === 'publish_now' && !confirm('Bạn có chắc chắn muốn duyệt và xuất bản bài viết này ngay lên mạng xã hội?')) return;
+    async handleFileUpload(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
       try {
-        const res = await this.authFetch(`/api/posts/${postId}/approve`, {
+        const res = await this.authFetch('/api/media/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action })
+          body: formData
         });
         const data = await res.json();
-        if (res.ok && data.success) {
-          this.showToast(data.message || 'Đã duyệt bài viết thành công!', 'success');
-          this.loadPendingPosts();
-          this.loadScheduledPosts();
-          this.loadHistoryPosts();
-          this.loadCalendarEvents();
-        } else {
-          this.showToast(data.detail || 'Lỗi khi duyệt bài', 'error');
+        if (res.ok && data.files) {
+          data.files.forEach(f => this.postForm.images.push(f));
+          this.showToast(`Đã tải lên ${data.files.length} ảnh`, 'success');
         }
-      } catch (e) {
-        this.showToast('Lỗi kết nối: ' + e.message, 'error');
+      } catch (err) {
+        this.showToast('Lỗi tải ảnh lên: ' + err.message, 'error');
       }
     },
-
-    async rejectPost(postId) {
-      const reason = prompt('Nhập lý do từ chối bài viết (tùy chọn):', 'Nội dung chưa đạt yêu cầu');
-      if (reason === null) return;
-      try {
-        const res = await this.authFetch(`/api/posts/${postId}/reject`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason })
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          this.showToast('Đã từ chối bài viết', 'info');
-          this.loadPendingPosts();
-          this.loadScheduledPosts();
-          this.loadHistoryPosts();
-        } else {
-          this.showToast(data.detail || 'Lỗi khi từ chối bài', 'error');
-        }
-      } catch (e) {
-        this.showToast('Lỗi kết nối: ' + e.message, 'error');
+    removeImage(idx) {
+      this.postForm.images.splice(idx, 1);
+      if (this.currentIgPreviewIdx >= this.postForm.images.length) {
+        this.currentIgPreviewIdx = Math.max(0, this.postForm.images.length - 1);
       }
     },
-
+    getMediaUrl(filename) {
+      if (!filename) return '';
+      if (filename.startsWith('http://') || filename.startsWith('https://')) return filename;
+      return `/api/media/${filename}`;
+    },
     async loadScheduledPosts() {
       try {
         const res = await this.authFetch('/api/posts?filter_type=scheduled');
         const data = await res.json();
-        if (res.ok) {
-          this.scheduledPosts = data.posts || [];
-        }
+        if (res.ok) this.scheduledPosts = data.posts || [];
       } catch (e) {}
     },
-
     async loadHistoryPosts() {
       try {
         const res = await this.authFetch('/api/posts?filter_type=history');
         const data = await res.json();
-        if (res.ok) {
-          this.historyPosts = data.posts || [];
-        }
+        if (res.ok) this.historyPosts = data.posts || [];
       } catch (e) {}
     },
-
-    async publishPostNow(postId) {
+    async loadCalendarEvents() {
       try {
-        const res = await this.authFetch(`/api/posts/${postId}/publish-now`, { method: 'POST' });
+        const res = await this.authFetch('/api/calendar/events');
         const data = await res.json();
-        if (res.ok) {
-          this.showToast('Đang tiến hành đăng bài...', 'info');
-          this.loadScheduledPosts();
-          this.loadHistoryPosts();
-          this.loadCalendarEvents();
-        } else {
-          this.showToast(data.detail || 'Lỗi đăng bài ngay', 'error');
-        }
-      } catch (e) {
-        this.showToast('Lỗi kết nối', 'error');
+        if (res.ok) this.calendarEvents = data.events || [];
+      } catch (e) {}
+    },
+    async loadMediaLibrary() {
+      this.isLoadingMedia = true;
+      try {
+        const res = await this.authFetch(`/api/media/library?search=${encodeURIComponent(this.mediaSearch)}&tag=${encodeURIComponent(this.selectedMediaTag)}`);
+        const data = await res.json();
+        if (res.ok) this.mediaLibrary = data.items || [];
+      } catch (e) {}
+      finally {
+        this.isLoadingMedia = false;
       }
     },
-
-    async deletePost(postId) {
-      if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return;
+    async loadTemplatesAndHashtags() {
       try {
-        const res = await this.authFetch(`/api/posts/${postId}`, { method: 'DELETE' });
-        if (res.ok) {
-          this.showToast('Đã xóa bài viết', 'info');
-          this.loadScheduledPosts();
-          this.loadHistoryPosts();
-          this.loadCalendarEvents();
-        }
+        const [hRes, tRes] = await Promise.all([
+          this.authFetch('/api/hashtag-groups'),
+          this.authFetch('/api/caption-templates')
+        ]);
+        const hData = await hRes.json();
+        const tData = await tRes.json();
+        if (hRes.ok) this.hashtagGroups = hData.groups || [];
+        if (tRes.ok) this.captionTemplates = tData.templates || [];
       } catch (e) {}
     },
-
-    async loadRootsCategories() {
+    async generatePostFromProduct(p) {
+      if (this.isGeneratingPost) return;
+      this.isGeneratingPost = true;
+      this.generatingProductId = p.id || p.MaNoiBo;
       try {
-        const res = await this.authFetch('/api/roots/categories');
+        const res = await this.authFetch('/api/roots/1click-post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(p)
+        });
         const data = await res.json();
-        if (res.ok) {
-          this.rootsCategories = data.categories || [];
-        }
-      } catch (err) {}
-    },
-
-    async loadRootsData() {
-      this.isLoadingRoots = true;
-      try {
-        let url = `/api/roots/products?page=${this.rootsPage}&page_size=${this.rootsPageSize}`;
-        if (this.selectedRootsCategory) {
-          url += `&category=${encodeURIComponent(this.selectedRootsCategory)}`;
-        }
-        const res = await this.authFetch(url);
-        const data = await res.json();
-        if (res.ok) {
-          this.rootsProducts = data.products || [];
+        if (res.ok && data.success) {
+          this.postForm.images = data.images || [];
+          this.postForm.fb_caption = `🌿 [ROOTS] ${data.product_name}\n\nThương hiệu: ${data.brand}\nGiá ưu đãi: ${this.formatRootsPrice(data.price)}\n\nKhám phá ngay tại roots.vn! #rootsvn #organic`;
+          this.postForm.ig_caption = `✨ ${data.product_name} - ${data.brand}\n\nSản phẩm hữu cơ cao cấp chính hãng từ ROOTS.\n\n#roots #healthy #organic #vietnam`;
+          this.postForm.google_caption = `Khám phá ngay ${data.product_name} tại ROOTS Organic Store & Juice Bar!`;
+          this.selectTab('composer');
+          this.showToast('✅ Đã nạp sản phẩm vào bộ soạn bài!', 'success');
+        } else {
+          throw new Error('Không thể nạp sản phẩm');
         }
       } catch (err) {
+        this.showToast(err.message, 'error');
       } finally {
-        this.isLoadingRoots = false;
+        this.isGeneratingPost = false;
+        this.generatingProductId = null;
       }
     },
-
     async loadSettings() {
       try {
         const res = await this.authFetch('/api/settings');
@@ -748,28 +597,253 @@ createApp({
           this.settingsForm.has_imgbb_api_key = Boolean(s.has_imgbb_api_key);
           this.settingsForm.has_gemini_api_key = Boolean(s.has_gemini_api_key);
           this.settingsForm.has_google_client_secret = Boolean(s.has_google_client_secret);
+          this.settingsForm.has_admin_password = Boolean(s.has_admin_password);
+          this.settingsForm.has_staff_password = Boolean(s.has_staff_password);
 
           this.settingsForm.fb_page_access_token = '';
           this.settingsForm.imgbb_api_key = '';
           this.settingsForm.gemini_api_key = '';
           this.settingsForm.google_client_secret = '';
           this.settingsForm.app_password = '';
+          this.settingsForm.admin_password = '';
+          this.settingsForm.staff_password = '';
+
+          this.metaExchange.app_id = '2039281703363967';
+          this.testIntegrations();
         }
       } catch (e) {}
     },
-
-    formatDateTime(isoStr) {
-      if (!isoStr) return '';
+    async testIntegrations() {
+      this.isTesting = true;
       try {
-        return new Date(isoStr).toLocaleString('vi-VN');
-      } catch (e) {
-        return isoStr;
+        const payload = {
+          fb_page_id: this.settingsForm.fb_page_id
+        };
+        if (this.settingsForm.fb_page_access_token && !this.settingsForm.fb_page_access_token.includes('...')) {
+          payload.fb_page_access_token = this.settingsForm.fb_page_access_token;
+        }
+        if (this.settingsForm.ig_business_account_id) {
+          payload.ig_business_account_id = this.settingsForm.ig_business_account_id;
+        }
+        const res = await this.authFetch('/api/settings/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (data.facebook) this.metaStatus.facebook = data.facebook;
+          if (data.instagram) this.metaStatus.instagram = data.instagram;
+        }
+      } catch (e) {}
+      finally {
+        this.isTesting = false;
       }
     },
+    async saveSettings() {
+      this.isSaving = true;
+      try {
+        const payload = {
+          fb_page_id: this.settingsForm.fb_page_id,
+          ig_business_account_id: this.settingsForm.ig_business_account_id,
+          google_client_id: this.settingsForm.google_client_id,
+          gemini_model: this.settingsForm.gemini_model,
+        };
 
-    truncate(str, n = 80) {
+        if (this.settingsForm.fb_page_access_token && !this.settingsForm.fb_page_access_token.includes('...')) {
+          payload.fb_page_access_token = this.settingsForm.fb_page_access_token.trim();
+        }
+        if (this.settingsForm.imgbb_api_key && !this.settingsForm.imgbb_api_key.includes('...')) {
+          payload.imgbb_api_key = this.settingsForm.imgbb_api_key.trim();
+        }
+        if (this.settingsForm.gemini_api_key && !this.settingsForm.gemini_api_key.includes('...')) {
+          payload.gemini_api_key = this.settingsForm.gemini_api_key.trim();
+        }
+        if (this.settingsForm.google_client_secret && !this.settingsForm.google_client_secret.includes('...')) {
+          payload.google_client_secret = this.settingsForm.google_client_secret.trim();
+        }
+        if (this.settingsForm.admin_password && this.settingsForm.admin_password.trim()) {
+          payload.admin_password = this.settingsForm.admin_password.trim();
+        }
+        if (this.settingsForm.staff_password && this.settingsForm.staff_password.trim()) {
+          payload.staff_password = this.settingsForm.staff_password.trim();
+        }
+        if (this.settingsForm.app_password && this.settingsForm.app_password.trim()) {
+          payload.app_password = this.settingsForm.app_password.trim();
+        }
+
+        const res = await this.authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.showToast('✅ Đã lưu cài đặt an toàn thành công!', 'success');
+          this.loadSettings();
+        } else {
+          throw new Error(data.detail || 'Lỗi lưu cài đặt');
+        }
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      } finally {
+        this.isSaving = false;
+      }
+    },
+    async loadRootsCategories() {
+      try {
+        const res = await this.authFetch('/api/roots/categories');
+        const data = await res.json();
+        if (res.ok && data.categories) {
+          this.rootsCategories = data.categories;
+        }
+      } catch (e) {}
+    },
+    async loadRootsData() {
+      this.isLoadingRoots = true;
+      try {
+        let endpoint = `/api/roots/products?page=${this.rootsPagination.current_page}&page_size=20`;
+        if (this.rootsSearchQuery) {
+          endpoint += `&search=${encodeURIComponent(this.rootsSearchQuery)}`;
+        }
+        if (this.selectedRootsCategory && this.selectedRootsCategory !== 'all') {
+          endpoint += `&category=${encodeURIComponent(this.selectedRootsCategory)}`;
+        }
+        if (this.isFlashSaleOnly) {
+          endpoint = `/api/roots/flash-sale?page=${this.rootsPagination.current_page}&page_size=20`;
+        }
+
+        const res = await this.authFetch(endpoint);
+        const data = await res.json();
+        if (res.ok && (data.status === 'success' || Array.isArray(data.data))) {
+          this.rootsProducts = data.data || [];
+          if (data.pagination) {
+            this.rootsPagination = data.pagination;
+          }
+        }
+      } catch (err) {
+        console.error('Error loading roots data:', err);
+      } finally {
+        this.isLoadingRoots = false;
+      }
+    },
+    selectRootsCategory(cat) {
+      this.selectedRootsCategory = cat;
+      this.rootsPagination.current_page = 1;
+      this.loadRootsData();
+    },
+    loadRootsProducts(p) {
+      if (typeof p === 'number' && p >= 1) {
+        this.changeRootsPage(p);
+      } else {
+        this.loadRootsData();
+      }
+    },
+    changeRootsPage(p) {
+      if (p < 1) p = 1;
+      this.rootsPagination.current_page = p;
+      this.loadRootsData();
+      const el = document.querySelector('#app');
+      if (el) window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    resetRootsFilters() {
+      this.selectedRootsCategory = 'all';
+      this.rootsSearchQuery = '';
+      this.isFlashSaleOnly = false;
+      this.rootsPagination.current_page = 1;
+      this.loadRootsData();
+    },
+    getRootsImageUrl(img) {
+      if (!img) return 'https://roots.vn/themes/roots/assets/images/no-image.png';
+      if (img.startsWith('http://') || img.startsWith('https://')) return img;
+      return `https://img.roots.vn/products/${img.split('?')[0]}`;
+    },
+    getRootsProductUrl(p) {
+      if (!p) return 'https://roots.vn';
+      if (p.Slug) {
+        if (p.DanhMucSlug) return `https://roots.vn/danh-muc/${p.DanhMucSlug}/${p.Slug}`;
+        return `https://roots.vn/danh-muc/${p.Slug}`;
+      }
+      return 'https://roots.vn';
+    },
+    formatRootsPrice(val) {
+      const num = parseFloat(val || 0);
+      if (num <= 0) return 'Liên hệ';
+      return num.toLocaleString('vi-VN') + 'đ';
+    },
+    hasDiscount(p) {
+      const gKm = parseFloat(p.GiaSauKm || 0);
+      const gOld = parseFloat(p.GiaTruocKm || 0);
+      return gOld > gKm && gKm > 0;
+    },
+    calcDiscountPercent(p) {
+      const gKm = parseFloat(p.GiaSauKm || 0);
+      const gOld = parseFloat(p.GiaTruocKm || 0);
+      if (gOld <= gKm || gOld <= 0) return 0;
+      return Math.round(((gOld - gKm) / gOld) * 100);
+    },
+    toggleSelectComboProduct(p) {
+      const id = p.id || p.MaNoiBo;
+      const idx = this.selectedComboProducts.findIndex(x => (x.id || x.MaNoiBo) === id);
+      if (idx >= 0) {
+        this.selectedComboProducts.splice(idx, 1);
+      } else {
+        this.selectedComboProducts.push(p);
+      }
+    },
+    isComboProductSelected(p) {
+      const id = p.id || p.MaNoiBo;
+      return this.selectedComboProducts.some(x => (x.id || x.MaNoiBo) === id);
+    },
+    getFbName() {
+      return this.metaStatus.facebook.page_name || 'ROOTS - Organic Store & Juice Bar';
+    },
+    getFbPic() {
+      return this.metaStatus.facebook.picture || this.metaStatus.instagram.profile_picture || '';
+    },
+    getIgName() {
+      return this.metaStatus.instagram.username || 'rootsvn.official';
+    },
+    getIgPic() {
+      return this.metaStatus.instagram.profile_picture || this.metaStatus.facebook.picture || '';
+    },
+    getBrandName() {
+      return this.metaStatus.facebook.page_name || (this.metaStatus.instagram.username ? '@' + this.metaStatus.instagram.username : 'ROOTS - Organic Store & Juice Bar');
+    },
+    getBrandPic() {
+      return this.metaStatus.facebook.picture || this.metaStatus.instagram.profile_picture || '';
+    },
+    formatDateTime(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+    },
+    deletePostItem(id) {
+      if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return;
+      this.authFetch(`/api/posts/${id}`, { method: 'DELETE' }).then(res => {
+        if (res.ok) {
+          this.showToast('Đã xóa bài viết', 'info');
+          this.loadScheduledPosts();
+          this.loadPendingPosts();
+          this.loadHistoryPosts();
+        }
+      });
+    },
+    publishNow(id) {
+      this.authFetch(`/api/posts/${id}/publish-now`, { method: 'POST' }).then(res => res.json()).then(data => {
+        this.showToast(data.message || 'Đang tiến hành đăng bài...', 'info');
+        this.loadScheduledPosts();
+        this.loadPendingPosts();
+        this.loadHistoryPosts();
+      });
+    },
+    showErrorModal(err) {
+      this.errorModal.content = err;
+      this.errorModal.show = true;
+    },
+    truncate(str, max = 50) {
       if (!str) return '';
-      return str.length > n ? str.substr(0, n - 1) + '...' : str;
+      return str.length > max ? str.slice(0, max) + '...' : str;
     }
   }
 }).mount('#app');
