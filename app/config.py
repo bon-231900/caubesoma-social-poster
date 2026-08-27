@@ -90,24 +90,28 @@ def verify_user_role(password: str, settings: dict) -> str:
     """
     Returns 'admin', 'staff', or '' (invalid).
     """
+    clean_p = str(password or "").strip()
+    if not clean_p:
+        return ""
+
     # 1. Check Admin password
-    admin_raw = settings.get("admin_password") or ""
-    admin_hash = settings.get("admin_password_hash") or ""
+    admin_raw = (settings.get("admin_password") or os.environ.get("ADMIN_PASSWORD") or "").strip()
+    admin_hash = (settings.get("admin_password_hash") or os.environ.get("ADMIN_PASSWORD_HASH") or "").strip()
     if admin_raw or admin_hash:
-        if check_single_password(password, admin_raw, admin_hash):
+        if check_single_password(clean_p, admin_raw, admin_hash):
             return "admin"
     else:
         # Fallback to APP_PASSWORD as admin if no separate admin password
-        app_raw = settings.get("app_password") or ""
-        app_hash = settings.get("app_password_hash") or ""
-        if check_single_password(password, app_raw, app_hash):
+        app_raw = (settings.get("app_password") or os.environ.get("APP_PASSWORD") or "").strip()
+        app_hash = (settings.get("app_password_hash") or os.environ.get("APP_PASSWORD_HASH") or "").strip()
+        if (app_raw or app_hash) and check_single_password(clean_p, app_raw, app_hash):
             return "admin"
 
     # 2. Check Staff password
-    staff_raw = settings.get("staff_password") or ""
-    staff_hash = settings.get("staff_password_hash") or ""
+    staff_raw = (settings.get("staff_password") or os.environ.get("STAFF_PASSWORD") or "").strip()
+    staff_hash = (settings.get("staff_password_hash") or os.environ.get("STAFF_PASSWORD_HASH") or "").strip()
     if staff_raw or staff_hash:
-        if check_single_password(password, staff_raw, staff_hash):
+        if check_single_password(clean_p, staff_raw, staff_hash):
             return "staff"
 
     return ""
