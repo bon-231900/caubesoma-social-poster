@@ -4,82 +4,89 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Auto Social Poster - Mạng Nội Bộ</title>
+  
+  <!-- MULTI-CDN TAILWIND CSS FALLBACK (CHỐNG CHẶN MẠNG) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    if (typeof tailwind === 'undefined') {
+      console.warn('Tailwind CDN chính bị chặn, đang tải Fallback CDN...');
+      document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">');
+    }
+  </script>
+  
+  <!-- MULTI-CDN FONT AWESOME FALLBACK -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+  
+  <!-- LOCAL & MULTI-CDN VUE 3 -->
   <script src="/static/vue.global.prod.js"></script>
   <script>if (typeof Vue === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"><\/script>');</script>
+  
+  <!-- LOCAL & MULTI-CDN FABRIC.JS -->
   <script src="/static/fabric.min.js"></script>
   <script>if (typeof fabric === 'undefined') document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"><\/script>');</script>
+  
+  <!-- FONT CHỮ HIỆN ĐẠI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <style>
+    * {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
-  <div id="app" class="min-h-screen flex flex-col">
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
 
-    <!-- Toast Alert -->
-    <div v-if="toast.show" class="fixed bottom-6 right-6 z-50 transition-all duration-300 max-w-md">
-      <div :class="{
-        'bg-emerald-50 border-emerald-500 text-emerald-900': toast.type === 'success',
-        'bg-rose-50 border-rose-500 text-rose-900': toast.type === 'error',
-        'bg-blue-50 border-blue-500 text-blue-900': toast.type === 'info'
-      }" class="p-4 rounded-xl border-l-4 shadow-xl flex items-start space-x-3 bg-white">
-        <i :class="{
-          'fa-circle-check text-emerald-600': toast.type === 'success',
-          'fa-circle-xmark text-rose-600': toast.type === 'error',
-          'fa-circle-info text-blue-600': toast.type === 'info'
-        }" class="fa-solid text-xl mt-0.5"></i>
-        <div class="flex-1 text-sm font-medium">{{ toast.message }}</div>
-        <button @click="toast.show = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-    </div>
-
+  <div id="app" v-cloak class="flex-1 flex flex-col">
+    
     <!-- 1. LOGIN SCREEN -->
-    <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950">
-      <div class="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl space-y-6 border border-slate-100">
+    <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+      <div class="max-w-md w-full bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl shadow-2xl text-white space-y-6">
         <div class="text-center space-y-2">
-          <div class="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto shadow-lg shadow-blue-500/30 text-2xl">
-            <i class="fa-solid fa-shield-halved"></i>
+          <div class="w-16 h-16 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <i class="fa-solid fa-lock text-2xl text-white"></i>
           </div>
-          <h2 class="text-2xl font-black text-slate-900">Auto Social Poster</h2>
-          <p class="text-xs text-slate-500">Facebook • Instagram • Google Business Automation</p>
+          <h1 class="text-2xl font-black tracking-tight">Auto Social Poster</h1>
+          <p class="text-xs text-slate-300">Nhập mật khẩu nội bộ để truy cập hệ thống</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Mật khẩu truy cập nội bộ:</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Mật khẩu:</label>
             <div class="relative">
               <input 
                 :type="showLoginPassword ? 'text' : 'password'" 
                 v-model="loginPassword" 
-                placeholder="Nhập mật khẩu..." 
-                class="w-full rounded-xl border border-slate-300 p-3.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-medium transition">
-              <button type="button" @click="showLoginPassword = !showLoginPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <i :class="showLoginPassword ? 'fa-eye-slash' : 'fa-eye'" class="fa-solid text-sm"></i>
+                placeholder="Nhập mật khẩu truy cập..." 
+                class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-400 pr-10">
+              <button 
+                type="button" 
+                @click="showLoginPassword = !showLoginPassword" 
+                class="absolute right-3 top-3.5 text-slate-400 hover:text-white">
+                <i :class="showLoginPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
               </button>
             </div>
-            <p v-if="loginError" class="text-xs text-rose-600 font-semibold mt-1.5 flex items-center space-x-1">
-              <i class="fa-solid fa-circle-exclamation"></i>
-              <span>{{ loginError }}</span>
-            </p>
+          </div>
+
+          <div v-if="loginError" class="p-3 bg-rose-500/20 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-center space-x-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ loginError }}</span>
           </div>
 
           <button 
             type="submit" 
-            :disabled="isLoggingIn || !loginPassword"
-            class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center space-x-2 text-sm">
+            :disabled="isLoggingIn || !loginPassword" 
+            class="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 font-bold text-sm shadow-lg shadow-blue-500/30 transition disabled:opacity-50 flex items-center justify-center space-x-2">
             <i v-if="isLoggingIn" class="fa-solid fa-circle-notch fa-spin"></i>
-            <i v-else class="fa-solid fa-right-to-bracket"></i>
-            <span>{{ isLoggingIn ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống' }}</span>
+            <span>{{ isLoggingIn ? 'Đang xác thực...' : 'Đăng Nhập' }}</span>
           </button>
         </form>
-
-        <div class="pt-4 border-t border-slate-100 text-center">
-          <p class="text-[11px] text-slate-400">📍 Mạng LAN công ty: <code class="text-slate-700 font-mono font-bold">http://192.168.1.65:8000</code></p>
-        </div>
       </div>
     </div>
 
@@ -94,9 +101,13 @@
             <div>
               <div class="flex items-center space-x-2">
                 <h1 class="text-lg font-bold text-slate-900 leading-tight">Auto Social Poster</h1>
-                <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center space-x-1">
-                  <i class="fa-solid fa-lock text-[8px]"></i>
-                  <span>LAN: 192.168.1.65</span>
+                <span v-if="currentUserRole === 'admin'" class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center space-x-1 shadow-sm">
+                  <i class="fa-solid fa-crown text-[9px] text-amber-600"></i>
+                  <span>Admin</span>
+                </span>
+                <span v-else class="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center space-x-1 shadow-sm">
+                  <i class="fa-solid fa-user-tie text-[9px] text-blue-600"></i>
+                  <span>Nhân viên</span>
                 </span>
               </div>
               <p class="text-xs text-slate-500">Facebook • Instagram • Google Business (ROOTS)</p>
@@ -149,12 +160,15 @@
                 <span>Đăng hàng loạt</span>
               </button>
               <button 
-                @click="activeTab = 'scheduled'; loadScheduledPosts()" 
+                @click="activeTab = 'scheduled'; loadScheduledPosts(); loadPendingPosts()" 
                 :class="activeTab === 'scheduled' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900 font-medium'"
                 class="px-3 py-2 rounded-lg text-xs md:text-sm transition flex items-center space-x-1.5 relative whitespace-nowrap">
                 <i class="fa-solid fa-clock"></i>
                 <span>Hàng đợi</span>
-                <span v-if="scheduledPosts.length > 0" class="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                <span v-if="pendingPosts.length > 0" class="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse" title="Bài chờ duyệt">
+                  {{ pendingPosts.length }}⏳
+                </span>
+                <span v-else-if="scheduledPosts.length > 0" class="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                   {{ scheduledPosts.length }}
                 </span>
               </button>
@@ -166,6 +180,7 @@
                 <span>Lịch sử</span>
               </button>
               <button 
+                v-if="currentUserRole === 'admin'"
                 @click="activeTab = 'settings'" 
                 :class="activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900 font-medium'"
                 class="px-3 py-2 rounded-lg text-xs md:text-sm transition flex items-center space-x-1.5 whitespace-nowrap">
@@ -190,1320 +205,238 @@
               
               <!-- Platform Switcher -->
               <div>
-                <label class="block text-sm font-semibold text-slate-800 mb-2">Đăng lên các nền tảng:</label>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Đăng lên nền tảng:</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <!-- Facebook -->
-                  <label :class="postForm.target_fb ? 'border-blue-500 bg-blue-50/50' : 'border-slate-200 bg-white'" 
-                         class="flex items-center p-3 rounded-xl border-2 cursor-pointer transition">
-                    <input type="checkbox" v-model="postForm.target_fb" class="w-4 h-4 text-blue-600 rounded">
-                    <div class="ml-2 flex items-center space-x-1.5">
-                      <i class="fa-brands fa-facebook text-blue-600 text-lg"></i>
-                      <span class="text-xs font-bold text-slate-900">Facebook</span>
-                    </div>
+                  <label class="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-blue-50/50 transition" :class="{'border-blue-500 bg-blue-50/30 ring-2 ring-blue-500/20': postForm.target_fb}">
+                    <input type="checkbox" v-model="postForm.target_fb" class="rounded text-blue-600 focus:ring-blue-500">
+                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i class="fa-brands fa-facebook text-blue-600 text-sm"></i><span>Facebook</span></span>
                   </label>
-
-                  <!-- Instagram -->
-                  <label :class="postForm.target_ig ? 'border-pink-500 bg-pink-50/50' : 'border-slate-200 bg-white'" 
-                         class="flex items-center p-3 rounded-xl border-2 cursor-pointer transition">
-                    <input type="checkbox" v-model="postForm.target_ig" class="w-4 h-4 text-pink-600 rounded">
-                    <div class="ml-2 flex items-center space-x-1.5">
-                      <i class="fa-brands fa-instagram text-pink-600 text-lg"></i>
-                      <span class="text-xs font-bold text-slate-900">Instagram</span>
-                    </div>
+                  <label class="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-pink-50/50 transition" :class="{'border-pink-500 bg-pink-50/30 ring-2 ring-pink-500/20': postForm.target_ig}">
+                    <input type="checkbox" v-model="postForm.target_ig" class="rounded text-pink-600 focus:ring-pink-500">
+                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i class="fa-brands fa-instagram text-pink-600 text-sm"></i><span>Instagram</span></span>
                   </label>
-
-                  <!-- Story -->
-                  <label :class="postForm.target_story ? 'border-purple-500 bg-purple-50/50' : 'border-slate-200 bg-white'" 
-                         class="flex items-center p-3 rounded-xl border-2 cursor-pointer transition">
-                    <input type="checkbox" v-model="postForm.target_story" class="w-4 h-4 text-purple-600 rounded">
-                    <div class="ml-2 flex items-center space-x-1.5">
-                      <i class="fa-solid fa-circle-play text-purple-600 text-lg"></i>
-                      <span class="text-xs font-bold text-slate-900">Story 9:16</span>
-                    </div>
+                  <label class="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-purple-50/50 transition" :class="{'border-purple-500 bg-purple-50/30 ring-2 ring-purple-500/20': postForm.target_story}">
+                    <input type="checkbox" v-model="postForm.target_story" class="rounded text-purple-600 focus:ring-purple-500">
+                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i class="fa-solid fa-mobile-screen-button text-purple-600 text-sm"></i><span>Story (9:16)</span></span>
                   </label>
-
-                  <!-- Google Business Profile -->
-                  <label :class="postForm.target_google ? 'border-amber-500 bg-amber-50/50' : 'border-slate-200 bg-white'" 
-                         class="flex items-center p-3 rounded-xl border-2 cursor-pointer transition">
-                    <input type="checkbox" v-model="postForm.target_google" class="w-4 h-4 text-amber-600 rounded">
-                    <div class="ml-2 flex items-center space-x-1.5">
-                      <i class="fa-brands fa-google text-amber-600 text-lg"></i>
-                      <div>
-                        <span class="text-xs font-bold text-slate-900 block leading-tight">Google Maps</span>
-                        <span class="text-[9px] text-amber-700 font-semibold">{{ settingsForm.google_location_name || 'ROOTS' }}</span>
-                      </div>
-                    </div>
+                  <label class="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-amber-50/50 transition" :class="{'border-amber-500 bg-amber-50/30 ring-2 ring-amber-500/20': postForm.target_google}">
+                    <input type="checkbox" v-model="postForm.target_google" class="rounded text-amber-600 focus:ring-amber-500">
+                    <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i class="fa-brands fa-google text-amber-600 text-sm"></i><span>Google Maps</span></span>
                   </label>
                 </div>
               </div>
 
-              <!-- Image Uploader -->
-              <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-2">
-                    <label class="block text-sm font-bold text-slate-800">
-                      Hình ảnh bài viết
-                    </label>
-                    <span v-if="postForm.images.length > 0" class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold">
-                      {{ postForm.images.length }} ảnh
-                    </span>
-                  </div>
-                  <div v-if="postForm.images.length > 0" class="flex items-center space-x-2">
-                    <button type="button" @click="openAiModal" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1 rounded-lg font-bold shadow-sm hover:opacity-90 flex items-center space-x-1.5 transition cursor-pointer">
-                      <i class="fa-solid fa-wand-magic-sparkles"></i>
-                      <span>AI Viết Caption</span>
-                    </button>
-                    <button type="button" @click="clearImages" class="text-xs text-rose-600 hover:text-rose-800 font-medium px-2 py-1 transition cursor-pointer">
-                      <i class="fa-solid fa-trash-can mr-1"></i>Xóa tất cả
-                    </button>
-                  </div>
+              <!-- Media Upload / Gallery Selection -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Hình ảnh bài viết:</label>
+                  <button type="button" @click="activeTab = 'media'; loadMediaLibrary()" class="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center space-x-1">
+                    <i class="fa-solid fa-images"></i>
+                    <span>Chọn từ Thư Viện</span>
+                  </button>
                 </div>
 
-                <!-- Dropzone Box -->
                 <div 
-                  @dragover.prevent="isDragging = true"
-                  @dragleave.prevent="isDragging = false"
-                  @drop.prevent="handleDrop"
-                  :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70'"
-                  class="border-2 border-dashed rounded-xl p-4 sm:p-5 text-center cursor-pointer transition"
-                  @click="triggerFileInput">
-                  <input type="file" ref="fileInput" multiple accept="image/*" class="hidden" @change="handleFileSelect">
-                  <div class="flex items-center justify-center space-x-2 text-slate-400 mb-1">
-                    <i class="fa-solid fa-cloud-arrow-up text-2xl text-blue-600"></i>
-                    <span class="text-[11px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Chuẩn Feed Dọc 4:5 (1080x1350)</span>
+                  @dragover.prevent="isDragging = true" 
+                  @dragleave.prevent="isDragging = false" 
+                  @drop.prevent="uploadFilesToLibrary($event); isDragging = false"
+                  :class="{'border-blue-500 bg-blue-50/30': isDragging}"
+                  class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-slate-300 transition cursor-pointer relative">
+                  <input type="file" multiple accept="image/*" @change="uploadFilesToLibrary" class="absolute inset-0 opacity-0 cursor-pointer">
+                  <div class="space-y-2">
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 mx-auto flex items-center justify-center text-slate-400">
+                      <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                    </div>
+                    <p class="text-xs font-bold text-slate-700">Kéo thả ảnh hoặc click để tải lên</p>
+                    <p class="text-[11px] text-slate-400">Hỗ trợ JPG, PNG, WEBP</p>
                   </div>
-                  <p class="text-xs sm:text-sm font-medium text-slate-700">Kéo thả ảnh sản phẩm hoặc <span class="text-blue-600 font-semibold">chọn từ máy tính</span></p>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Tải ảnh chụp tại quầy để thay thế hoặc bổ sung ảnh của tool đề xuất</p>
                 </div>
 
-                <!-- Uploaded Images Grid -->
-                <div v-if="postForm.images.length > 0" class="pt-1">
-                  <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    <div v-for="(img, idx) in postForm.images" :key="idx" class="relative group rounded-xl overflow-hidden aspect-square border-2 border-slate-200 hover:border-blue-500 shadow-sm bg-slate-100 transition">
-                      <img :src="img.startsWith('http') ? img : ('/uploads/' + img)" class="w-full h-full object-cover">
-                      <div class="absolute top-1 left-1 bg-black/70 text-white text-[9px] font-black px-1.5 py-0.5 rounded">#{{ idx + 1 }} • 1:1</div>
-                      <div class="absolute inset-0 bg-slate-900/65 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-2 p-1">
-                        <button type="button" @click.stop="triggerFileInput" class="p-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 shadow cursor-pointer" title="Thay thế ảnh">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
-                        <button type="button" @click.stop="removeImage(idx)" class="p-1.5 bg-rose-600 text-white rounded-lg text-xs hover:bg-rose-700 shadow cursor-pointer" title="Xóa ảnh này">
-                          <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                      </div>
-                    </div>
+                <!-- Selected Images Preview List -->
+                <div v-if="postForm.images.length > 0" class="flex flex-wrap gap-3 mt-4">
+                  <div v-for="(img, idx) in postForm.images" :key="idx" class="relative group w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                    <img :src="img.startsWith('http') ? img : ('/api/media/' + img)" class="w-full h-full object-cover">
+                    <button type="button" @click="postForm.images.splice(idx, 1)" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition shadow">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
                   </div>
                 </div>
               </div>
 
-                            <!-- Caption Editor with Google Business Tab -->
-              <div class="space-y-2">
-                <!-- Mixpost Pattern: Dynamic Variables, Hashtag Groups & Brand Voice Toolbar -->
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-2">
-                  <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
-                      <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
-                      <span>Thẻ biến động:</span>
-                    </span>
-                    <div class="flex items-center space-x-1.5 overflow-x-auto custom-scrollbar">
-                      <button 
-                        type="button" 
-                        v-for="v in dynamicVariables" 
-                        :key="v.key"
-                        @click="insertVariable('{' + v.key + '}')" 
-                        class="px-2 py-0.5 bg-white border border-slate-200 hover:border-purple-400 hover:text-purple-700 rounded-md text-[11px] font-semibold text-slate-600 shadow-2xs transition cursor-pointer whitespace-nowrap"
-                        :title="'Chèn biến ' + v.label">
-                        + {{ v.label }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
-                    <div class="flex items-center space-x-2">
-                      <span class="text-[11px] font-bold text-slate-700"># Hashtag:</span>
-                      <select 
-                        @change="insertHashtagGroup($event.target.value); $event.target.value = ''" 
-                        class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-2 py-1 outline-none font-medium focus:ring-1 focus:ring-purple-500">
-                        <option value="">Chèn nhóm hashtag...</option>
-                        <option v-for="g in hashtagGroups" :key="g.id" :value="g.hashtags">{{ g.name }}</option>
-                      </select>
-                    </div>
-
-                    <div class="flex items-center space-x-1.5">
-                      <span class="text-[11px] font-bold text-slate-700">Mẫu sẵn:</span>
-                      <select 
-                        @change="applyCaptionTemplate($event.target.value); $event.target.value = ''" 
-                        class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-2 py-1 outline-none font-medium focus:ring-1 focus:ring-purple-500">
-                        <option value="">Áp dụng mẫu nội dung...</option>
-                        <option v-for="t in captionTemplates" :key="t.id" :value="t.content">{{ t.name }} ({{ t.brand_voice }})</option>
-                      </select>
-                    </div>
+              <!-- Captions & AI Assistant -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+                    <button type="button" @click="captionTab = 'fb'" :class="captionTab === 'fb' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg text-xs transition">Facebook</button>
+                    <button type="button" @click="captionTab = 'ig'" :class="captionTab === 'ig' ? 'bg-white text-pink-600 font-bold shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg text-xs transition">Instagram</button>
+                    <button type="button" @click="captionTab = 'google'" :class="captionTab === 'google' ? 'bg-white text-amber-600 font-bold shadow-sm' : 'text-slate-600'" class="px-3 py-1 rounded-lg text-xs transition">Google</button>
                   </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-slate-200 mb-3 pb-1 overflow-x-auto">
-                  <div class="flex space-x-3">
-                    <button 
-                      @click="captionTab = 'fb'" 
-                      :class="captionTab === 'fb' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500 font-medium'"
-                      class="pb-2 text-xs sm:text-sm flex items-center space-x-1 transition whitespace-nowrap">
-                      <i class="fa-brands fa-facebook"></i>
-                      <span>Facebook</span>
-                    </button>
-                    <button 
-                      @click="captionTab = 'ig'" 
-                      :class="captionTab === 'ig' ? 'border-b-2 border-pink-600 text-pink-600 font-bold' : 'text-slate-500 font-medium'"
-                      class="pb-2 text-xs sm:text-sm flex items-center space-x-1 transition whitespace-nowrap">
-                      <i class="fa-brands fa-instagram"></i>
-                      <span>Instagram</span>
-                    </button>
-                    <button 
-                      @click="captionTab = 'google'" 
-                      :class="captionTab === 'google' ? 'border-b-2 border-amber-600 text-amber-600 font-bold' : 'text-slate-500 font-medium'"
-                      class="pb-2 text-xs sm:text-sm flex items-center space-x-1 transition whitespace-nowrap">
-                      <i class="fa-brands fa-google"></i>
-                      <span>Google Business</span>
-                    </button>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <button @click="openAiModal" class="text-xs text-purple-600 hover:text-purple-800 font-bold flex items-center space-x-1">
-                      <i class="fa-solid fa-wand-magic-sparkles"></i>
-                      <span>AI Gợi ý</span>
-                    </button>
-                    <button 
-                      v-if="captionTab === 'ig' && postForm.fb_caption" 
-                      @click="copyFbToIg" 
-                      class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1">
-                      <i class="fa-solid fa-copy"></i>
-                      <span>Copy FB</span>
-                    </button>
-                    <button 
-                      v-if="captionTab === 'google' && postForm.fb_caption" 
-                      @click="copyFbToGoogle" 
-                      class="text-xs text-amber-600 hover:text-amber-800 font-medium flex items-center space-x-1">
-                      <i class="fa-solid fa-copy"></i>
-                      <span>Copy FB</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Facebook Caption -->
-                <div v-show="captionTab === 'fb'">
-                  <textarea 
-                    v-model="postForm.fb_caption" 
-                    @input="generateStoryPreview"
-                    rows="5" 
-                    placeholder="Nhập nội dung bài viết Facebook..." 
-                    class="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none custom-scrollbar resize-none"></textarea>
-                  <div class="flex justify-between items-center text-xs text-slate-400 mt-1">
-                    <span>{{ postForm.fb_caption.length }} ký tự</span>
-                    <span>Facebook hỗ trợ link, hashtag, icon tự do</span>
-                  </div>
-                </div>
-
-                <!-- Instagram Caption -->
-                <div v-show="captionTab === 'ig'">
-                  <textarea 
-                    v-model="postForm.ig_caption" 
-                    @input="generateStoryPreview"
-                    rows="5" 
-                    placeholder="Nhập nội dung bài viết Instagram (#hashtags, @mentions)..." 
-                    class="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none custom-scrollbar resize-none"></textarea>
-                  <div class="flex justify-between items-center text-xs text-slate-400 mt-1">
-                    <span>{{ postForm.ig_caption.length }} / 2200 ký tự</span>
-                    <span>Instagram tối ưu với nhiều Hashtag</span>
-                  </div>
-                </div>
-
-                <!-- Google Business Caption & CTA -->
-                <div v-show="captionTab === 'google'" class="space-y-3">
-                  <textarea 
-                    v-model="postForm.google_caption" 
-                    rows="4" 
-                    placeholder="Nhập nội dung bài đăng Google Maps / Google Search (Mô tả sản phẩm, ưu đãi, tin tức cửa hàng)..." 
-                    class="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none custom-scrollbar resize-none"></textarea>
-                  <div class="flex justify-between items-center text-xs text-slate-400">
-                    <span>{{ (postForm.google_caption || postForm.fb_caption).length }} / 1500 ký tự</span>
-                    <span>(Để trống sẽ tự động lấy nội dung từ Facebook)</span>
-                  </div>
-
-                  <!-- Google CTA Button Configuration -->
-                  <div class="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-2">
-                    <label class="block text-xs font-bold text-amber-900 uppercase">Nút Kêu Gọi Hành Động (CTA Button) trên Google:</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <select v-model="postForm.google_action_type" class="bg-white border border-amber-300 rounded-lg p-2 text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500">
-                        <option value="LEARN_MORE">🌐 Tìm hiểu thêm (Learn more)</option>
-                        <option value="ORDER">🛍️ Đặt hàng ngay (Order online)</option>
-                        <option value="BOOK">📅 Đặt lịch hẹn (Book)</option>
-                        <option value="SIGN_UP">✍️ Đăng ký ngay (Sign up)</option>
-                        <option value="CALL">📞 Gọi ngay (Call now)</option>
-                        <option value="NONE">❌ Không gắn nút</option>
-                      </select>
-                      <input 
-                        v-if="postForm.google_action_type !== 'NONE' && postForm.google_action_type !== 'CALL'"
-                        type="url" 
-                        v-model="postForm.google_action_url" 
-                        placeholder="Link website / Fanpage / Menu (https://...)" 
-                        class="bg-white border border-amber-300 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-amber-500">
-                    </div>
-                  </div>
-                </div>
+                <textarea 
+                  v-if="captionTab === 'fb'" 
+                  v-model="postForm.fb_caption" 
+                  placeholder="Nhập nội dung bài viết Facebook..." 
+                  rows="6" 
+                  class="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent custom-scrollbar"></textarea>
+                
+                <textarea 
+                  v-if="captionTab === 'ig'" 
+                  v-model="postForm.ig_caption" 
+                  placeholder="Nhập nội dung bài viết Instagram..." 
+                  rows="6" 
+                  class="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent custom-scrollbar"></textarea>
+                
+                <textarea 
+                  v-if="captionTab === 'google'" 
+                  v-model="postForm.google_caption" 
+                  placeholder="Nhập nội dung cập nhật Google Business Maps..." 
+                  rows="6" 
+                  class="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent custom-scrollbar"></textarea>
               </div>
 
-              <!-- Story Designer Box (When Story is active) -->
-              <div v-show="postForm.target_story" class="p-4 bg-purple-50/60 rounded-2xl border border-purple-200/80 space-y-3">
-                <div class="flex items-center justify-between">
-                  <label class="block text-xs font-black text-purple-900 uppercase flex items-center space-x-1.5">
-                    <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
-                    <span>Tùy biến Thiết kế Story 9:16:</span>
-                  </label>
-                  <div class="flex items-center space-x-2">
-                    <button 
-                      type="button" 
-                      @click="openStoryStudio" 
-                      class="text-[11px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black px-3 py-1 rounded-full shadow-sm shadow-purple-500/30 flex items-center space-x-1 transition-all cursor-pointer">
-                      <i class="fa-solid fa-paintbrush"></i>
-                      <span>Studio Kéo Thả</span>
-                    </button>
-                    <span class="text-[10px] text-purple-700 font-bold bg-purple-100 px-2 py-0.5 rounded-full hidden sm:inline-block">1080x1920</span>
-                  </div>
-                </div>
-
-                <!-- Template Chips -->
-                <div>
-                  <span class="block text-[11px] font-bold text-slate-700 mb-1.5">Chọn mẫu thiết kế (Template):</span>
-                  <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <button 
-                      type="button"
-                      @click="setStoryTemplate('organic')" 
-                      :class="postForm.story_template === 'organic' ? 'bg-emerald-600 text-white font-black ring-4 ring-emerald-300 shadow-md shadow-emerald-500/30' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-emerald-400 font-bold'"
-                      class="p-2 rounded-xl text-xs transition-all text-center flex items-center justify-center space-x-1 cursor-pointer">
-                      <i v-if="postForm.story_template === 'organic'" class="fa-solid fa-circle-check"></i>
-                      <span>🌿 Siêu Thị Hữu Cơ</span>
-                    </button>
-                    <button 
-                      type="button"
-                      @click="setStoryTemplate('juice')" 
-                      :class="postForm.story_template === 'juice' ? 'bg-orange-500 text-white font-black ring-4 ring-orange-300 shadow-md shadow-orange-500/30' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-orange-400 font-bold'"
-                      class="p-2 rounded-xl text-xs transition-all text-center flex items-center justify-center space-x-1 cursor-pointer">
-                      <i v-if="postForm.story_template === 'juice'" class="fa-solid fa-circle-check"></i>
-                      <span>🍹 Juice & Nước Ép</span>
-                    </button>
-                    <button 
-                      type="button"
-                      @click="setStoryTemplate('sale')" 
-                      :class="postForm.story_template === 'sale' ? 'bg-rose-600 text-white font-black ring-4 ring-rose-300 shadow-md shadow-rose-500/30' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-rose-400 font-bold'"
-                      class="p-2 rounded-xl text-xs transition-all text-center flex items-center justify-center space-x-1 cursor-pointer">
-                      <i v-if="postForm.story_template === 'sale'" class="fa-solid fa-circle-check"></i>
-                      <span>🔥 Giờ Vàng Săn Sale</span>
-                    </button>
-                    <button 
-                      type="button"
-                      @click="setStoryTemplate('magazine')" 
-                      :class="postForm.story_template === 'magazine' ? 'bg-slate-800 text-white font-black ring-4 ring-slate-400 shadow-md shadow-slate-700/30' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-slate-400 font-bold'"
-                      class="p-2 rounded-xl text-xs transition-all text-center flex items-center justify-center space-x-1 cursor-pointer">
-                      <i v-if="postForm.story_template === 'magazine'" class="fa-solid fa-circle-check"></i>
-                      <span>✨ Tạp Chí Ẩm Thực</span>
-                    </button>
-                    <button 
-                      type="button"
-                      @click="setStoryTemplate('polaroid')" 
-                      :class="postForm.story_template === 'polaroid' ? 'bg-amber-600 text-white font-black ring-4 ring-amber-300 shadow-md shadow-amber-500/30' : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-amber-400 font-bold'"
-                      class="p-2 rounded-xl text-xs transition-all text-center flex items-center justify-center space-x-1 cursor-pointer">
-                      <i v-if="postForm.story_template === 'polaroid'" class="fa-solid fa-circle-check"></i>
-                      <span>📸 Review Bán Chạy</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Custom Story Hook + AI Hook Button -->
-                <div>
-                  <div class="flex items-center justify-between mb-1">
-                    <label class="block text-[11px] font-bold text-slate-700">Câu Hook nổi bật trên ảnh Story:</label>
-                    <button type="button" @click="generateAiHook" :disabled="isGeneratingAiHook" class="text-[11px] text-purple-600 hover:text-purple-800 font-bold flex items-center space-x-1">
-                      <i v-if="isGeneratingAiHook" class="fa-solid fa-circle-notch fa-spin"></i>
-                      <i v-else class="fa-solid fa-bolt"></i>
-                      <span>AI Viết Hook</span>
-                    </button>
-                  </div>
-                  <input 
-                    type="text" 
-                    v-model="postForm.story_hook" 
-                    @input="generateStoryPreview"
-                    placeholder="VD: 🔥 Măng cụt Bảo Lộc vừa cập bến hôm nay!" 
-                    class="w-full bg-white border border-purple-200 rounded-xl p-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500">
-                </div>
-
-                <!-- Story Link for Facebook Page Story CTA -->
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Link nút bấm tương tác (Facebook Story CTA):</label>
-                  <input 
-                    type="url" 
-                    v-model="postForm.story_link" 
-                    @input="generateStoryPreview"
-                    placeholder="https://roots.vn (Khách xem Story chạm vào sẽ mở link này)" 
-                    class="w-full bg-white border border-purple-200 rounded-xl p-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500">
-                </div>
+              <!-- Submit Button for Staff (Approval Required) -->
+              <div v-if="currentUserRole === 'staff'" class="space-y-2">
+                <button 
+                  @click="submitPost" 
+                  :disabled="isSubmitting"
+                  class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-lg shadow-orange-500/25 transition disabled:opacity-50 flex items-center justify-center space-x-2 text-sm md:text-base cursor-pointer">
+                  <i v-if="isSubmitting" class="fa-solid fa-circle-notch fa-spin"></i>
+                  <i v-else class="fa-solid fa-paper-plane"></i>
+                  <span>{{ isSubmitting ? 'Đang gửi...' : '📤 Gửi Bài Viết Lên Chờ Duyệt (Pending Approval)' }}</span>
+                </button>
+                <p class="text-[11px] text-center text-slate-500 italic">
+                  <i class="fa-solid fa-circle-info text-amber-500 mr-1"></i>
+                  Bài viết sẽ được chuyển vào Hàng đợi để Admin phê duyệt trước khi xuất bản lên Fanpage.
+                </p>
               </div>
 
-              <!-- Schedule / Mode -->
-              <div class="pt-4 border-t border-slate-100">
-                <label class="block text-sm font-semibold text-slate-800 mb-3">Thời gian đăng:</label>
-                <div class="flex space-x-4 mb-4">
-                  <label class="flex items-center space-x-2 cursor-pointer text-sm font-medium">
-                    <input type="radio" value="now" v-model="postForm.action" class="text-blue-600">
-                    <span>⚡ Đăng ngay lập tức</span>
-                  </label>
-                  <label class="flex items-center space-x-2 cursor-pointer text-sm font-medium">
-                    <input type="radio" value="schedule" v-model="postForm.action" class="text-blue-600">
-                    <span>⏰ Lên lịch hẹn giờ</span>
-                  </label>
-                </div>
-
-                <div v-if="postForm.action === 'schedule'" class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <label class="block text-xs font-semibold text-slate-600 mb-1">Chọn ngày và giờ đăng:</label>
-                  <input 
-                    type="datetime-local" 
-                    v-model="postForm.scheduled_time" 
-                    class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-              </div>
-
+              <!-- Submit Button for Admin (Direct Publish or Schedule) -->
               <button 
+                v-else
                 @click="submitPost" 
                 :disabled="isSubmitting"
-                class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center space-x-2">
+                class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer">
                 <i v-if="isSubmitting" class="fa-solid fa-circle-notch fa-spin"></i>
                 <i v-else :class="postForm.action === 'now' ? 'fa-solid fa-paper-plane' : 'fa-solid fa-calendar-check'"></i>
-                <span>{{ isSubmitting ? 'Đang xử lý...' : (postForm.action === 'now' ? 'Đăng lên các kênh đã chọn ngay' : 'Lưu lịch đăng tự động') }}</span>
+                <span>{{ isSubmitting ? 'Đang xử lý...' : (postForm.action === 'now' ? '⚡ Đăng lên các kênh đã chọn ngay' : '⏰ Lưu lịch đăng tự động') }}</span>
               </button>
 
             </div>
           </div>
 
-          <!-- Live Mockup Preview (FB, IG, STORY 9:16 & GOOGLE BUSINESS) -->
+          <!-- Live Mockup Preview -->
           <div class="lg:col-span-5 space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
               <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">Xem trước hiển thị (Live Preview)</h2>
-              <div class="flex bg-slate-200 p-1 rounded-lg text-xs font-semibold overflow-x-auto">
-                <button 
-                  @click="previewPlatform = 'fb'" 
-                  :class="previewPlatform === 'fb' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600'" 
-                  class="px-2 py-1 rounded-md transition whitespace-nowrap">
-                  Facebook
-                </button>
-                <button 
-                  @click="previewPlatform = 'ig'" 
-                  :class="previewPlatform === 'ig' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-600'" 
-                  class="px-2 py-1 rounded-md transition whitespace-nowrap">
-                  Instagram
-                </button>
-                <button 
-                  @click="previewPlatform = 'story'; generateStoryPreview()" 
-                  :class="previewPlatform === 'story' ? 'bg-white text-purple-600 shadow-sm font-bold' : 'text-slate-600'" 
-                  class="px-2 py-1 rounded-md transition whitespace-nowrap">
-                  Story
-                </button>
-                <button 
-                  @click="previewPlatform = 'google'" 
-                  :class="previewPlatform === 'google' ? 'bg-white text-amber-600 shadow-sm font-bold' : 'text-slate-600'" 
-                  class="px-2 py-1 rounded-md transition whitespace-nowrap">
-                  Google
-                </button>
-              </div>
-            </div>
-
-            <!-- 1. Facebook Feed Mockup -->
-            <div v-show="previewPlatform === 'fb'" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden max-h-[600px] overflow-y-auto custom-scrollbar">
-              <div class="p-4 flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-bold">
-                  <img v-if="getFbPic()" :src="getFbPic()" class="w-full h-full object-cover">
-                  <span v-else>{{ (getFbName() || 'FB')[0] }}</span>
-                </div>
-                <div class="flex-1">
-                  <h3 class="text-sm font-bold text-slate-900 leading-none">{{ getFbName() }}</h3>
-                  <p class="text-xs text-slate-400 mt-1 flex items-center space-x-1">
-                    <span>Vừa xong</span>
-                    <span>•</span>
-                    <i class="fa-solid fa-earth-americas text-[10px]"></i>
-                  </p>
-                </div>
-                <button class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-ellipsis"></i></button>
-              </div>
-
-              <div class="px-4 pb-3 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
-                {{ postForm.fb_caption || 'Nội dung bài viết Facebook sẽ hiển thị tại đây...' }}
-              </div>
-
-              <div v-if="postForm.images.length > 0" class="bg-slate-100 relative">
-                <!-- 1 Image: Keep natural uploaded aspect ratio -->
-                <div v-if="postForm.images.length === 1" class="w-full overflow-hidden flex items-center justify-center bg-slate-50 max-h-[520px]">
-                  <img :src="getMediaUrl(postForm.images[0])" class="w-full h-auto max-h-[520px] object-contain">
-                </div>
-                <!-- 2 Images -->
-                <div v-else-if="postForm.images.length === 2" class="grid grid-cols-2 gap-1 aspect-square bg-slate-50">
-                  <img v-for="i in 2" :key="i" :src="getMediaUrl(postForm.images[i-1])" class="w-full h-full object-cover">
-                </div>
-                <!-- 3+ Images -->
-                <div v-else class="grid grid-cols-2 gap-1 aspect-square bg-slate-50">
-                  <div class="row-span-2 overflow-hidden">
-                    <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
-                  </div>
-                  <div class="overflow-hidden">
-                    <img :src="getMediaUrl(postForm.images[1])" class="w-full h-full object-cover">
-                  </div>
-                  <div class="overflow-hidden relative">
-                    <img :src="getMediaUrl(postForm.images[2])" class="w-full h-full object-cover">
-                    <div v-if="postForm.images.length > 3" class="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold">
-                      +{{ postForm.images.length - 2 }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="px-4 py-2 border-t border-slate-100 flex justify-between text-xs text-slate-500 font-semibold">
-                <span class="flex items-center space-x-1.5"><i class="fa-regular fa-thumbs-up"></i> <span>Thích</span></span>
-                <span class="flex items-center space-x-1.5"><i class="fa-regular fa-comment"></i> <span>Bình luận</span></span>
-                <span class="flex items-center space-x-1.5"><i class="fa-regular fa-share-from-square"></i> <span>Chia sẻ</span></span>
-              </div>
-            </div>
-
-            <!-- 2. Instagram Feed Mockup -->
-            <div v-show="previewPlatform === 'ig'" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden max-w-sm mx-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-              <div class="p-3 flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-0.5">
-                  <div class="w-full h-full rounded-full bg-white p-0.5 overflow-hidden flex items-center justify-center">
-                    <img v-if="getIgPic()" :src="getIgPic()" class="w-full h-full object-cover">
-                    <span v-else class="text-xs font-bold text-slate-600">{{ (getIgName() || 'IG')[0] }}</span>
-                  </div>
-                </div>
-                <div class="flex-1">
-                  <h3 class="text-xs font-bold text-slate-900 leading-none">{{ getIgName() }}</h3>
-                </div>
-                <button class="text-slate-400"><i class="fa-solid fa-ellipsis"></i></button>
-              </div>
-
-              <div class="w-full bg-slate-100 relative overflow-hidden flex items-center justify-center min-h-[300px] max-h-[520px]">
-                <template v-if="postForm.images.length > 0">
-                  <img :src="getMediaUrl(postForm.images[currentIgPreviewIdx])" class="w-full h-auto max-h-[520px] object-contain">
-                  <div v-if="postForm.images.length > 1" class="absolute top-2 right-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {{ currentIgPreviewIdx + 1 }}/{{ postForm.images.length }}
-                  </div>
-                  <button v-if="currentIgPreviewIdx > 0" @click="currentIgPreviewIdx--" class="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-6 h-6 flex items-center justify-center shadow text-xs">
-                    <i class="fa-solid fa-chevron-left"></i>
-                  </button>
-                  <button v-if="currentIgPreviewIdx < postForm.images.length - 1" @click="currentIgPreviewIdx++" class="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-6 h-6 flex items-center justify-center shadow text-xs">
-                    <i class="fa-solid fa-chevron-right"></i>
-                  </button>
-                </template>
-                <div v-else class="text-slate-400 text-xs text-center p-4">
-                  <i class="fa-regular fa-image text-3xl mb-1"></i>
-                  <p>Chưa có hình ảnh</p>
-                </div>
-              </div>
-
-              <div class="p-3">
-                <div class="flex justify-between items-center mb-2 text-base">
-                  <div class="flex space-x-4">
-                    <i class="fa-regular fa-heart"></i>
-                    <i class="fa-regular fa-comment"></i>
-                    <i class="fa-regular fa-paper-plane"></i>
-                  </div>
-                  <div v-if="postForm.images.length > 1" class="flex space-x-1">
-                    <div v-for="(img, i) in postForm.images" :key="i" :class="i === currentIgPreviewIdx ? 'bg-blue-600 w-1.5' : 'bg-slate-300 w-1.5'" class="h-1.5 rounded-full"></div>
-                  </div>
-                  <i class="fa-regular fa-bookmark"></i>
-                </div>
-                <div class="text-xs">
-                  <span class="font-bold mr-1">{{ getIgName() }}</span>
-                  <span class="text-slate-800 whitespace-pre-wrap leading-relaxed">{{ postForm.ig_caption || 'Nội dung caption Instagram...' }}</span>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- 3. Story (9:16) Mockup -->
-            <div v-show="previewPlatform === 'story'" class="bg-slate-900 rounded-3xl p-3 shadow-2xl border-4 border-slate-800 max-w-[280px] mx-auto overflow-hidden text-white relative aspect-[9/16] flex flex-col justify-between">
-              <!-- Story Top Header -->
-              <div class="z-20 space-y-2">
-                <div class="w-full bg-white/30 h-1 rounded-full overflow-hidden">
-                  <div class="bg-white h-full w-2/3"></div>
-                </div>
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-7 h-7 rounded-full bg-emerald-600/80 overflow-hidden flex items-center justify-center text-[10px] font-bold text-white shadow">
-                      <img v-if="getBrandPic()" :src="getBrandPic()" @error="$event.target.style.display='none'" class="w-full h-full object-cover">
-                      <span v-else>R</span>
-                    </div>
-                    <div>
-                      <h4 class="text-xs font-bold leading-tight">{{ getBrandName() }}</h4>
-                      <p class="text-[9px] text-white/70">Story • Vừa xong</p>
-                    </div>
-                  </div>
-                  <button class="text-white/80 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-              </div>
-
-              <!-- Generated Story Image Render -->
-              <div v-if="postForm.story_image" class="absolute inset-0 z-10">
-                <img :src="getMediaUrl(postForm.story_image)" class="w-full h-full object-cover">
-              </div>
-              
-              <div v-else class="z-20 text-center p-4 my-auto text-slate-400">
-                <i class="fa-solid fa-circle-play text-4xl mb-2 text-purple-400"></i>
-                <p class="text-xs font-bold text-white">Chưa có ảnh Story</p>
-                <p class="text-[10px] text-slate-400 mt-1">Tải ảnh lên ở cột bên trái để tự động tạo Story 9:16</p>
-              </div>
-
-              <!-- Story Bottom Reply Box -->
-              <div class="z-20 flex items-center space-x-2 pt-2 border-t border-white/10">
-                <div class="flex-1 bg-white/20 rounded-full px-3 py-1.5 text-[10px] text-white/70">Gửi tin nhắn...</div>
-                <button class="text-white text-sm"><i class="fa-regular fa-heart"></i></button>
-                <button class="text-white text-sm"><i class="fa-regular fa-paper-plane"></i></button>
-              </div>
-            </div>
-
-            <!-- Download Story Action Button -->
-            <div v-show="previewPlatform === 'story' && postForm.story_image" class="text-center pt-2">
-              <button 
-                type="button"
-                @click="downloadStoryImage" 
-                class="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold hover:from-purple-700 hover:to-indigo-700 transition shadow-lg shadow-purple-500/20">
-                <i class="fa-solid fa-download"></i>
-                <span>Tải ảnh Story (1080x1920) về máy</span>
-              </button>
-            </div>
-
-            <!-- 4. Google Business Profile Mockup -->
-            <div v-show="previewPlatform === 'google'" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden max-w-sm mx-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-              <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <i class="fa-brands fa-google text-blue-600 text-base"></i>
-                  <span class="text-xs font-bold text-slate-800">Bài đăng trên Google Maps & Search</span>
-                </div>
-                <span class="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded font-bold">Cập nhật</span>
-              </div>
-
-              <div class="p-3 space-y-3">
+              <div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                 <div class="flex items-center space-x-2.5">
-                  <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow">
-                    R
-                  </div>
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xs">R</div>
                   <div>
-                    <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS - Organic Store and Juice Bar' }}</h4>
-                    <p class="text-[10px] text-slate-400">Đăng trên Google • Vừa xong</p>
+                    <h4 class="text-xs font-bold text-slate-900">Siêu Thị Hữu Cơ ROOTS</h4>
+                    <p class="text-[10px] text-slate-400">Vừa xong • 🌐</p>
                   </div>
                 </div>
-
-                <div v-if="postForm.images.length > 0" class="aspect-square bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center">
-                  <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
-                </div>
-
                 <p class="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {{ postForm.google_caption || postForm.fb_caption || 'Nội dung cập nhật hiển thị trên trang Google Business của bạn...' }}
+                  {{ postForm.fb_caption || postForm.ig_caption || postForm.google_caption || 'Nội dung xem trước sẽ hiển thị ở đây...' }}
                 </p>
-
-                <!-- Call to action button -->
-                <div v-if="postForm.google_action_type !== 'NONE'" class="pt-1">
-                  <span class="inline-block px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                    {{ postForm.google_action_type === 'LEARN_MORE' ? 'Tìm hiểu thêm' : (postForm.google_action_type === 'ORDER' ? 'Đặt hàng ngay' : (postForm.google_action_type === 'CALL' ? 'Gọi ngay' : 'Xem chi tiết')) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- TAB: ROOTS PRODUCT CATALOG & 1-CLICK STUDIO -->
-        <div v-show="activeTab === 'roots'" class="space-y-6">
-          <!-- Top Bar: Header, Search & Filter Controls -->
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
-                  <span class="text-2xl">🛍️</span>
-                  <span>Kho Sản Phẩm Trực Tuyến roots.vn</span>
-                </h2>
-                <p class="text-xs text-slate-500 mt-1">Dữ liệu thời gian thực từ roots.vn • Tự động thiết kế Feed & Story • Sinh caption 1-Click</p>
-              </div>
-
-              <!-- Quick Toggles -->
-              <div class="flex items-center space-x-2">
-                <button 
-                  type="button" 
-                  @click="toggleFlashSaleFilter" 
-                  :class="isFlashSaleOnly ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
-                  class="px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition cursor-pointer">
-                  <i class="fa-solid fa-bolt"></i>
-                  <span>🔥 Flash Sale Hôm Nay</span>
-                </button>
-                <button 
-                  type="button" 
-                  @click="loadRootsProducts(1)" 
-                  class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs transition cursor-pointer"
-                  title="Làm mới">
-                  <i class="fa-solid fa-rotate" :class="{'fa-spin': isLoadingRoots}"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="flex flex-col sm:flex-row gap-3 pt-1">
-              <div class="relative flex-1">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input 
-                  type="text" 
-                  v-model="rootsSearchQuery" 
-                  @keyup.enter="loadRootsProducts(1)" 
-                  placeholder="Tìm theo tên sản phẩm, thương hiệu (VD: nước ép, chobani, bánh mì, rau hữu cơ)..." 
-                  class="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
-                <button 
-                  type="button" 
-                  @click="loadRootsProducts(1)" 
-                  class="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer">
-                  Tìm kiếm
-                </button>
-              </div>
-            </div>
-
-            <!-- Aspect Ratio Selector Toolbar -->
-            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-              <div class="flex items-center space-x-1.5 text-xs">
-                <span class="font-bold text-slate-700 flex items-center space-x-1">
-                  <i class="fa-solid fa-crop-simple text-emerald-600"></i>
-                  <span>Tỷ lệ ảnh thiết kế 1-Click:</span>
-                </span>
-              </div>
-              <div class="flex items-center space-x-1.5 overflow-x-auto">
-                <button 
-                  type="button" 
-                  @click="selectedCreativeRatio = '1:1'" 
-                  :class="selectedCreativeRatio === '1:1' ? 'bg-emerald-600 text-white font-bold shadow-sm ring-2 ring-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1">
-                  <span>🔲</span>
-                  <span>1:1 (Vuông Feed)</span>
-                </button>
-                <button 
-                  type="button" 
-                  @click="selectedCreativeRatio = '4:5'" 
-                  :class="selectedCreativeRatio === '4:5' ? 'bg-emerald-600 text-white font-bold shadow-sm ring-2 ring-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1">
-                  <span>📱</span>
-                  <span>4:5 (Dọc Feed)</span>
-                </button>
-                <button 
-                  type="button" 
-                  @click="selectedCreativeRatio = '9:16'" 
-                  :class="selectedCreativeRatio === '9:16' ? 'bg-emerald-600 text-white font-bold shadow-sm ring-2 ring-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1">
-                  <span>🎬</span>
-                  <span>9:16 (Story/Reel)</span>
-                </button>
-                <button 
-                  type="button" 
-                  @click="selectedCreativeRatio = '16:9'" 
-                  :class="selectedCreativeRatio === '16:9' ? 'bg-emerald-600 text-white font-bold shadow-sm ring-2 ring-emerald-300' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1">
-                  <span>💻</span>
-                  <span>16:9 (Banner Ngang)</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Category Pills -->
-            <div class="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar">
-              <button 
-                type="button" 
-                @click="selectRootsCategory('all')" 
-                :class="selectedRootsCategory === 'all' && !isFlashSaleOnly ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                class="px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition cursor-pointer">
-                Tất cả sản phẩm
-              </button>
-              <button 
-                type="button" 
-                v-for="(catData, catName) in rootsCategories" 
-                :key="catName"
-                @click="selectRootsCategory(catName)" 
-                :class="selectedRootsCategory === catName && !isFlashSaleOnly ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                class="px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition cursor-pointer">
-                {{ catName }} ({{ catData.count || 0 }})
-              </button>
-            </div>
-          </div>
-
-          <!-- Product Grid -->
-          <div v-if="isLoadingRoots" class="p-16 text-center bg-white rounded-2xl border border-slate-200">
-            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-600 mb-3"></i>
-            <p class="text-sm font-semibold text-slate-600">Đang tải danh mục sản phẩm từ roots.vn...</p>
-          </div>
-
-          <div v-else-if="rootsProducts.length === 0" class="p-16 text-center bg-white rounded-2xl border border-slate-200">
-            <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-3"></i>
-            <p class="text-sm font-semibold text-slate-600">Không tìm thấy sản phẩm nào phù hợp</p>
-            <button @click="resetRootsFilters" class="mt-3 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 cursor-pointer">
-              Đặt lại bộ lọc
-            </button>
-          </div>
-
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <div 
-              v-for="p in rootsProducts" 
-              :key="p.id || p.MaNoiBo" 
-              class="bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group">
-              
-              <!-- 1:1 Square Thumbnail Container -->
-              <div class="relative aspect-square bg-slate-50 overflow-hidden flex items-center justify-center p-2">
-                <img 
-                  :src="getRootsImageUrl(p.AnhSanPham)" 
-                  :alt="p.TenSanPham"
-                  class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
-                
-                <!-- 1:1 Badge & Brand Tag -->
-                <span class="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-sm text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
-                  {{ p.Brand || 'ROOTS' }}
-                </span>
-
-                <!-- Combo Multi-Select Toggle Button -->
-                <button 
-                  type="button" 
-                  @click.stop="toggleSelectComboProduct(p)" 
-                  :class="isComboProductSelected(p) ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-300' : 'bg-white/95 text-slate-400 hover:text-purple-600 hover:border-purple-400 border-slate-200'"
-                  class="absolute top-2 right-2 w-7 h-7 rounded-xl border flex items-center justify-center text-xs shadow-md transition-all z-10 cursor-pointer" 
-                  :title="isComboProductSelected(p) ? 'Bỏ chọn khỏi combo' : 'Thêm vào combo bài đăng & Prompts AI'">
-                  <i :class="isComboProductSelected(p) ? 'fa-solid fa-check font-bold' : 'fa-solid fa-plus'"></i>
-                </button>
-
-                <!-- Discount Tag if on Sale -->
-                <span 
-                  v-if="hasDiscount(p)" 
-                  class="absolute top-10 right-2 bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-sm">
-                  -{{ calcDiscountPercent(p) }}%
-                </span>
-              </div>
-
-              <!-- Product Info -->
-              <div class="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                <div>
-                  <h3 class="text-xs font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-emerald-700 transition" :title="p.TenSanPham">
-                    {{ p.TenSanPham }}
-                  </h3>
-                  <p class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1">
-                    <span>{{ p.XuatXu ? 'Xuất xứ: ' + p.XuatXu : p.DanhMuc }}</span>
-                  </p>
-                </div>
-
-                <!-- Price Box -->
-                <div class="pt-1">
-                  <div class="flex items-baseline space-x-1.5">
-                    <span class="text-sm font-black text-emerald-700">
-                      {{ formatRootsPrice(p.GiaSauKm) }}
-                    </span>
-                    <span v-if="hasDiscount(p)" class="text-[11px] text-slate-400 line-through">
-                      {{ formatRootsPrice(p.GiaTruocKm) }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Action Button: 1-Click Create Post -->
-                <div class="pt-2 space-y-1.5">
-                  <button 
-                    type="button" 
-                    @click="generatePostFromProduct(p)" 
-                    :disabled="isGeneratingPost"
-                    class="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer">
-                    <i v-if="generatingProductId === (p.id || p.MaNoiBo)" class="fa-solid fa-circle-notch fa-spin"></i>
-                    <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
-                    <span>{{ generatingProductId === (p.id || p.MaNoiBo) ? 'Đang tạo bài...' : (isGeneratingPost ? 'Hệ thống bận...' : 'Tạo Bài 1-Click') }}</span>
-                  </button>
-                  <a 
-                    :href="getRootsProductUrl(p)" 
-                    target="_blank" 
-                    class="block text-center text-[10px] text-slate-400 hover:text-slate-600 font-medium py-0.5">
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px] mr-1"></i>Xem trên roots.vn
-                  </a>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- Pagination -->
-          <div v-if="rootsPagination.total_pages > 1" class="flex justify-center items-center space-x-2 pt-4">
-            <button 
-              type="button" 
-              @click="loadRootsProducts(rootsPagination.current_page - 1)" 
-              :disabled="rootsPagination.current_page <= 1"
-              class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer">
-              <i class="fa-solid fa-chevron-left mr-1"></i> Trang trước
-            </button>
-            <span class="text-xs text-slate-500 font-medium">
-              Trang {{ rootsPagination.current_page }} / {{ rootsPagination.total_pages }} (Tổng {{ rootsPagination.total_items }} sản phẩm)
-            </span>
-            <button 
-              type="button" 
-              @click="loadRootsProducts(rootsPagination.current_page + 1)" 
-              :disabled="rootsPagination.current_page >= rootsPagination.total_pages"
-              class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer">
-              Trang sau <i class="fa-solid fa-chevron-right ml-1"></i>
-            </button>
-          </div>
-        </div>
-
-                <!-- TAB: CONTENT CALENDAR (MIXPOST PATTERN) -->
-        <div v-show="activeTab === 'calendar'" class="space-y-6">
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
-                  <i class="fa-solid fa-calendar-days text-purple-600"></i>
-                  <span>Lịch Đăng Bài Trực Quan (Content Calendar)</span>
-                </h2>
-                <p class="text-xs text-slate-500 mt-1">Tổng hợp chiến dịch truyền thông đa kênh theo tháng • Kéo thả & nhân bản bài viết</p>
-              </div>
-
-              <!-- Month Switcher & Actions -->
-              <div class="flex items-center space-x-2">
-                <button 
-                  type="button" 
-                  @click="changeCalendarMonth(-1)" 
-                  class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs transition cursor-pointer">
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-                <span class="text-sm font-bold text-slate-800 px-2 min-w-[140px] text-center">
-                  {{ formatCalendarMonthHeader(calendarCurrentDate) }}
-                </span>
-                <button 
-                  type="button" 
-                  @click="changeCalendarMonth(1)" 
-                  class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs transition cursor-pointer">
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
-                <button 
-                  type="button" 
-                  @click="calendarCurrentDate = new Date(); loadCalendarEvents()" 
-                  class="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl text-xs font-bold transition cursor-pointer">
-                  Hôm nay
-                </button>
-              </div>
-            </div>
-
-            <!-- Calendar Legend -->
-            <div class="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-              <span class="text-slate-400 font-bold uppercase text-[10px]">Kênh:</span>
-              <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> <span>Facebook</span></span>
-              <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span> <span>Instagram</span></span>
-              <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span> <span>Story 9:16</span></span>
-              <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> <span>Google Maps</span></span>
-            </div>
-
-            <!-- Month Calendar Grid -->
-            <div class="grid grid-cols-7 gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
-              <!-- Weekday Headers -->
-              <div v-for="day in ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật']" :key="day" 
-                   class="bg-slate-100 p-2.5 text-center text-xs font-bold text-slate-700 uppercase">
-                {{ day }}
-              </div>
-
-              <!-- Calendar Days -->
-              <div 
-                v-for="cell in calendarGridCells" 
-                :key="cell.dateStr" 
-                :class="[
-                  cell.isCurrentMonth ? 'bg-white' : 'bg-slate-50/70 text-slate-400',
-                  cell.isToday ? 'ring-2 ring-purple-500 ring-inset' : ''
-                ]"
-                class="min-h-[110px] p-2 flex flex-col justify-between hover:bg-purple-50/30 transition">
-                <div class="flex items-center justify-between mb-1">
-                  <span :class="cell.isToday ? 'bg-purple-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs' : 'text-xs font-bold text-slate-700'">
-                    {{ cell.dayNum }}
-                  </span>
-                  <span v-if="cell.events.length > 0" class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">
-                    {{ cell.events.length }} bài
-                  </span>
-                </div>
-
-                <!-- Event Badges -->
-                <div class="space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
-                  <div 
-                    v-for="ev in cell.events" 
-                    :key="ev.id"
-                    @click="openCalendarEventModal(ev)"
-                    class="p-1 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] leading-tight cursor-pointer transition flex items-center space-x-1">
-                    <span v-if="ev.target_fb" class="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                    <span v-if="ev.target_ig" class="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0"></span>
-                    <span v-if="ev.target_story" class="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0"></span>
-                    <span v-if="ev.target_google" class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-                    <span class="truncate font-semibold text-slate-800">{{ ev.title }}</span>
-                  </div>
+                <div v-if="postForm.images.length > 0" class="rounded-xl overflow-hidden border border-slate-200">
+                  <img :src="postForm.images[0].startsWith('http') ? postForm.images[0] : ('/api/media/' + postForm.images[0])" class="w-full h-48 object-cover">
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- TAB: MEDIA LIBRARY (MIXPOST PATTERN) -->
-        <div v-show="activeTab === 'media'" class="space-y-6">
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
-                  <i class="fa-solid fa-images text-indigo-600"></i>
-                  <span>Thư Viện Hình Ảnh ROOTS (Media Library)</span>
-                </h2>
-                <p class="text-xs text-slate-500 mt-1">Quản lý kho ảnh tập trung • Tự sinh thumbnail nhẹ • Kiểm tra ảnh trùng qua Hash</p>
-              </div>
-
-              <!-- Upload to Library -->
-              <button 
-                type="button" 
-                @click="triggerMediaLibUpload" 
-                class="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-md shadow-indigo-500/20 cursor-pointer">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <span>Tải ảnh vào Thư viện</span>
-              </button>
-              <input type="file" ref="mediaLibFileInput" multiple accept="image/*" class="hidden" @change="handleMediaLibUpload">
-            </div>
-
-            <!-- Search & Tag Pills -->
-            <div class="flex flex-col sm:flex-row gap-3">
-              <div class="relative flex-1">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input 
-                  type="text" 
-                  v-model="mediaSearch" 
-                  @input="loadMediaLibrary" 
-                  placeholder="Tìm kiếm hình ảnh theo tên file..." 
-                  class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-
-              <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                <button 
-                  type="button" 
-                  v-for="tag in mediaTags" 
-                  :key="tag"
-                  @click="selectedMediaTag = tag; loadMediaLibrary()"
-                  :class="selectedMediaTag === tag ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                  class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer">
-                  {{ tag }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Batch Actions Toolbar -->
-            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs">
-              <div class="flex items-center space-x-3">
-                <label class="flex items-center space-x-2 cursor-pointer font-bold text-slate-700 select-none">
-                  <input 
-                    type="checkbox" 
-                    :checked="isAllMediaSelected" 
-                    @change="toggleSelectAllMedia"
-                    class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
-                  <span>Chọn tất cả ({{ mediaLibrary.length }})</span>
-                </label>
-                <span v-if="selectedMediaFiles.length > 0" class="text-indigo-700 bg-indigo-100 font-bold px-2 py-0.5 rounded-full text-[11px]">
-                  Đã chọn: {{ selectedMediaFiles.length }} ảnh
-                </span>
-              </div>
-
-              <div v-if="selectedMediaFiles.length > 0" class="flex items-center space-x-2">
-                <button 
-                  type="button" 
-                  @click="clearSelectedMedia" 
-                  class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer">
-                  Bỏ chọn
-                </button>
-                <button 
-                  type="button" 
-                  @click="deleteSelectedMediaBatch" 
-                  :disabled="isBatchDeleting"
-                  class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm shadow-rose-500/20 cursor-pointer disabled:opacity-50">
-                  <i v-if="isBatchDeleting" class="fa-solid fa-circle-notch fa-spin"></i>
-                  <i v-else class="fa-solid fa-trash-can"></i>
-                  <span>Xóa {{ selectedMediaFiles.length }} ảnh đã chọn</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Media Grid -->
-            <div v-if="isLoadingMedia" class="p-16 text-center">
-              <i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-600 mb-2"></i>
-              <p class="text-xs font-semibold text-slate-500">Đang nạp thư viện ảnh...</p>
-            </div>
-
-            <div v-else-if="mediaLibrary.length === 0" class="p-16 text-center border-2 border-dashed border-slate-200 rounded-2xl">
-              <i class="fa-regular fa-images text-4xl text-slate-300 mb-2"></i>
-              <p class="text-xs font-semibold text-slate-500">Thư viện ảnh đang trống</p>
-              <button @click="triggerMediaLibUpload" class="mt-3 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 cursor-pointer">
-                Tải ảnh lên ngay
-              </button>
-            </div>
-
-            <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div 
-                v-for="item in mediaLibrary" 
-                :key="item.filename" 
-                :class="{
-                  'ring-2 ring-indigo-600 border-indigo-600 bg-indigo-50/20': selectedMediaFiles.includes(item.filename),
-                  'border-slate-200 hover:border-indigo-400 hover:shadow-md': !selectedMediaFiles.includes(item.filename)
-                }"
-                class="group bg-white rounded-xl border overflow-hidden shadow-xs transition flex flex-col justify-between relative">
-                
-                <!-- Selection Checkbox on Card -->
-                <div class="absolute top-2 left-2 z-10">
-                  <input 
-                    type="checkbox" 
-                    :checked="selectedMediaFiles.includes(item.filename)"
-                    @change="toggleSelectMedia(item.filename)"
-                    class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer shadow">
-                </div>
-
-                <div class="aspect-square bg-slate-100 relative overflow-hidden flex items-center justify-center">
-                  <img :src="'/api/media/thumbnail/' + item.filename" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
-                  <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-1.5 p-1">
-                    <button 
-                      type="button" 
-                      @click="selectMediaForPost(item.filename)" 
-                      class="px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-bold hover:bg-indigo-700 shadow cursor-pointer"
-                      title="Chọn để soạn bài">
-                      <i class="fa-solid fa-plus mr-0.5"></i> Chọn
-                    </button>
-                    <button 
-                      type="button" 
-                      @click="deleteMediaLibraryFile(item.filename)" 
-                      class="p-1 bg-rose-600 text-white rounded text-[10px] hover:bg-rose-700 shadow cursor-pointer"
-                      title="Xóa">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                </div>
-                <div class="p-2">
-                  <p class="text-[11px] font-bold text-slate-800 truncate" :title="item.original_name || item.filename">{{ item.original_name || item.filename }}</p>
-                  <p class="text-[9px] text-slate-400 mt-0.5">{{ item.width }}x{{ item.height }} • {{ Math.round((item.file_size || 0)/1024) }} KB</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: TEMPLATES & HASHTAGS (MIXPOST PATTERN) -->
-        <div v-show="activeTab === 'templates'" class="space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- 1. Hashtag Groups -->
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
-                  <i class="fa-solid fa-hashtag text-purple-600"></i>
-                  <span>Nhóm Hashtag Lưu Sẵn</span>
-                </h3>
-                <span class="text-xs bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-full">{{ hashtagGroups.length }} nhóm</span>
-              </div>
-
-              <!-- Create Hashtag Group Form -->
-              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                <input 
-                  type="text" 
-                  v-model="newHashtagGroup.name" 
-                  placeholder="Tên nhóm (VD: 🌿 Nước Ép Detox)..." 
-                  class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-semibold">
-                <textarea 
-                  v-model="newHashtagGroup.hashtags" 
-                  placeholder="Danh sách hashtag (VD: #ROOTS #OrganicJuice #HealthyLiving)..." 
-                  rows="2" 
-                  class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium"></textarea>
-                <button 
-                  type="button" 
-                  @click="saveNewHashtagGroup" 
-                  :disabled="!newHashtagGroup.name || !newHashtagGroup.hashtags"
-                  class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer">
-                  + Lưu Nhóm Hashtag
-                </button>
-              </div>
-
-              <!-- Hashtag Groups List -->
-              <div class="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                <div v-for="g in hashtagGroups" :key="g.id" class="p-3 bg-white border border-slate-200 rounded-xl flex items-start justify-between hover:border-purple-300 transition">
-                  <div>
-                    <h4 class="text-xs font-bold text-slate-900">{{ g.name }}</h4>
-                    <p class="text-[11px] text-purple-700 font-medium mt-1 leading-relaxed">{{ g.hashtags }}</p>
-                  </div>
-                  <button @click="deleteHashtagGroupItem(g.id)" class="text-slate-400 hover:text-rose-600 p-1 text-xs cursor-pointer">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. Caption Templates -->
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
-                  <i class="fa-solid fa-file-lines text-amber-600"></i>
-                  <span>Mẫu Nội Dung (Caption Templates)</span>
-                </h3>
-                <span class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">{{ captionTemplates.length }} mẫu</span>
-              </div>
-
-              <!-- Create Template Form -->
-              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                <div class="grid grid-cols-2 gap-2">
-                  <input 
-                    type="text" 
-                    v-model="newTemplate.name" 
-                    placeholder="Tên mẫu (VD: Bán hàng thuyết phục)..." 
-                    class="p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-semibold">
-                  <select 
-                    v-model="newTemplate.brand_voice" 
-                    class="p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium">
-                    <option value="Bán hàng">Giọng văn: Bán hàng</option>
-                    <option value="Chuyên gia">Giọng văn: Chuyên gia</option>
-                    <option value="Thân thiện">Giọng văn: Thân thiện</option>
-                    <option value="Gen Z">Giọng văn: Gen Z / Viral</option>
-                  </select>
-                </div>
-                <textarea 
-                  v-model="newTemplate.content" 
-                  placeholder="Nội dung mẫu với các biến: {product_name}, {brand}, {price}, {discount}, {product_url}..." 
-                  rows="3" 
-                  class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium"></textarea>
-                <button 
-                  type="button" 
-                  @click="saveNewCaptionTemplate" 
-                  :disabled="!newTemplate.name || !newTemplate.content"
-                  class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer">
-                  + Lưu Mẫu Nội Dung
-                </button>
-              </div>
-
-              <!-- Templates List -->
-              <div class="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                <div v-for="t in captionTemplates" :key="t.id" class="p-3 bg-white border border-slate-200 rounded-xl flex items-start justify-between hover:border-amber-300 transition">
-                  <div class="flex-1 pr-2">
-                    <div class="flex items-center space-x-2">
-                      <h4 class="text-xs font-bold text-slate-900">{{ t.name }}</h4>
-                      <span class="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.2 rounded">{{ t.brand_voice }}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-600 font-normal mt-1 whitespace-pre-wrap leading-relaxed line-clamp-3">{{ t.content }}</p>
-                  </div>
-                  <button @click="deleteCaptionTemplateItem(t.id)" class="text-slate-400 hover:text-rose-600 p-1 text-xs cursor-pointer">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 2: BULK UPLOAD EXCEL / CSV -->
-        <div v-show="activeTab === 'bulk'" class="space-y-6">
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                  <i class="fa-solid fa-file-excel text-emerald-600"></i>
-                  <span>Lên Lịch Đăng Bài Hàng Loạt Bằng Excel / CSV</span>
-                </h2>
-                <p class="text-xs text-slate-500 mt-1">Chuẩn bị nội dung cả tháng trong file Excel và nhập vào hệ thống chỉ với 1 cú click.</p>
-              </div>
-              <button @click="downloadTemplate" class="inline-flex items-center space-x-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
-                <i class="fa-solid fa-download"></i>
-                <span>Tải File Excel Mẫu (.xlsx)</span>
-              </button>
-            </div>
-
-            <!-- Upload Area -->
-            <div 
-              @dragover.prevent="isDraggingBulk = true"
-              @dragleave.prevent="isDraggingBulk = false"
-              @drop.prevent="handleBulkDrop"
-              :class="isDraggingBulk ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100/70'"
-              class="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition"
-              @click="$refs.bulkFileInput.click()">
-              <input type="file" ref="bulkFileInput" accept=".xlsx,.xls,.csv" class="hidden" @change="handleBulkFileSelect">
-              <i class="fa-solid fa-cloud-arrow-up text-4xl text-emerald-600 mb-2"></i>
-              <p class="text-sm font-bold text-slate-800">Kéo thả file Excel / CSV vào đây hoặc <span class="text-emerald-600 underline">chọn từ máy tính</span></p>
-              <p class="text-xs text-slate-400 mt-1">Hỗ trợ định dạng .xlsx, .xls, .csv</p>
-            </div>
-
-            <!-- Preview Table -->
-            <div v-if="bulkPreviewPosts.length > 0" class="space-y-4 pt-4 border-t border-slate-100">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2">
-                  <span>Danh sách xem trước:</span>
-                  <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full">{{ bulkPreviewPosts.length }} bài viết</span>
-                </h3>
-                <button @click="bulkPreviewPosts = []" class="text-xs text-rose-600 hover:underline">Hủy danh sách</button>
-              </div>
-
-              <div class="border border-slate-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto custom-scrollbar">
-                <table class="w-full text-left text-xs text-slate-600">
-                  <thead class="bg-slate-100 sticky top-0 text-slate-700 font-bold border-b">
-                    <tr>
-                      <th class="p-3 w-10 text-center">#</th>
-                      <th class="p-3">Chiến dịch</th>
-                      <th class="p-3">Thời gian</th>
-                      <th class="p-3">Kênh đăng</th>
-                      <th class="p-3">Ảnh</th>
-                      <th class="p-3">Nút Google</th>
-                      <th class="p-3">FB Caption</th>
-                      <th class="p-3">IG Caption</th>
-                      <th class="p-3">Google Caption</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    <tr v-for="(p, idx) in bulkPreviewPosts" :key="idx" class="hover:bg-slate-50">
-                      <td class="p-3 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
-                      <td class="p-3 font-semibold text-slate-900 whitespace-nowrap">{{ p.title || '(Chưa đặt)' }}</td>
-                      <td class="p-3 font-semibold text-blue-700 whitespace-nowrap">{{ formatDateTime(p.scheduled_time) }}</td>
-                      <td class="p-3 whitespace-nowrap space-x-1.5">
-                        <span v-if="p.target_fb" class="text-blue-600" title="Facebook"><i class="fa-brands fa-facebook"></i></span>
-                        <span v-if="p.target_ig" class="text-pink-600" title="Instagram"><i class="fa-brands fa-instagram"></i></span>
-                        <span v-if="p.target_story" class="bg-purple-100 text-purple-800 text-[10px] px-1 py-0.5 rounded font-bold" title="Story">Story</span>
-                        <span v-if="p.target_google" class="text-amber-600" title="Google Maps"><i class="fa-brands fa-google"></i></span>
-                      </td>
-                      <td class="p-3 whitespace-nowrap">
-                        <span v-if="p.images && p.images.length > 0" class="bg-slate-100 px-2 py-0.5 rounded font-mono">{{ p.images.length }} ảnh</span>
-                        <span v-else class="text-slate-400">Không có</span>
-                      </td>
-                      <td class="p-3 whitespace-nowrap">
-                        <span v-if="p.target_google && p.google_action_type && p.google_action_type !== 'NONE'" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold">
-                          {{ p.google_action_type }}
-                        </span>
-                        <span v-else class="text-slate-400">-</span>
-                      </td>
-                      <td class="p-3 max-w-[200px] truncate" :title="p.fb_caption">{{ p.fb_caption || '-' }}</td>
-                      <td class="p-3 max-w-[180px] truncate" :title="p.ig_caption">{{ p.ig_caption || '-' }}</td>
-                      <td class="p-3 max-w-[180px] truncate" :title="p.google_caption">{{ p.google_caption || '-' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <button 
-                @click="submitBulkImport" 
-                :disabled="isImportingBulk"
-                class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 text-sm disabled:opacity-50">
-                <i v-if="isImportingBulk" class="fa-solid fa-circle-notch fa-spin"></i>
-                <i v-else class="fa-solid fa-calendar-check"></i>
-                <span>{{ isImportingBulk ? 'Đang lên lịch...' : `Xác nhận & Lên lịch toàn bộ (${bulkPreviewPosts.length} bài viết)` }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 3: SCHEDULED POSTS -->
+        <!-- TAB 3: SCHEDULED POSTS & APPROVAL QUEUE -->
         <div v-show="activeTab === 'scheduled'" class="space-y-6">
+          
+          <!-- 1. PENDING APPROVAL QUEUE (CHỜ DUYỆT) -->
+          <div v-if="pendingPosts.length > 0" class="bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 rounded-2xl p-6 border-2 border-amber-300 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-3">
+              <div class="flex items-center space-x-3">
+                <span class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shadow-md shadow-amber-500/30">
+                  <i class="fa-solid fa-hourglass-half"></i>
+                </span>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Hàng Đợi Chờ Phê Duyệt (Pending Approval)</h3>
+                  <p class="text-xs text-slate-600">Bài viết do Nhân viên gửi lên đang chờ Admin kiểm duyệt trước khi xuất bản</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="px-3 py-1 rounded-full bg-amber-200 text-amber-900 font-bold text-xs">
+                  {{ pendingPosts.length }} bài chờ duyệt
+                </span>
+                <button @click="loadPendingPosts" class="text-xs text-amber-800 hover:text-amber-950 font-bold p-1 rounded hover:bg-amber-100 transition">
+                  <i class="fa-solid fa-rotate-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div v-for="post in pendingPosts" :key="post.id" class="bg-white rounded-xl p-4 border border-amber-200 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition">
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold flex items-center space-x-1">
+                      <i class="fa-solid fa-clock text-[10px]"></i>
+                      <span>#{{ post.id }} • Chờ duyệt</span>
+                    </span>
+                    <span class="text-slate-400 text-[11px] font-medium">{{ post.created_at ? new Date(post.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '' }}</span>
+                  </div>
+
+                  <div class="flex items-center space-x-1.5 text-xs text-slate-500">
+                    <span v-if="post.target_fb" class="text-blue-600" title="Facebook"><i class="fa-brands fa-facebook"></i></span>
+                    <span v-if="post.target_ig" class="text-pink-600" title="Instagram"><i class="fa-brands fa-instagram"></i></span>
+                    <span v-if="post.target_google" class="text-amber-600" title="Google"><i class="fa-brands fa-google"></i></span>
+                    <span v-if="post.target_story" class="bg-purple-100 text-purple-800 text-[9px] px-1 py-0.2 rounded font-bold">Story</span>
+                    <span v-if="post.scheduled_time" class="text-[10px] text-blue-600 font-semibold ml-auto">
+                      <i class="fa-solid fa-calendar-clock"></i> {{ formatDateTime(post.scheduled_time) }}
+                    </span>
+                  </div>
+
+                  <p class="text-xs text-slate-700 font-medium line-clamp-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    {{ post.fb_caption || post.ig_caption || post.google_caption || 'Chưa có caption' }}
+                  </p>
+
+                  <div v-if="post.images && post.images.length > 0" class="flex space-x-1.5 overflow-x-auto py-1 custom-scrollbar">
+                    <img v-for="(img, idx) in post.images" :key="idx" :src="img.startsWith('http') ? img : ('/api/media/' + img)" class="w-12 h-12 object-cover rounded-lg border border-slate-200 flex-shrink-0">
+                  </div>
+                </div>
+
+                <!-- Action Buttons: Admin gets full approve/reject, Staff gets status badge -->
+                <div v-if="currentUserRole === 'admin'" class="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                  <button @click="approvePost(post.id, 'publish_now')" class="flex-1 py-2 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Duyệt & Đăng</span>
+                  </button>
+                  <button v-if="post.scheduled_time" @click="approvePost(post.id, 'keep_schedule')" class="py-2 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition flex items-center justify-center space-x-1 cursor-pointer" title="Duyệt theo lịch hẹn">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Duyệt Lịch</span>
+                  </button>
+                  <button @click="rejectPost(post.id)" class="py-2 px-2.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition flex items-center justify-center space-x-1 cursor-pointer" title="Từ chối bài">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>Từ chối</span>
+                  </button>
+                </div>
+                <div v-else class="text-[11px] text-amber-700 font-semibold text-center italic py-1 bg-amber-50 rounded-lg">
+                  ⏳ Đang chờ Admin xem xét và phê duyệt
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between">
             <h2 class="text-xl font-bold text-slate-900">Danh sách bài viết đã lên lịch</h2>
-            <button @click="loadScheduledPosts" class="text-sm text-blue-600 hover:underline font-medium flex items-center space-x-1">
+            <button @click="loadScheduledPosts(); loadPendingPosts()" class="text-sm text-blue-600 hover:underline font-medium flex items-center space-x-1">
               <i class="fa-solid fa-arrows-rotate"></i>
               <span>Làm mới</span>
             </button>
           </div>
 
-          <div v-if="scheduledPosts.length === 0" class="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
+          <div v-if="scheduledPosts.length === 0 && pendingPosts.length === 0" class="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
             <i class="fa-solid fa-calendar-xmark text-4xl text-slate-300 mb-3"></i>
-            <h3 class="text-base font-bold text-slate-700">Chưa có bài viết nào được lên lịch</h3>
-            <p class="text-sm text-slate-400 mt-1">Hãy chuyển sang tab "Tạo bài viết" hoặc "Đăng hàng loạt".</p>
+            <h3 class="text-base font-bold text-slate-700">Chưa có bài viết nào trong Hàng đợi</h3>
+            <p class="text-sm text-slate-400 mt-1">Hãy chuyển sang tab "Tạo bài viết" hoặc "Kho ROOTS".</p>
           </div>
 
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1514,940 +447,29 @@
                     <i class="fa-solid fa-clock"></i>
                     <span>{{ formatDateTime(post.scheduled_time) }}</span>
                   </span>
-                  <div class="flex items-center space-x-2">
-                    <span v-if="post.target_fb" class="text-blue-600 text-sm" title="Facebook"><i class="fa-brands fa-facebook"></i></span>
-                    <span v-if="post.target_ig" class="text-pink-600 text-sm" title="Instagram"><i class="fa-brands fa-instagram"></i></span>
-                    <span v-if="post.target_google" class="text-amber-600 text-sm" title="Google Business"><i class="fa-brands fa-google"></i></span>
-                    <span v-if="post.target_story" class="bg-purple-100 text-purple-800 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Kèm Story">Story</span>
-                  </div>
                 </div>
-
-                <div v-if="post.images && post.images.length > 0" class="p-4 bg-slate-50 flex space-x-2 overflow-x-auto custom-scrollbar">
-                  <img v-for="(img, idx) in post.images" :key="idx" :src="img.startsWith('http') ? img : ('/api/media/' + img)" class="w-16 h-16 rounded-lg object-cover border border-slate-200 flex-shrink-0">
-                </div>
-
                 <div class="p-4 space-y-2 text-sm">
                   <div v-if="post.fb_caption" class="text-xs text-slate-600">
                     <span class="font-bold text-blue-600">FB:</span> {{ truncate(post.fb_caption, 70) }}
                   </div>
-                  <div v-if="post.ig_caption" class="text-xs text-slate-600">
-                    <span class="font-bold text-pink-600">IG:</span> {{ truncate(post.ig_caption, 70) }}
-                  </div>
-                  <div v-if="post.google_caption" class="text-xs text-slate-600">
-                    <span class="font-bold text-amber-600">Google:</span> {{ truncate(post.google_caption, 70) }}
-                  </div>
                 </div>
               </div>
-
-              <div class="p-4 border-t border-slate-100 flex space-x-2">
-                <button @click="publishNow(post.id)" class="flex-1 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition">
-                  <i class="fa-solid fa-bolt mr-1"></i> Đăng ngay
-                </button>
-                <button @click="deletePostItem(post.id)" class="px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold transition">
-                  <i class="fa-solid fa-trash"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 4: HISTORY -->
-        <div v-show="activeTab === 'history'" class="space-y-6">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-slate-900">Lịch sử đăng bài đa nền tảng</h2>
-            <button @click="loadHistoryPosts" class="text-sm text-blue-600 hover:underline font-medium flex items-center space-x-1">
-              <i class="fa-solid fa-arrows-rotate"></i>
-              <span>Làm mới</span>
-            </button>
-          </div>
-
-          <div v-if="historyPosts.length === 0" class="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
-            <i class="fa-solid fa-file-lines text-4xl text-slate-300 mb-3"></i>
-            <h3 class="text-base font-bold text-slate-700">Chưa có lịch sử đăng bài</h3>
-            <p class="text-sm text-slate-400 mt-1">Các bài viết sau khi đăng ngay hoặc đến giờ hẹn sẽ hiển thị tại đây.</p>
-          </div>
-
-          <div v-else class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm text-slate-600">
-                <thead class="bg-slate-50 text-xs uppercase text-slate-400 border-b border-slate-200">
-                  <tr>
-                    <th class="px-4 py-3 font-semibold">Thời gian</th>
-                    <th class="px-4 py-3 font-semibold">Ảnh</th>
-                    <th class="px-4 py-3 font-semibold">Nội dung</th>
-                    <th class="px-4 py-3 font-semibold">Nền tảng</th>
-                    <th class="px-4 py-3 font-semibold">Trạng thái</th>
-                    <th class="px-4 py-3 font-semibold">Liên kết</th>
-                    <th class="px-4 py-3 font-semibold text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <tr v-for="post in historyPosts" :key="post.id" class="hover:bg-slate-50/70 transition">
-                    <td class="px-4 py-3 whitespace-nowrap text-xs text-slate-500 font-medium">
-                      {{ formatDateTime(post.published_at || post.created_at) }}
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="flex -space-x-2 overflow-hidden">
-                        <img v-for="(img, idx) in (post.images || []).slice(0, 3)" :key="idx" :src="img.startsWith('http') ? img : ('/api/media/' + img)" class="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover">
-                        <div v-if="(post.images || []).length > 3" class="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white bg-slate-200 text-[10px] font-bold text-slate-600">
-                          +{{ post.images.length - 3 }}
-                        </div>
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 max-w-xs truncate text-xs text-slate-700">
-                      {{ post.fb_caption || post.ig_caption || post.google_caption || '(Không có text)' }}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-xs">
-                      <div class="flex items-center space-x-1.5">
-                        <span v-if="post.target_fb" class="text-blue-600" title="FB"><i class="fa-brands fa-facebook"></i></span>
-                        <span v-if="post.target_ig" class="text-pink-600" title="IG"><i class="fa-brands fa-instagram"></i></span>
-                        <span v-if="post.target_google" class="text-amber-600" title="Google"><i class="fa-brands fa-google"></i></span>
-                        <span v-if="post.target_story" class="bg-purple-100 text-purple-800 text-[10px] px-1.5 py-0.5 rounded font-bold">Story</span>
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <span v-if="post.status === 'success'" class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1 w-max">
-                        <i class="fa-solid fa-check text-[10px]"></i> <span>Thành công</span>
-                      </span>
-                      <span v-else-if="post.status === 'partial_failed'" class="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1 w-max">
-                        <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> <span>Một phần lỗi</span>
-                      </span>
-                      <span v-else-if="post.status === 'publishing'" class="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1 w-max">
-                        <i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Đang đăng...</span>
-                      </span>
-                      <span v-else class="bg-rose-100 text-rose-800 text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1 w-max">
-                        <i class="fa-solid fa-xmark text-[10px]"></i> <span>Thất bại</span>
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-xs space-x-2">
-                      <a v-if="post.fb_post_id" :href="'https://facebook.com/' + post.fb_post_id" target="_blank" class="text-blue-600 hover:underline font-semibold">FB</a>
-                      <a v-if="post.ig_post_id" href="https://instagram.com" target="_blank" class="text-pink-600 hover:underline font-semibold">IG</a>
-                      <a v-if="post.google_post_id" href="https://google.com" target="_blank" class="text-amber-600 hover:underline font-semibold">Google</a>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-right text-xs">
-                      <button v-if="post.error_log" @click="showErrorModal(post.error_log)" class="text-amber-600 hover:text-amber-800 font-bold mr-3">
-                        <i class="fa-solid fa-bug"></i> Chi tiết lỗi
-                      </button>
-                      <button @click="deletePostItem(post.id)" class="text-rose-500 hover:text-rose-700">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 5: SETTINGS -->
-        <div v-show="activeTab === 'settings'" class="max-w-2xl mx-auto space-y-6">
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
-            <div class="border-b border-slate-100 pb-4">
-              <h2 class="text-lg font-bold text-slate-900">Cài đặt API Meta, Google & AI</h2>
-              <p class="text-xs text-slate-500 mt-1">Cấu hình kết nối Facebook Page, Instagram, Google Business Profile và Gemini AI.</p>
-            </div>
-
-            <!-- Status Overview -->
-            <div class="p-4 rounded-xl border bg-slate-50 space-y-3">
-              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Trạng thái kết nối các kênh</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <!-- FB Status -->
-                <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center space-x-2.5">
-                  <i :class="(metaStatus && metaStatus.facebook && metaStatus.facebook.connected) ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-rose-500'" class="fa-solid text-lg"></i>
-                  <div>
-                    <p class="font-bold text-slate-900 truncate">{{ (metaStatus && metaStatus.facebook && metaStatus.facebook.connected) ? metaStatus.facebook.page_name : 'FB: Chưa kết nối' }}</p>
-                    <p class="text-[10px] text-slate-400">Page ID: {{ (metaStatus && metaStatus.facebook && metaStatus.facebook.page_id) || '---' }}</p>
-                  </div>
-                </div>
-                <!-- IG Status -->
-                <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center space-x-2.5">
-                  <i :class="(metaStatus && metaStatus.instagram && metaStatus.instagram.connected) ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-rose-500'" class="fa-solid text-lg"></i>
-                  <div>
-                    <p class="font-bold text-slate-900 truncate">{{ (metaStatus && metaStatus.instagram && metaStatus.instagram.connected) ? '@' + metaStatus.instagram.username : 'IG: Chưa kết nối' }}</p>
-                    <p class="text-[10px] text-slate-400">IG ID: {{ (metaStatus && metaStatus.instagram && metaStatus.instagram.account_id) || '---' }}</p>
-                  </div>
-                </div>
-                <!-- Google Status -->
-                <div class="p-3 rounded-lg bg-white border border-slate-200 flex items-center space-x-2.5">
-                  <i :class="settingsForm.google_connected ? 'fa-circle-check text-emerald-600' : 'fa-circle-xmark text-amber-500'" class="fa-solid text-lg"></i>
-                  <div>
-                    <p class="font-bold text-slate-900 truncate">{{ settingsForm.google_connected ? (settingsForm.google_location_name || 'ROOTS') : 'Google: Chưa kết nối' }}</p>
-                    <p class="text-[10px] text-slate-400">{{ settingsForm.google_connected ? 'Đã liên kết OAuth' : 'Chưa liên kết' }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Meta API Settings -->
-            <div class="space-y-4">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Facebook Page ID:</label>
-                <input type="text" v-model="settingsForm.fb_page_id" placeholder="Ví dụ: 100234567890123" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Facebook Page Access Token:</label>
-                <div class="relative">
-                  <input :type="showToken ? 'text' : 'password'" v-model="settingsForm.fb_page_access_token" placeholder="Dán chuỗi Access Token vào đây (EAAQ...)" class="w-full border border-slate-300 rounded-xl p-3 text-sm pr-10 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs">
-                  <button @click="showToken = !showToken" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm">
-                    <i :class="showToken ? 'fa-eye-slash' : 'fa-eye'" class="fa-solid"></i>
-                  </button>
-                </div>
-
-                <!-- Permanent Token Auto-Converter Tool -->
-                <div class="mt-2.5 p-3.5 bg-gradient-to-br from-indigo-50/70 to-blue-50/70 rounded-xl border border-indigo-200/80 space-y-3">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-black text-indigo-900 uppercase flex items-center space-x-1.5">
-                      <i class="fa-solid fa-bolt text-indigo-600"></i>
-                      <span>Công cụ Đổi Token Vĩnh Viễn (Never Expire):</span>
-                    </span>
-                    <a href="https://developers.facebook.com/apps/2039281703363967/settings/basic/" target="_blank" class="text-[11px] text-indigo-600 hover:underline font-bold">
-                      Lấy App Secret tại đây ↗
-                    </a>
-                  </div>
-                  
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label class="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">App ID:</label>
-                      <input type="text" v-model="metaExchange.app_id" placeholder="2039281703363967" class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                      <label class="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">App Secret (Mã bí mật):</label>
-                      <input type="password" v-model="metaExchange.app_secret" placeholder="Nhập App Secret..." class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                  </div>
-
-                  <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Dán Token tạm thời (1 giờ) vừa tạo vào đây:</label>
-                    <input type="text" v-model="metaExchange.short_token" placeholder="Dán chuỗi token từ Graph API Explorer vào..." class="w-full bg-white border border-indigo-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500">
-                  </div>
-
-                  <button 
-                    type="button"
-                    @click="convertPermanentToken" 
-                    :disabled="isConvertingToken || !metaExchange.short_token || !metaExchange.app_secret"
-                    class="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow disabled:opacity-50 cursor-pointer">
-                    <i v-if="isConvertingToken" class="fa-solid fa-circle-notch fa-spin"></i>
-                    <i v-else class="fa-solid fa-key"></i>
-                    <span>{{ isConvertingToken ? 'Đang kích hoạt vĩnh viễn...' : '🚀 Kích hoạt & Lưu Token Vĩnh Viễn Tự Động' }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Instagram Business Account ID:</label>
-                <input type="text" v-model="settingsForm.ig_business_account_id" placeholder="Ví dụ: 17841400000000000" class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              </div>
-
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <label class="block text-xs font-bold text-slate-700 uppercase">ImgBB API Key (Tự động upload ảnh công khai):</label>
-                  <a href="https://api.imgbb.com/" target="_blank" class="text-[11px] text-blue-600 hover:underline">Lấy key miễn phí</a>
-                </div>
-                <input type="text" v-model="settingsForm.imgbb_api_key" placeholder="Dán ImgBB API Key vào đây..." class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs">
-              </div>
-
-              <!-- Google Business Profile Settings -->
-              <div class="pt-4 border-t border-slate-100 space-y-3 bg-amber-50/40 p-4 rounded-2xl border border-amber-200/60">
-                <div class="flex items-center justify-between">
-                  <label class="block text-xs font-black text-amber-900 uppercase flex items-center space-x-1.5">
-                    <i class="fa-brands fa-google text-amber-600 text-sm"></i>
-                    <span>Cấu hình Google Business Profile (ROOTS):</span>
-                  </label>
-                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-[11px] text-amber-700 hover:underline font-bold">Lấy Client ID Google</a>
-                </div>
-                
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Google OAuth Client ID:</label>
-                  <input type="text" v-model="settingsForm.google_client_id" placeholder="...apps.googleusercontent.com" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Google OAuth Client Secret:</label>
-                  <input type="password" v-model="settingsForm.google_client_secret" placeholder="GOCSPX-..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-
-                <div class="pt-1 flex items-center justify-between">
-                  <p class="text-[11px] text-slate-500">
-                    <span v-if="settingsForm.google_connected" class="text-emerald-700 font-bold">✅ Đã liên kết: {{ settingsForm.google_location_name || 'ROOTS' }}</span>
-                    <span v-else class="text-amber-800">Nhập ID & Secret rồi bấm nút bên cạnh</span>
-                  </p>
-                  <button @click="connectGoogle" class="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-90 text-white rounded-xl text-xs font-bold shadow transition flex items-center space-x-1.5">
-                    <i class="fa-brands fa-google"></i>
-                    <span>{{ settingsForm.google_connected ? 'Đăng nhập lại Google' : 'Liên kết tài khoản Google' }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Gemini AI Settings -->
-              <div class="pt-4 border-t border-slate-100 space-y-3">
-                <div class="flex items-center justify-between">
-                  <label class="block text-xs font-bold text-slate-700 uppercase flex items-center space-x-1.5">
-                    <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
-                    <span>Google Gemini API Key:</span>
-                  </label>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[11px] text-purple-600 hover:underline">Lấy Gemini Key</a>
-                </div>
-                <input type="password" v-model="settingsForm.gemini_api_key" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs">
-                
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Model Gemini:</label>
-                  <input type="text" v-model="settingsForm.gemini_model" placeholder="gemini-3.5-flash-lite" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-purple-500">
-                </div>
-              </div>
-
-              <!-- Password Management -->
-              <div class="pt-4 border-t border-slate-100">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">🔒 Đổi mật khẩu đăng nhập nội bộ:</label>
-                <input type="password" v-model="settingsForm.app_password" placeholder="Nhập mật khẩu mới..." class="w-full border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-              </div>
-            </div>
-
-            <div class="flex space-x-3 pt-4 border-t border-slate-100">
-              <button @click="testConnection" :disabled="isTesting" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition flex items-center justify-center space-x-2">
-                <i v-if="isTesting" class="fa-solid fa-circle-notch fa-spin"></i>
-                <i v-else class="fa-solid fa-plug"></i>
-                <span>Kiểm tra kết nối</span>
-              </button>
-              <button @click="saveSettings" :disabled="isSaving" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition flex items-center justify-center space-x-2 shadow-md shadow-blue-500/20">
-                <i v-if="isSaving" class="fa-solid fa-circle-notch fa-spin"></i>
-                <i v-else class="fa-solid fa-floppy-disk"></i>
-                <span>Lưu cài đặt</span>
-              </button>
             </div>
           </div>
         </div>
 
       </main>
-
-      <!-- AI CAPTION GENERATOR MODAL -->
-      <div v-if="aiModal.show" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-          <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="font-bold text-slate-900 flex items-center space-x-2 text-base">
-              <span class="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-sm shadow">
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-              </span>
-              <span>AI Auto-Caption (Model: {{ settingsForm.gemini_model || 'gemini-3.5-flash-lite' }})</span>
-            </h3>
-            <button @click="aiModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Gợi ý chủ đề / Từ khóa (Tùy chọn):</label>
-            <div class="flex space-x-2">
-              <input type="text" v-model="aiModal.userHint" placeholder="Ví dụ: Giảm giá 50%, Hàng mới về, Tips phối đồ..." class="flex-1 border border-slate-300 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-purple-500">
-              <button @click="generateAiCaption" :disabled="aiModal.isLoading" class="px-5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white rounded-xl font-bold text-sm transition flex items-center space-x-2 shadow-md shadow-purple-500/20 disabled:opacity-50">
-                <i v-if="aiModal.isLoading" class="fa-solid fa-circle-notch fa-spin"></i>
-                <i v-else class="fa-solid fa-bolt"></i>
-                <span>{{ aiModal.isLoading ? 'Đang tạo...' : 'Tạo Caption' }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- AI Results -->
-          <div v-if="aiModal.result" class="space-y-4 pt-2">
-            <!-- 1. Viral Style -->
-            <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 to-orange-50/60 border border-amber-200 space-y-2">
-              <div class="flex justify-between items-center">
-                <span class="text-xs font-black uppercase tracking-wider text-amber-800 flex items-center space-x-1.5">
-                  <span>🔥 Phong cách 1: Viral & Tương tác cao</span>
-                </span>
-                <div class="flex space-x-2">
-                  <button @click="applyAiCaption(aiModal.result.viral_caption, 'fb')" class="text-[11px] bg-blue-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-blue-700">Dùng FB</button>
-                  <button @click="applyAiCaption(aiModal.result.viral_caption, 'ig')" class="text-[11px] bg-pink-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-pink-700">Dùng IG</button>
-                  <button @click="applyAiCaption(aiModal.result.viral_caption, 'google')" class="text-[11px] bg-amber-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-amber-700">Dùng Google</button>
-                </div>
-              </div>
-              <p class="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">{{ aiModal.result.viral_caption }}</p>
-            </div>
-
-            <!-- 2. Sales Style -->
-            <div class="p-4 rounded-2xl bg-gradient-to-br from-blue-50/60 to-indigo-50/60 border border-blue-200 space-y-2">
-              <div class="flex justify-between items-center">
-                <span class="text-xs font-black uppercase tracking-wider text-blue-800 flex items-center space-x-1.5">
-                  <span>💰 Phong cách 2: Bán hàng & Chốt Sale</span>
-                </span>
-                <div class="flex space-x-2">
-                  <button @click="applyAiCaption(aiModal.result.sales_caption, 'fb')" class="text-[11px] bg-blue-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-blue-700">Dùng FB</button>
-                  <button @click="applyAiCaption(aiModal.result.sales_caption, 'ig')" class="text-[11px] bg-pink-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-pink-700">Dùng IG</button>
-                  <button @click="applyAiCaption(aiModal.result.sales_caption, 'google')" class="text-[11px] bg-amber-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-amber-700">Dùng Google</button>
-                </div>
-              </div>
-              <p class="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">{{ aiModal.result.sales_caption }}</p>
-            </div>
-
-            <!-- 3. Trend Style -->
-            <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-50/60 to-pink-50/60 border border-purple-200 space-y-2">
-              <div class="flex justify-between items-center">
-                <span class="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center space-x-1.5">
-                  <span>✨ Phong cách 3: Bắt trend & Gen Z</span>
-                </span>
-                <div class="flex space-x-2">
-                  <button @click="applyAiCaption(aiModal.result.trend_caption, 'fb')" class="text-[11px] bg-blue-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-blue-700">Dùng FB</button>
-                  <button @click="applyAiCaption(aiModal.result.trend_caption, 'ig')" class="text-[11px] bg-pink-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-pink-700">Dùng IG</button>
-                  <button @click="applyAiCaption(aiModal.result.trend_caption, 'google')" class="text-[11px] bg-amber-600 text-white px-2.5 py-1 rounded-lg font-bold hover:bg-amber-700">Dùng Google</button>
-                </div>
-              </div>
-              <p class="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">{{ aiModal.result.trend_caption }}</p>
-            </div>
-
-            <!-- Hashtags -->
-            <div v-if="aiModal.result.hashtags && aiModal.result.hashtags.length > 0" class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-              <span class="text-[11px] font-bold uppercase text-slate-500">SEO Hashtags gợi ý:</span>
-              <div class="flex flex-wrap gap-1.5">
-                <button v-for="tag in aiModal.result.hashtags" :key="tag" @click="appendHashtag(tag)" class="text-xs bg-white border border-slate-300 text-purple-700 font-semibold px-2.5 py-1 rounded-lg hover:bg-purple-50">
-                  {{ tag }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Error Modal -->
-      <div v-if="errorModal.show" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-          <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="font-bold text-rose-600 flex items-center space-x-2">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-              <span>Chi tiết lỗi khi đăng bài</span>
-            </h3>
-            <button @click="errorModal.show = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-          <pre class="bg-slate-900 text-rose-300 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap font-mono">{{ errorModal.content }}</pre>
-          <button @click="errorModal.show = false" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">Đóng</button>
-        </div>
-      </div>
-
-      <!-- STORY STUDIO FABRIC.JS MODAL -->
-      <div v-if="studioModal.show" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col justify-between p-2 sm:p-4 overflow-hidden">
-        <!-- Studio Header -->
-        <div class="bg-slate-900/90 border border-slate-800 text-white rounded-2xl px-4 py-3 flex items-center justify-between shadow-2xl shrink-0">
-          <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
-              <i class="fa-solid fa-paintbrush text-lg"></i>
-            </div>
-            <div>
-              <div class="flex items-center space-x-2">
-                <h3 class="font-black text-base text-white">Story Studio Designer</h3>
-                <span class="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">1080 × 1920 (9:16)</span>
-              </div>
-              <p class="text-xs text-slate-400">Kéo thả, căn chỉnh font chữ & sticker tự do không giới hạn</p>
-            </div>
-          </div>
-
-          <!-- Top Action Buttons -->
-          <div class="flex items-center space-x-2 sm:space-x-3">
-            <!-- Safe Zone Toggle -->
-            <button 
-              type="button" 
-              @click="studioModal.showSafeZone = !studioModal.showSafeZone; renderStudioSafeZone();" 
-              :class="studioModal.showSafeZone ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' : 'bg-slate-800 text-slate-400 border-slate-700'"
-              class="px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center space-x-1.5 transition-all">
-              <i class="fa-solid fa-shield-halved"></i>
-              <span class="hidden sm:inline">Vùng an toàn Meta</span>
-            </button>
-
-            <!-- Download Button -->
-            <button 
-              type="button" 
-              @click="exportStudioImage(false)" 
-              class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 text-xs font-bold flex items-center space-x-1.5 transition-all">
-              <i class="fa-solid fa-download"></i>
-              <span>Tải HD</span>
-            </button>
-
-            <!-- Apply to Post Button -->
-            <button 
-              type="button" 
-              @click="exportStudioImage(true)" 
-              :disabled="studioModal.isExporting"
-              class="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white rounded-xl shadow-lg shadow-emerald-500/30 text-xs font-black flex items-center space-x-1.5 transition-all disabled:opacity-50 cursor-pointer">
-              <i v-if="studioModal.isExporting" class="fa-solid fa-circle-notch fa-spin"></i>
-              <i v-else class="fa-solid fa-check-circle"></i>
-              <span>{{ studioModal.isExporting ? 'Đang xuất...' : 'Áp Dụng Vào Story' }}</span>
-            </button>
-
-            <!-- Close Button -->
-            <button 
-              type="button" 
-              @click="closeStoryStudio" 
-              class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 text-slate-400 flex items-center justify-center transition-all">
-              <i class="fa-solid fa-xmark text-base"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Studio Main Workspace -->
-        <div class="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 my-3 overflow-hidden">
-          
-          <!-- Left Control Panel -->
-          <div class="w-full md:w-80 h-full bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-white flex flex-col justify-between overflow-y-auto custom-scrollbar shadow-2xl shrink-0">
-            <div class="space-y-4">
-              
-              <!-- 1. Mẫu Template Sẵn Có -->
-              <div>
-                <span class="block text-xs font-black uppercase tracking-wider text-purple-300 mb-2 flex items-center space-x-1">
-                  <i class="fa-solid fa-layer-group"></i>
-                  <span>1. Mẫu phong cách (Preset Layout)</span>
-                </span>
-                <div class="grid grid-cols-2 gap-2">
-                  <button 
-                    type="button" 
-                    v-for="tpl in studioTemplates" 
-                    :key="tpl.id"
-                    @click="applyStudioTemplate(tpl.id)"
-                    :class="studioModal.activeTemplate === tpl.id ? 'bg-purple-600 text-white font-bold ring-2 ring-purple-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
-                    class="p-2 rounded-xl text-xs text-left transition-all flex items-center space-x-1.5 cursor-pointer">
-                    <span>{{ tpl.icon }}</span>
-                    <span class="truncate">{{ tpl.name }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 2. Thêm Chữ (Text Elements) -->
-              <div>
-                <span class="block text-xs font-black uppercase tracking-wider text-purple-300 mb-2 flex items-center space-x-1">
-                  <i class="fa-solid fa-font"></i>
-                  <span>2. Thêm Text & Tiêu đề</span>
-                </span>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button 
-                    type="button" 
-                    @click="addStudioText('hook')" 
-                    class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold text-center border border-slate-700 transition">
-                    + Tiêu đề
-                  </button>
-                  <button 
-                    type="button" 
-                    @click="addStudioText('sub')" 
-                    class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold text-center border border-slate-700 transition">
-                    + Mô tả
-                  </button>
-                  <button 
-                    type="button" 
-                    @click="addStudioText('cta')" 
-                    class="p-2 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold text-center transition">
-                    + Nút CTA
-                  </button>
-                </div>
-              </div>
-
-              <!-- 3. Thêm Sticker & Huy Hiệu (Badges) -->
-              <div>
-                <span class="block text-xs font-black uppercase tracking-wider text-purple-300 mb-2 flex items-center space-x-1">
-                  <i class="fa-solid fa-certificate"></i>
-                  <span>3. Sticker & Huy hiệu chốt đơn</span>
-                </span>
-                <div class="grid grid-cols-2 gap-1.5">
-                  <button 
-                    type="button" 
-                    v-for="stk in studioStickers" 
-                    :key="stk.text"
-                    @click="addStudioSticker(stk)"
-                    class="p-2 rounded-xl text-[11px] font-bold text-left border transition flex items-center space-x-1.5 cursor-pointer"
-                    :class="stk.bgClass">
-                    <span>{{ stk.icon }}</span>
-                    <span class="truncate">{{ stk.label }}</span>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Layer Tools Bottom -->
-            <div class="pt-3 border-t border-slate-800 space-y-2">
-              <span class="block text-[11px] font-bold text-slate-400 uppercase">Thao tác phần tử đang chọn:</span>
-              <div class="grid grid-cols-3 gap-1.5">
-                <button type="button" @click="bringStudioObjectForward" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300">
-                  <i class="fa-solid fa-arrow-up"></i> Lên trên
-                </button>
-                <button type="button" @click="sendStudioObjectBackward" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300">
-                  <i class="fa-solid fa-arrow-down"></i> Xuống dưới
-                </button>
-                <button type="button" @click="deleteStudioSelected" class="p-1.5 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold">
-                  <i class="fa-solid fa-trash-can"></i> Xóa
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Center Canvas Viewport -->
-          <div class="flex-1 h-full flex flex-col items-center justify-center relative overflow-hidden p-2">
-            <!-- Safe Zone Meta Warning Notice -->
-            <div v-if="studioModal.showSafeZone" class="mb-2 bg-amber-500/90 text-slate-950 font-black text-[11px] px-3.5 py-1 rounded-full shadow-lg flex items-center space-x-1.5 shrink-0 pointer-events-none">
-              <i class="fa-solid fa-shield-halved"></i>
-              <span>Vùng màu đỏ: Tránh đặt text vào 300px trên & dưới (Khu vực Meta Header & Footer)</span>
-            </div>
-
-            <!-- The Scaled Canvas Container (9:16 Aspect Ratio) -->
-            <div class="relative shadow-2xl rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-900 flex items-center justify-center">
-              <canvas id="studio-fabric-canvas"></canvas>
-            </div>
-
-            <!-- Bottom Tip Bar -->
-            <div class="mt-2 text-slate-400 text-[11px] flex items-center space-x-2 shrink-0">
-              <i class="fa-solid fa-circle-info text-purple-400"></i>
-              <span>Click vào chữ/sticker để kéo thả, xoay, đổi cỡ. Nhấn nút <b>Delete</b> trên bàn phím để xóa nhanh.</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
     </div>
 
-    <!-- FLOATING ACTION BAR: MULTI-PRODUCT COMBO (MIXPOST PATTERN) -->
-    <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="translate-y-full opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200 transform" leave-from-class="translate-y-0 opacity-100" leave-to-class="translate-y-full opacity-0">
-      <div v-if="selectedComboProducts.length > 0 && activeTab === 'roots'" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-4 max-w-2xl w-full">
-        <div class="flex items-center space-x-3 overflow-hidden">
-          <span class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-purple-500/30">
-            {{ selectedComboProducts.length }}
-          </span>
-          <div class="truncate">
-            <p class="text-xs font-bold text-slate-200">Đã chọn {{ selectedComboProducts.length }} sản phẩm vào Combo</p>
-            <p class="text-[10px] text-slate-400 truncate">{{ selectedComboProducts.map(p => p.TenSanPham).join(', ') }}</p>
-          </div>
-        </div>
-
-        <div class="flex items-center space-x-2 shrink-0">
-          <button @click="clearSelectedComboProducts" class="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
-            Bỏ chọn
-          </button>
-          <button @click="openComboCampaignModal" class="px-4 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:opacity-95 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-500/30 flex items-center space-x-2 transition-all cursor-pointer">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <span>Tạo Bài Combo & 4 Prompts Ảnh AI</span>
-          </button>
-        </div>
-      </div>
-    </transition>
-
-    <!-- COMBO CAMPAIGN & 4 AI IMAGE PROMPTS MODAL -->
-    <div v-if="comboModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm transition-all">
-      <div class="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
-        
-        <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-          <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center text-lg shadow-md shadow-purple-500/20">
-              <i class="fa-solid fa-layer-group"></i>
-            </div>
-            <div>
-              <h3 class="text-base font-bold text-slate-900">
-                {{ comboModal.result ? comboModal.result.campaign_title : 'Chiến Dịch Combo & Prompts Tạo Ảnh AI' }}
-              </h3>
-              <p class="text-xs text-slate-500">
-                Tổng hợp {{ selectedComboProducts.length }} sản phẩm • Tổng giá: <b class="text-emerald-700">{{ comboModal.result ? comboModal.result.total_price_str : 'Đang tính...' }}</b>
-              </p>
-            </div>
-          </div>
-          <button @click="closeComboCampaignModal" class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
-            <i class="fa-solid fa-xmark text-sm"></i>
-          </button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-          
-          <!-- Loading State -->
-          <div v-if="comboModal.isLoading" class="p-16 text-center space-y-3">
-            <i class="fa-solid fa-wand-magic-sparkles fa-spin text-4xl text-purple-600"></i>
-            <p class="text-sm font-bold text-slate-800">Gemini AI đang phân tích nhóm sản phẩm & sáng tạo 4 Prompts...</p>
-            <p class="text-xs text-slate-400">Đang viết caption đa kênh & thiết kế prompt chụp ảnh thương mại...</p>
-          </div>
-
-          <!-- Loaded Result -->
-          <div v-else-if="comboModal.result" class="space-y-6">
-
-            <!-- 0. ẢNH SẢN PHẨM THẬT ĐỂ KÉO THẢ VÀO CHATGPT / GPT-4o -->
-            <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-purple-50 border border-emerald-200/80 space-y-3">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center space-x-2">
-                  <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-sm">
-                    <i class="fa-solid fa-download"></i>
-                  </span>
-                  <div>
-                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wide">
-                      Ảnh Sản Phẩm Thật Trong Combo (Kéo thả vào ChatGPT / GPT-4o)
-                    </h4>
-                    <p class="text-[11px] text-slate-500">
-                      💡 <b>Mẹo</b>: Bấm tải ảnh về ➔ Kéo vào ô chat ChatGPT/GPT-4o ➔ Dán Prompt bên dưới để AI vẽ đúng bao bì thật!
-                    </p>
-                  </div>
-                </div>
-
-                <button 
-                  type="button" 
-                  @click="downloadAllComboImages" 
-                  class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1.5 cursor-pointer">
-                  <i class="fa-solid fa-cloud-arrow-down"></i>
-                  <span>Tải Toàn Bộ {{ selectedComboProducts.length }} Ảnh</span>
-                </button>
-              </div>
-
-              <!-- Product Thumbnails & Download Chips -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
-                <div 
-                  v-for="(p, pIdx) in selectedComboProducts" 
-                  :key="pIdx"
-                  class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between space-x-2.5">
-                  <div class="flex items-center space-x-2.5 overflow-hidden">
-                    <div class="w-11 h-11 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center p-1 shrink-0">
-                      <img :src="getRootsImageUrl(p.AnhSanPham)" class="w-full h-full object-contain">
-                    </div>
-                    <div class="truncate">
-                      <p class="text-xs font-bold text-slate-900 truncate" :title="p.TenSanPham">{{ p.TenSanPham }}</p>
-                      <p class="text-[10px] text-emerald-700 font-bold">{{ formatRootsPrice(p.GiaSauKm || p.GiaTruocKm) }}</p>
-                    </div>
-                  </div>
-                  <button 
-                    type="button" 
-                    @click="downloadProductFile(p.AnhSanPham, p.TenSanPham)"
-                    class="p-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition shrink-0 cursor-pointer"
-                    title="Tải ảnh này về máy">
-                    <i class="fa-solid fa-download text-sm"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 1. Bộ 4 Prompt Tạo Ảnh AI Chuyên Nghiệp -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <h4 class="text-xs font-black uppercase tracking-wider text-purple-700 flex items-center space-x-1.5">
-                  <i class="fa-solid fa-camera"></i>
-                  <span>Bộ 4 Prompts Tạo Ảnh AI (Copy sang Midjourney / FLUX.1 / Ideogram)</span>
-                </h4>
-                <span class="text-[11px] text-slate-400">Tối ưu chi phí $0 - Tự do tạo ảnh không giới hạn</span>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div 
-                  v-for="(pmt, pIdx) in comboModal.result.image_prompts" 
-                  :key="pIdx"
-                  class="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-purple-50/40 border border-slate-200 hover:border-purple-300 transition-all space-y-2.5 flex flex-col justify-between">
-                  
-                  <div>
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-xs font-bold text-slate-900">{{ pmt.title_vi }}</span>
-                      <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                        {{ pmt.aspect_ratio }}
-                      </span>
-                    </div>
-                    <p class="text-[11px] text-slate-500 leading-relaxed mb-2">{{ pmt.description_vi }}</p>
-                    
-                    <!-- Prompt Box -->
-                    <div class="p-2.5 bg-slate-900 text-emerald-300 rounded-xl font-mono text-[11px] leading-relaxed max-h-28 overflow-y-auto custom-scrollbar select-all">
-                      {{ pmt.prompt_en }}
-                    </div>
-                  </div>
-
-                  <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                    <span class="text-[10px] text-slate-400">{{ pmt.tool_tips }}</span>
-                    <button 
-                      type="button" 
-                      @click="copyPromptToClipboard(pmt.prompt_en, pIdx)"
-                      :class="comboModal.copiedPromptIdx === pIdx ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-purple-600 hover:text-white text-slate-700 border border-slate-200'"
-                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
-                      <i :class="comboModal.copiedPromptIdx === pIdx ? 'fa-solid fa-check' : 'fa-regular fa-copy'"></i>
-                      <span>{{ comboModal.copiedPromptIdx === pIdx ? 'Đã Copy!' : 'Copy Prompt' }}</span>
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-            <!-- 1.5. DESIGN INSPIRATION & MOODBOARD HUB -->
-            <div v-if="comboModal.result && comboModal.result.design_inspiration" class="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center space-x-2">
-                  <span class="w-7 h-7 rounded-lg bg-pink-600 text-white flex items-center justify-center text-xs shadow-md shadow-pink-500/20">
-                    <i class="fa-solid fa-palette"></i>
-                  </span>
-                  <div>
-                    <h4 class="text-xs font-black uppercase tracking-wide text-white">
-                      Kho Cảm Hứng & Ý Tưởng Thiết Kế (Design Inspiration Hub)
-                    </h4>
-                    <p class="text-[11px] text-slate-400">
-                      Từ khóa thiết kế: <span class="font-mono text-emerald-400 font-bold">{{ comboModal.result.design_inspiration.keywords }}</span>
-                    </p>
-                  </div>
-                </div>
-                <span class="text-[10px] text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">
-                  ⚡ 1-Click mở kho ý tưởng
-                </span>
-              </div>
-
-              <!-- Action Links Grid -->
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
-                <a 
-                  :href="comboModal.result.design_inspiration.pinterest_url" 
-                  target="_blank" 
-                  class="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-900/40 hover:border-rose-500 border border-slate-700 transition flex items-center space-x-2 text-xs font-bold text-slate-200 group">
-                  <i class="fa-brands fa-pinterest text-rose-500 text-base group-hover:scale-110 transition"></i>
-                  <span class="truncate">Pinterest</span>
-                </a>
-                <a 
-                  :href="comboModal.result.design_inspiration.behance_url" 
-                  target="_blank" 
-                  class="p-2.5 rounded-xl bg-slate-800 hover:bg-blue-900/40 hover:border-blue-500 border border-slate-700 transition flex items-center space-x-2 text-xs font-bold text-slate-200 group">
-                  <i class="fa-brands fa-behance text-blue-500 text-base group-hover:scale-110 transition"></i>
-                  <span class="truncate">Behance</span>
-                </a>
-                <a 
-                  :href="comboModal.result.design_inspiration.dribbble_url" 
-                  target="_blank" 
-                  class="p-2.5 rounded-xl bg-slate-800 hover:bg-pink-900/40 hover:border-pink-500 border border-slate-700 transition flex items-center space-x-2 text-xs font-bold text-slate-200 group">
-                  <i class="fa-brands fa-dribbble text-pink-500 text-base group-hover:scale-110 transition"></i>
-                  <span class="truncate">Dribbble</span>
-                </a>
-                <a 
-                  :href="comboModal.result.design_inspiration.lexica_url" 
-                  target="_blank" 
-                  class="p-2.5 rounded-xl bg-slate-800 hover:bg-purple-900/40 hover:border-purple-500 border border-slate-700 transition flex items-center space-x-2 text-xs font-bold text-slate-200 group">
-                  <i class="fa-solid fa-brain text-purple-400 text-base group-hover:scale-110 transition"></i>
-                  <span class="truncate">Lexica AI</span>
-                </a>
-                <a 
-                  :href="comboModal.result.design_inspiration.canva_url" 
-                  target="_blank" 
-                  class="p-2.5 rounded-xl bg-slate-800 hover:bg-cyan-900/40 hover:border-cyan-500 border border-slate-700 transition flex items-center space-x-2 text-xs font-bold text-slate-200 group">
-                  <i class="fa-solid fa-shapes text-cyan-400 text-base group-hover:scale-110 transition"></i>
-                  <span class="truncate">Canva Hub</span>
-                </a>
-              </div>
-            </div>
-
-            <!-- 2. Caption Đa Kênh Tự Động -->
-            <div class="space-y-3 pt-2">
-              <div class="flex items-center justify-between">
-                <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
-                  <i class="fa-solid fa-pen-nib"></i>
-                  <span>Nội Dung Bài Đăng Combo Đa Kênh</span>
-                </h4>
-                
-                <!-- Channel Switch Tabs -->
-                <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl">
-                  <button 
-                    type="button" 
-                    @click="comboModal.activeCaptionTab = 'fb'" 
-                    :class="comboModal.activeCaptionTab === 'fb' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
-                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
-                     Facebook
-                  </button>
-                  <button 
-                    type="button" 
-                    @click="comboModal.activeCaptionTab = 'ig'" 
-                    :class="comboModal.activeCaptionTab === 'ig' ? 'bg-white text-pink-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
-                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
-                     Instagram
-                  </button>
-                  <button 
-                    type="button" 
-                    @click="comboModal.activeCaptionTab = 'google'" 
-                    :class="comboModal.activeCaptionTab === 'google' ? 'bg-white text-amber-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
-                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
-                     Google
-                  </button>
-                </div>
-              </div>
-
-              <!-- Caption Text Area -->
-              <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto custom-scrollbar">
-                {{ comboModal.activeCaptionTab === 'fb' ? comboModal.result.fb_caption : (comboModal.activeCaptionTab === 'ig' ? comboModal.result.ig_caption : comboModal.result.google_caption) }}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="text-xs text-slate-500">Sau khi tạo ảnh, bấm nút bên phải để nạp nội dung:</span>
-          </div>
-          <div class="flex items-center space-x-2">
-            <button @click="closeComboCampaignModal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition cursor-pointer">
-              Đóng
-            </button>
-            <button 
-              v-if="comboModal.result" 
-              @click="applyComboToComposer" 
-              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:opacity-95 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-500/30 flex items-center space-x-2 transition cursor-pointer">
-              <i class="fa-solid fa-arrow-right"></i>
-              <span>Chuyển Vào Soạn Bài & Đăng Ngay</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- 1-CLICK STUDIO BACKGROUND JOB PROGRESS MODAL (DRAMATIQ / WORKER PATTERN) -->
-    <div v-if="showJobModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm transition-all">
-      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-5 animate-in fade-in zoom-in duration-200">
-        
-        <!-- Status Icon -->
-        <div class="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-3xl shadow-lg transition-all"
-             :class="{
-               'bg-purple-100 text-purple-600 shadow-purple-500/20': activeJob.status === 'processing',
-               'bg-emerald-100 text-emerald-600 shadow-emerald-500/20': activeJob.status === 'completed',
-               'bg-rose-100 text-rose-600 shadow-rose-500/20': activeJob.status === 'failed' || activeJob.status === 'cancelled'
-             }">
-          <i v-if="activeJob.status === 'processing'" class="fa-solid fa-wand-magic-sparkles fa-bounce"></i>
-          <i v-else-if="activeJob.status === 'completed'" class="fa-solid fa-circle-check"></i>
-          <i v-else class="fa-solid fa-triangle-exclamation"></i>
-        </div>
-
-        <div>
-          <h3 class="text-lg font-bold text-slate-900">
-            {{ activeJob.status === 'processing' ? 'Đang Tạo Bài 1-Click Studio' : (activeJob.status === 'completed' ? 'Tạo Bài Thành Công!' : 'Tác Vụ Bị Gián Đoạn') }}
-          </h3>
-          <p class="text-xs text-slate-500 mt-1 font-medium">{{ activeJob.current_step }}</p>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="space-y-1.5">
-          <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200">
-            <div 
-              class="h-full rounded-full transition-all duration-300 ease-out"
-              :class="{
-                'bg-gradient-to-r from-purple-600 to-indigo-600': activeJob.status === 'processing',
-                'bg-gradient-to-r from-emerald-500 to-teal-500': activeJob.status === 'completed',
-                'bg-rose-500': activeJob.status === 'failed' || activeJob.status === 'cancelled'
-              }"
-              :style="{ width: activeJob.progress + '%' }"></div>
-          </div>
-          <div class="flex justify-between text-[11px] font-bold text-slate-400">
-            <span>Tiến trình</span>
-            <span>{{ activeJob.progress }}%</span>
-          </div>
-        </div>
-
-        <!-- Error Message if failed -->
-        <div v-if="activeJob.error" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 text-left font-medium">
-          <i class="fa-solid fa-circle-xmark mr-1"></i> {{ activeJob.error }}
-        </div>
-
-        <!-- Modal Actions -->
-        <div class="pt-2 flex items-center justify-center space-x-3">
-          <button 
-            v-if="activeJob.status === 'processing'"
-            type="button" 
-            @click="cancelActiveJob" 
-            class="px-4 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer">
-            <i class="fa-solid fa-xmark mr-1"></i> Hủy tác vụ
-          </button>
-          <button 
-            v-if="activeJob.status === 'failed' || activeJob.status === 'cancelled'"
-            type="button" 
-            @click="showJobModal = false" 
-            class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer">
-            Đóng
-          </button>
-        </div>
-
+    <!-- TOAST NOTIFICATION -->
+    <div v-if="toast.show" class="fixed bottom-6 right-6 z-50 transition-all transform ease-out duration-300">
+      <div :class="{
+        'bg-emerald-600 text-white': toast.type === 'success',
+        'bg-rose-600 text-white': toast.type === 'error',
+        'bg-amber-500 text-white': toast.type === 'warning',
+        'bg-blue-600 text-white': toast.type === 'info'
+      }" class="px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-xs font-bold">
+        <span>{{ toast.message }}</span>
       </div>
     </div>
 
