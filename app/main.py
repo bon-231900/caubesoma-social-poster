@@ -451,6 +451,7 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
         raise HTTPException(status_code=400, detail=str(exc))
         
     if is_staff:
+        # Staff posts ALWAYS go to pending approval queue first
         initial_status = "pending_approval"
     else:
         initial_status = "scheduled" if req.action == "schedule" else "draft"
@@ -511,7 +512,7 @@ def api_get_post(post_id: int):
     return {"post": post}
 
 class PostApproveRequest(BaseModel):
-    action: Optional[str] = "publish_now"
+    action: Optional[str] = "publish_now"  # "publish_now" or "keep_schedule"
 
 @app.post("/api/posts/{post_id}/approve", dependencies=[Depends(verify_admin_auth)])
 def api_approve_post(post_id: int, req: PostApproveRequest):
@@ -685,14 +686,17 @@ async def api_roots_quick_generate(req: RootsQuickGenerateRequest):
 class RootsComboGenerateRequest(BaseModel):
     products: List[dict]
     user_hint: Optional[str] = ""
+    campaign_angle: Optional[str] = ""
 
 @app.post("/api/roots/combo-generate", dependencies=[Depends(verify_auth)])
+@app.post("/api/roots/combo-campaign", dependencies=[Depends(verify_auth)])
 async def api_roots_combo_generate(req: RootsComboGenerateRequest):
     if not req.products or len(req.products) == 0:
         raise HTTPException(status_code=400, detail="Vui lòng chọn ít nhất 1 sản phẩm để tạo combo.")
     loop = asyncio.get_running_loop()
     try:
-        data = await loop.run_in_executor(None, generate_combo_campaign_and_prompts, req.products, req.user_hint or "")
+        hint = req.campaign_angle or req.user_hint or ""
+        data = await loop.run_in_executor(None, generate_combo_campaign_and_prompts, req.products, hint)
         return {"success": True, "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi tạo chiến dịch combo: {str(e)}")
@@ -707,6 +711,7 @@ def api_download_roots_product_image(img: str, name: Optional[str] = "product"):
     try:
         res = requests.get(roots_url, timeout=20)
         if res.status_code == 200:
+            # Strip Vietnamese accents to ensure 100% valid ASCII HTTP header
             raw_name = str(name or "product").replace("Đ", "D").replace("đ", "d")
             nfkd = unicodedata.normalize("NFKD", raw_name)
             ascii_name = "".join([c for c in nfkd if not unicodedata.combining(c)])
@@ -739,6 +744,10 @@ def api_download_roots_product_image(img: str, name: Optional[str] = "product"):
 # ─────────────────────────────────────────────────────────────
 @app.post("/api/roots/start-quick-generate", dependencies=[Depends(verify_auth)])
 async def api_roots_start_quick_generate(req: RootsQuickGenerateRequest):
+    """
+    Creates an asynchronous background job and immediately returns job_id (< 50ms).
+    Frontend polls /api/jobs/{job_id} for live progress 0-100%.
+    """
     if not isinstance(req.product, dict):
         raise HTTPException(status_code=400, detail="Dữ liệu sản phẩm không hợp lệ.")
     
