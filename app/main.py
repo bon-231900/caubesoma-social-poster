@@ -48,21 +48,16 @@ def verify_auth(authorization: Optional[str] = Header(None), request: Request = 
         token = authorization[7:].strip()
     elif request and "session_token" in request.cookies:
         token = request.cookies["session_token"]
+        
     if not token or not session_is_valid(token):
-        raise HTTPException(status_code=401, detail="Chưa đăng nhập hoặc phiên đã hết hạn")
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập hoặc phiên làm việc đã hết hạn.")
     role = get_session_role(token)
     return {"token": token, "role": role}
 
 def verify_admin_auth(auth: dict = Depends(verify_auth)) -> dict:
     if auth.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền truy cập cấu hình.")
+        raise HTTPException(status_code=403, detail="Chức năng này chỉ dành riêng cho Quản trị viên (Admin).")
     return auth
-
-def _safe_media_name(name: str) -> str:
-    safe = Path(name).name
-    if not safe or safe != name:
-        raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
-    return safe
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -72,17 +67,30 @@ async def lifespan(app: FastAPI):
     yield
     shutdown_scheduler()
 
-app = FastAPI(title="Auto Social Poster", lifespan=lifespan)
+app = FastAPI(title="Social Auto Poster", lifespan=lifespan)
 
 @app.middleware("http")
-async def add_no_cache_headers(request: Request, call_next):
-    resp = await call_next(request)
-    if request.url.path in ["/", "/index.html"] or request.url.path.startswith("/static/"):
-        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+async def add_no_cache_header(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+@app.get("/")
+def read_root():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        resp = FileResponse(str(index_file))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         return resp
-    return resp
+    return {"message": "Social Auto Poster API running"}
 
 @app.get("/api/health")
 def api_health():
@@ -152,22 +160,25 @@ class SettingsTestRequest(BaseModel):
 # --- AUTH ROUTES ---
 
 @app.post("/api/auth/login")
-def api_login(req: LoginRequest):
+def api_login(req: LoginRequest, request: Request):
     settings = get_settings()
+    has_any_pass = (
+        settings.get("admin_password") or settings.get("admin_password_hash") or
+        settings.get("staff_password") or settings.get("staff_password_hash") or
+        settings.get("app_password") or settings.get("app_password_hash")
+    )
+    if not has_any_pass:
+        raise HTTPException(status_code=503, detail="Chưa cấu hình mật khẩu. Hãy đặt ADMIN_PASSWORD hoặc APP_PASSWORD trong .env rồi khởi động lại.")
+    
     role = verify_user_role(req.password, settings)
     if not role:
-        raise HTTPException(status_code=401, detail="Mật khẩu không đúng")
+        raise HTTPException(status_code=401, detail="Mật khẩu nội bộ không chính xác!")
+        
     token = create_session_token(role=role)
-    resp = JSONResponse({"success": True, "token": token, "role": role})
-    resp.set_cookie(
-        "session_token",
-        token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        max_age=7 * 24 * 3600
-    )
-    return resp
+    response = JSONResponse({"success": True, "message": "Đăng nhập thành công", "role": role})
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie("session_token", token, max_age=7 * 86400, httponly=True, samesite="lax", secure=is_https)
+    return response
 
 @app.get("/api/auth/check")
 def api_auth_check(auth: dict = Depends(verify_auth)):
@@ -212,72 +223,117 @@ def api_google_callback(request: Request, code: Optional[str] = None, state: Opt
     client_id = settings.get("google_client_id")
     client_secret = settings.get("google_client_secret")
     redirect_uri = "http://localhost:8000/api/google/callback"
-    
+
     try:
         exchange_google_code(code, client_id, client_secret, redirect_uri)
-        return RedirectResponse(url="/?google_success=1")
-    except Exception as e:
-        return RedirectResponse(url=f"/?google_error={str(e)}")
+        return RedirectResponse(url="/?google_connected=1")
+    except Exception:
+        return RedirectResponse(url="/?google_error=connection_failed")
 
 @app.get("/api/google/locations", dependencies=[Depends(verify_auth)])
 def api_google_locations():
     try:
-        locations = get_google_locations()
-        return {"locations": locations}
+        locs = get_google_locations()
+        return {"locations": locs}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# --- MEDIA ROUTES ---
+# --- AI ROUTES ---
 
-@app.post("/api/media/upload", dependencies=[Depends(verify_auth)])
-def api_upload_media(files: List[UploadFile] = File(...)):
-    settings = get_settings()
-    max_mb = settings.get("max_upload_mb", 12)
-    max_batch_mb = settings.get("max_upload_batch_mb", 48)
-    max_bytes = max_mb * 1024 * 1024
-    max_batch_bytes = max_batch_mb * 1024 * 1024
+@app.post("/api/ai/generate-caption", dependencies=[Depends(verify_auth)])
+def api_generate_caption(req: AICaptionRequest):
+    try:
+        result = generate_social_captions(req.images, req.user_hint)
+        return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    uploaded_names = []
-    total_size = 0
+# --- BULK UPLOAD ROUTES ---
 
-    for file in files:
-        raw = file.file.read()
-        file_len = len(raw)
-        total_size += file_len
-        if file_len > max_bytes:
-            raise HTTPException(status_code=400, detail=f"File {file.filename} vượt quá giới hạn cho phép ({max_mb} MB)")
-        if total_size > max_batch_bytes:
-            raise HTTPException(status_code=400, detail=f"Tổng dung lượng tải lên vượt quá giới hạn ({max_batch_mb} MB)")
+@app.get("/api/bulk/template", dependencies=[Depends(verify_auth)])
+def api_bulk_template():
+    stream = generate_bulk_excel_template()
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="sample_bulk_posts.xlsx"',
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )
 
-        content_type = file.content_type or ""
-        if not content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail=f"File {file.filename} không phải là ảnh hợp lệ")
+@app.post("/api/bulk/preview", dependencies=[Depends(verify_auth)])
+async def api_bulk_preview(file: UploadFile = File(...)):
+    ext = Path(file.filename).suffix.lower()
+    if ext not in [".xlsx", ".xls", ".csv"]:
+        raise HTTPException(status_code=400, detail="Vui lòng tải lên file định dạng .xlsx, .xls hoặc .csv")
+    content = await file.read()
+    try:
+        posts = parse_bulk_file(content, file.filename)
+        return {"success": True, "posts": posts, "count": len(posts)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi đọc file Excel/CSV: {str(e)}")
 
-        try:
-            img = Image.open(io.BytesIO(raw))
-            img.verify()
-        except (UnidentifiedImageError, Exception):
-            raise HTTPException(status_code=400, detail=f"File {file.filename} bị hỏng hoặc không đúng định dạng ảnh")
+@app.post("/api/bulk/import", dependencies=[Depends(verify_auth)])
+def api_bulk_import(req: BulkImportRequest):
+    if not req.posts:
+        raise HTTPException(status_code=400, detail="Danh sách bài viết trống.")
+    result = import_bulk_posts(req.posts)
+    return result
 
-        ext = Path(file.filename).suffix.lower()
-        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
-            ext = ".jpg"
+# --- STORY ROUTES ---
 
-        clean_uid = uuid.uuid4().hex
-        filename = f"{clean_uid}{ext}"
-        target = UPLOAD_DIR / filename
-        target.write_bytes(raw)
+@app.post("/api/story/preview-generate", dependencies=[Depends(verify_auth)])
+def api_story_preview_generate(req: StoryPreviewRequest):
+    try:
+        story_filename = create_story_image(
+            req.image_name,
+            caption_hint=req.hook or req.caption,
+            template=req.template or "organic",
+            story_link=req.link or "https://roots.vn"
+        )
+        return {"success": True, "story_image": story_filename, "url": f"/api/media/{story_filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-        register_media_file(target, original_name=file.filename)
-        uploaded_names.append(filename)
+# --- POSTS ROUTES ---
 
-    return {"uploaded": uploaded_names, "files": uploaded_names}
+def _safe_media_name(filename: str) -> str:
+    if not filename or Path(filename).name != filename or not all(c.isalnum() or c in "._-" for c in filename):
+        raise HTTPException(status_code=404, detail="Không tìm thấy file media.")
+    return filename
 
+def _validate_media_references(images: List[str]):
+    if len(images) > 10:
+        raise HTTPException(status_code=400, detail="Mỗi bài đăng tối đa 10 ảnh.")
+    for image in images:
+        if image.startswith(("http://", "https://")):
+            parsed = urlparse(image)
+            if parsed.scheme != "https" or not parsed.hostname or parsed.hostname.lower() in {"localhost", "127.0.0.1", "::1"}:
+                raise HTTPException(status_code=400, detail="URL ảnh phải là HTTPS công khai hợp lệ.")
+        else:
+            name = _safe_media_name(image)
+            if not (UPLOAD_DIR / name).is_file():
+                raise HTTPException(status_code=400, detail=f"Không tìm thấy ảnh: {name}")
+
+# ─────────────────────────────────────────────────────────────
+# MEDIA LIBRARY (MIXPOST PATTERN)
+# ─────────────────────────────────────────────────────────────
 @app.get("/api/media/library", dependencies=[Depends(verify_auth)])
-def api_get_media_library(search: Optional[str] = None, tag: Optional[str] = None, page: int = 1, page_size: int = 50):
-    offset = (page - 1) * page_size
-    items = get_media_items(search=search or "", tag=tag or "", limit=page_size, offset=offset)
-    return {"items": items, "page": page, "page_size": page_size}
+def api_get_media_library(search: Optional[str] = None, tag: Optional[str] = None, limit: int = 50, offset: int = 0):
+    items = get_media_items(search=search or "", tag=tag or "", limit=limit, offset=offset)
+    return {"success": True, "media": items}
+
+@app.get("/api/media/thumbnail/{filename}")
+def api_get_media_thumbnail(filename: str):
+    safe_name = _safe_media_name(filename)
+    thumb_path = THUMB_DIR / f"thumb_{safe_name}"
+    if thumb_path.is_file():
+        return FileResponse(thumb_path)
+    orig_path = UPLOAD_DIR / safe_name
+    if orig_path.is_file():
+        return FileResponse(orig_path)
+    raise HTTPException(status_code=404, detail="Không tìm thấy thumbnail.")
 
 class MediaTagUpdateRequest(BaseModel):
     filename: str
@@ -319,60 +375,85 @@ def api_delete_media(filename: str):
     thumb = THUMB_DIR / f"thumb_{safe_name}"
     if thumb.is_file():
         thumb.unlink()
-    return {"success": True, "message": "Đã xóa ảnh khỏi thư viện"}
+    return {"success": True, "message": "Đã xóa ảnh thành công"}
 
 @app.get("/api/media/{filename}")
-def api_get_media(filename: str):
-    safe_name = _safe_media_name(filename)
-    p = UPLOAD_DIR / safe_name
-    if not p.is_file():
-        raise HTTPException(status_code=404, detail="File không tồn tại")
-    return FileResponse(p)
+def get_media(filename: str):
+    path = UPLOAD_DIR / _safe_media_name(filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Không tìm thấy file media.")
+    return FileResponse(path)
 
-@app.get("/api/media/thumb/{filename}")
-def api_get_media_thumb(filename: str):
-    safe_name = _safe_media_name(filename)
-    thumb_path = THUMB_DIR / f"thumb_{safe_name}"
-    if thumb_path.is_file():
-        return FileResponse(thumb_path)
-    orig_path = UPLOAD_DIR / safe_name
-    if orig_path.is_file():
-        created_thumb = create_thumbnail(orig_path)
-        if created_thumb and created_thumb.is_file():
-            return FileResponse(created_thumb)
-        return FileResponse(orig_path)
-    raise HTTPException(status_code=404, detail="Ảnh thumbnail không tồn tại")
+@app.post("/api/upload", dependencies=[Depends(verify_auth)])
+@app.post("/api/media/upload", dependencies=[Depends(verify_auth)])
+async def upload_images(files: List[UploadFile] = File(...)):
+    settings = get_settings()
+    per_file_limit = settings["max_upload_mb"] * 1024 * 1024
+    batch_limit = settings["max_upload_batch_mb"] * 1024 * 1024
+    saved_files = []
+    batch_size = 0
+    for file in files:
+        ext = Path(file.filename).suffix.lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+            raise HTTPException(status_code=400, detail=f"{file.filename}: chỉ hỗ trợ JPG, PNG hoặc WEBP.")
+        content = await file.read()
+        if not content or len(content) > per_file_limit:
+            raise HTTPException(status_code=400, detail=f"{file.filename}: file trống hoặc vượt quá {settings['max_upload_mb']} MB.")
+        batch_size += len(content)
+        if batch_size > batch_limit:
+            raise HTTPException(status_code=400, detail=f"Tổng dung lượng ảnh vượt quá {settings['max_upload_batch_mb']} MB.")
+        try:
+            image = Image.open(io.BytesIO(content))
+            image.verify()
+        except (UnidentifiedImageError, OSError, ValueError):
+            raise HTTPException(status_code=400, detail=f"{file.filename}: nội dung không phải ảnh hợp lệ.")
+        unique_name = f"{uuid.uuid4().hex}{ext}"
+        dest_path = UPLOAD_DIR / unique_name
+        with open(dest_path, "wb") as buffer:
+            buffer.write(content)
+        try:
+            from app.media_service import register_media_file
+            register_media_file(unique_name, original_name=file.filename)
+        except Exception:
+            pass
+        saved_files.append({
+            "filename": unique_name,
+            "url": f"/api/media/{unique_name}"
+        })
+    return {
+        "success": True,
+        "filenames": [f["filename"] for f in saved_files],
+        "uploaded": saved_files
+    }
 
-# --- POSTS & QUEUE ROUTES ---
-
-@app.post("/api/posts", dependencies=[Depends(verify_auth)])
+@app.post("/api/posts")
+@app.post("/api/posts/create")
 def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
-    user_role = auth.get("role", "admin")
-    if not req.fb_caption and not req.ig_caption and not req.google_caption:
-        raise HTTPException(status_code=400, detail="Cần ít nhất nội dung Facebook, Instagram hoặc Google Business.")
+    if not req.fb_caption and not req.ig_caption and not req.google_caption and not req.story_hook:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất một nội dung đăng bài.")
+    if req.action == "schedule" and not req.scheduled_time:
+        raise HTTPException(status_code=400, detail="Vui lòng chọn thời gian lên lịch.")
 
     if req.target_ig and not req.images:
         raise HTTPException(status_code=400, detail="Instagram yêu cầu ít nhất một ảnh.")
-
     if req.target_story and not req.images and not req.story_image:
         raise HTTPException(status_code=400, detail="Story yêu cầu ít nhất một ảnh hoặc ảnh Story đã tạo.")
-
     if req.action not in {"now", "schedule"}:
         raise HTTPException(status_code=400, detail="Hành động đăng không hợp lệ.")
-
-    if user_role == "staff":
+    _validate_media_references(req.images)
+    if req.story_image:
+        _safe_media_name(req.story_image)
+        
+    is_staff = (auth.get("role") == "staff")
+    try:
+        scheduled_time = normalize_schedule(req.scheduled_time) if (req.action == "schedule" and req.scheduled_time) else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+        
+    if is_staff:
         initial_status = "pending_approval"
     else:
-        initial_status = "draft" if req.action == "now" else "scheduled"
-
-    scheduled_time = None
-    if req.action == "schedule" or req.scheduled_time:
-        if not req.scheduled_time:
-            raise HTTPException(status_code=400, detail="Chưa chọn thời gian lên lịch.")
-        try:
-            scheduled_time = normalize_schedule(req.scheduled_time)
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err))
+        initial_status = "scheduled" if req.action == "schedule" else "draft"
 
     post_id = create_post(
         fb_caption=req.fb_caption,
@@ -384,34 +465,56 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
         target_story=req.target_story,
         target_google=req.target_google,
         google_action_type=req.google_action_type,
-        google_action_url=req.google_action_url or "",
-        status=initial_status,
-        scheduled_time=scheduled_time,
+        google_action_url=req.google_action_url,
         story_image=req.story_image,
         story_template=req.story_template,
         story_hook=req.story_hook,
-        story_link=req.story_link or ""
+        story_link=req.story_link,
+        status=initial_status,
+        scheduled_time=scheduled_time
     )
 
-    if user_role == "staff":
+    if is_staff:
+        post_data = get_post_by_id(post_id)
         return {
-            "success": True,
-            "status": "pending_approval",
-            "message": "Bài viết đã được gửi vào hàng đợi chờ Quản trị viên (Admin) phê duyệt.",
-            "post_id": post_id
+            "post": post_data, 
+            "status": "pending_approval", 
+            "message": "Bài viết đã được gửi vào Hàng đợi chờ Admin phê duyệt trước khi đăng!"
         }
 
     if req.action == "now":
         result = publish_single_post(post_id)
-        return {"success": result["status"] == "success", "result": result, "post_id": post_id}
+        post_data = get_post_by_id(post_id)
+        return {"post": post_data, "result": result}
+    else:
+        post_data = get_post_by_id(post_id)
+        return {"post": post_data, "message": "Đã lên lịch thành công"}
 
-    return {"success": True, "post_id": post_id, "scheduled_time": scheduled_time}
+@app.get("/api/posts", dependencies=[Depends(verify_auth)])
+def api_get_posts(filter_type: Optional[str] = None):
+    all_posts = get_posts(limit=200)
+    if filter_type == "scheduled":
+        filtered = [p for p in all_posts if p["status"] == "scheduled"]
+    elif filter_type == "pending":
+        filtered = [p for p in all_posts if p["status"] == "pending_approval"]
+    elif filter_type == "history":
+        filtered = [p for p in all_posts if p["status"] in ["success", "partial_failed", "failed", "publishing", "rejected"]]
+    else:
+        filtered = all_posts
+    return {"posts": filtered}
 
-class PostApprovalRequest(BaseModel):
+@app.get("/api/posts/{post_id}", dependencies=[Depends(verify_auth)])
+def api_get_post(post_id: int):
+    post = get_post_by_id(post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
+    return {"post": post}
+
+class PostApproveRequest(BaseModel):
     action: Optional[str] = "publish_now"
 
 @app.post("/api/posts/{post_id}/approve", dependencies=[Depends(verify_admin_auth)])
-def api_approve_post(post_id: int, req: PostApprovalRequest):
+def api_approve_post(post_id: int, req: PostApproveRequest):
     post = get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
@@ -419,7 +522,7 @@ def api_approve_post(post_id: int, req: PostApprovalRequest):
         approve_post(post_id, action="publish_now")
         result = publish_single_post(post_id)
         updated = get_post_by_id(post_id)
-        return {"success": True, "post": updated, "result": result, "message": "Đã duyệt và xuất bản ngay thành công!"}
+        return {"success": True, "post": updated, "result": result, "message": "Đã phê duyệt và xuất bản bài viết thành công!"}
     else:
         approve_post(post_id, action="keep_schedule")
         updated = get_post_by_id(post_id)
@@ -556,7 +659,7 @@ def api_get_roots_products(
     search: Optional[str] = None,
     category: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20
+    page_size: int = 30
 ):
     return fetch_roots_products(search=search or "", category=category or "", page=page, page_size=page_size)
 
@@ -612,176 +715,172 @@ def api_download_roots_product_image(img: str, name: Optional[str] = "product"):
                 clean_ascii = clean_ascii.replace("__", "_")
             clean_ascii = clean_ascii[:60].strip(" _") or "product"
 
-            ext = ".jpg"
-            lower_url = safe_img.lower()
-            if ".png" in lower_url:
+            ext = ".webp"
+            if ".jpg" in safe_img.lower() or ".jpeg" in safe_img.lower():
+                ext = ".jpg"
+            elif ".png" in safe_img.lower():
                 ext = ".png"
-            elif ".webp" in lower_url:
-                ext = ".webp"
-            content_type = res.headers.get("content-type", "image/jpeg")
+            filename = f"{clean_ascii}{ext}" if not clean_ascii.lower().endswith(ext) else clean_ascii
+            
             return StreamingResponse(
                 io.BytesIO(res.content),
-                media_type=content_type,
+                media_type="application/octet-stream",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{clean_ascii}{ext}"'
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Access-Control-Allow-Origin": "*"
                 }
             )
-        else:
-            raise HTTPException(status_code=404, detail="Không tìm thấy ảnh trên máy chủ ROOTS.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi tải ảnh: {str(e)}")
+    raise HTTPException(status_code=404, detail="Không thể tải ảnh sản phẩm từ roots.vn")
 
+# ─────────────────────────────────────────────────────────────
+# BACKGROUND JOB MANAGEMENT (DRAMATIQ / ASYNC WORKER PATTERN)
+# ─────────────────────────────────────────────────────────────
 @app.post("/api/roots/start-quick-generate", dependencies=[Depends(verify_auth)])
-async def api_start_quick_generate(req: RootsQuickGenerateRequest):
-    try:
-        job_id = job_manager.create_job(job_type="quick_generate")
-        asyncio.create_task(run_1click_studio_job(job_id, req.product, req.aspect_ratio or "4:5"))
-        return {"success": True, "job_id": job_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khởi tạo tác vụ: {str(e)}")
+async def api_roots_start_quick_generate(req: RootsQuickGenerateRequest):
+    if not isinstance(req.product, dict):
+        raise HTTPException(status_code=400, detail="Dữ liệu sản phẩm không hợp lệ.")
+    
+    prod_name = req.product.get("TenSanPham", "Sản phẩm")
+    ratio = req.aspect_ratio or "4:5"
+    job_id = job_manager.create_job(job_type="1click_studio", metadata={"product_name": prod_name, "aspect_ratio": ratio})
+    asyncio.create_task(run_1click_studio_job(job_id, req.product, ratio))
+    return {"success": True, "job_id": job_id, "message": "Đã khởi tạo tác vụ nền thành công"}
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(verify_auth)])
-def api_get_job(job_id: str):
-    job = job_manager.get_job_status(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Tác vụ không tồn tại")
+def api_get_job_status(job_id: str):
+    job = job_manager.get_job(job_id)
+    if not job or job.get("status") == "not_found":
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ.")
     return job
 
-# ─────────────────────────────────────────────────────────────
-# AI & STORY GENERATION
-# ─────────────────────────────────────────────────────────────
-@app.post("/api/ai/generate-caption", dependencies=[Depends(verify_auth)])
-def api_generate_caption(req: AICaptionRequest):
-    settings = get_settings()
-    api_key = settings.get("gemini_api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Chưa cấu hình Google Gemini API Key trong Cài đặt.")
-    
-    captions = generate_social_captions(
-        images=req.images,
-        user_hint=req.user_hint,
-        api_key=api_key,
-        model_name=settings.get("gemini_model", "gemini-3.5-flash-lite")
-    )
-    return {"captions": captions}
-
-@app.post("/api/story/preview", dependencies=[Depends(verify_auth)])
-def api_story_preview(req: StoryPreviewRequest):
-    output_filename = create_story_image(
-        image_name=req.image_name,
-        caption_hint=req.caption,
-        template=req.template,
-        hook_text=req.hook,
-        story_link=req.link
-    )
-    return {"story_image": output_filename}
+@app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(verify_auth)])
+def api_cancel_job(job_id: str):
+    job_manager.cancel_job(job_id)
+    return {"success": True, "message": "Đã gửi yêu cầu hủy tác vụ"}
 
 # ─────────────────────────────────────────────────────────────
-# HASHTAG GROUPS & CAPTION TEMPLATES ROUTES
+# MEDIA LIBRARY DELETE (MIXPOST PATTERN)
+# ─────────────────────────────────────────────────────────────
+
+@app.delete("/api/media/{filename}", dependencies=[Depends(verify_auth)])
+def api_delete_media_file(filename: str):
+    delete_media_item(filename)
+    orig_path = UPLOAD_DIR / filename
+    if orig_path.is_file():
+        orig_path.unlink(missing_ok=True)
+    thumb_path = THUMB_DIR / f"thumb_{filename}"
+    if thumb_path.is_file():
+        thumb_path.unlink(missing_ok=True)
+    return {"success": True, "message": "Đã xóa ảnh khỏi thư viện"}
+
+# ─────────────────────────────────────────────────────────────
+# HASHTAG GROUPS & CAPTION TEMPLATES (MIXPOST PATTERN)
 # ─────────────────────────────────────────────────────────────
 @app.get("/api/hashtag-groups", dependencies=[Depends(verify_auth)])
 def api_get_hashtag_groups():
-    return {"groups": get_hashtag_groups()}
+    return {"success": True, "groups": get_hashtag_groups()}
 
-class CreateHashtagGroupReq(BaseModel):
+class CreateHashtagGroupRequest(BaseModel):
     name: str
     hashtags: str
-    category: Optional[str] = "Chung"
+    category: str = "Chung"
 
 @app.post("/api/hashtag-groups", dependencies=[Depends(verify_auth)])
-def api_create_hashtag_group(req: CreateHashtagGroupReq):
+def api_create_hashtag_group(req: CreateHashtagGroupRequest):
     gid = create_hashtag_group(req.name, req.hashtags, req.category)
-    return {"success": True, "id": gid}
+    return {"success": True, "id": gid, "message": "Đã tạo nhóm hashtag mới"}
 
 @app.delete("/api/hashtag-groups/{group_id}", dependencies=[Depends(verify_auth)])
 def api_delete_hashtag_group(group_id: int):
     delete_hashtag_group(group_id)
-    return {"success": True}
+    return {"success": True, "message": "Đã xóa nhóm hashtag"}
 
 @app.get("/api/caption-templates", dependencies=[Depends(verify_auth)])
 def api_get_caption_templates():
-    return {"templates": get_caption_templates()}
+    return {"success": True, "templates": get_caption_templates()}
 
-class CreateCaptionTemplateReq(BaseModel):
+class CreateCaptionTemplateRequest(BaseModel):
     name: str
     content: str
-    category: Optional[str] = "Sản phẩm"
-    brand_voice: Optional[str] = "Bán hàng"
+    category: str = "Sản phẩm"
+    brand_voice: str = "Bán hàng"
 
 @app.post("/api/caption-templates", dependencies=[Depends(verify_auth)])
-def api_create_caption_template(req: CreateCaptionTemplateReq):
+def api_create_caption_template(req: CreateCaptionTemplateRequest):
     tid = create_caption_template(req.name, req.content, req.category, req.brand_voice)
-    return {"success": True, "id": tid}
+    return {"success": True, "id": tid, "message": "Đã lưu mẫu nội dung mới"}
 
 @app.delete("/api/caption-templates/{template_id}", dependencies=[Depends(verify_auth)])
 def api_delete_caption_template(template_id: int):
     delete_caption_template(template_id)
-    return {"success": True}
+    return {"success": True, "message": "Đã xóa mẫu nội dung"}
+
+@app.get("/api/variables", dependencies=[Depends(verify_auth)])
+def api_get_variables():
+    return {"success": True, "variables": DEFAULT_VARIABLES}
+
+class ResolveTemplateRequest(BaseModel):
+    template: str
+    context: dict
+
+@app.post("/api/caption-templates/resolve", dependencies=[Depends(verify_auth)])
+def api_resolve_caption_template(req: ResolveTemplateRequest):
+    resolved = resolve_caption_variables(req.template, req.context)
+    return {"success": True, "resolved_content": resolved}
 
 # ─────────────────────────────────────────────────────────────
-# CONTENT CALENDAR & BULK ROUTES
+# CONTENT CALENDAR & DUPLICATE (MIXPOST PATTERN)
 # ─────────────────────────────────────────────────────────────
 @app.get("/api/calendar/events", dependencies=[Depends(verify_auth)])
 def api_get_calendar_events():
-    posts = get_posts(limit=300)
+    posts = get_posts()
     events = []
     for p in posts:
-        time_val = p.get("scheduled_time") or p.get("published_at") or p.get("created_at")
+        target_time = p.get("scheduled_time") or p.get("published_at") or p.get("created_at")
         events.append({
             "id": p["id"],
-            "title": p.get("fb_caption") or p.get("ig_caption") or p.get("google_caption") or "Bài viết",
-            "start": time_val,
-            "status": p.get("status"),
+            "title": p.get("title") or (p.get("fb_caption") or p.get("ig_caption") or "Bài viết")[:45],
+            "fb_caption": p.get("fb_caption", ""),
+            "ig_caption": p.get("ig_caption", ""),
+            "google_caption": p.get("google_caption", ""),
+            "images": p.get("images", []),
             "target_fb": bool(p.get("target_fb")),
             "target_ig": bool(p.get("target_ig")),
-            "target_google": bool(p.get("target_google")),
             "target_story": bool(p.get("target_story")),
-            "images": p.get("images", [])
+            "target_google": bool(p.get("target_google")),
+            "status": p.get("status"),
+            "time": target_time,
+            "story_image": p.get("story_image")
         })
-    return {"events": events}
+    return {"success": True, "events": events}
 
-@app.get("/api/bulk/template")
-def api_bulk_template():
-    excel_stream = generate_bulk_excel_template()
-    return StreamingResponse(
-        excel_stream,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=mau_dang_bai_hang_loat_roots.xlsx"}
-    )
+class DuplicatePostRequest(BaseModel):
+    new_scheduled_time: Optional[str] = None
 
-@app.post("/api/bulk/preview", dependencies=[Depends(verify_auth)])
-def api_bulk_preview(file: UploadFile = File(...)):
-    raw = file.file.read()
-    posts = parse_bulk_file(raw, file.filename)
-    return {"posts": posts, "count": len(posts)}
-
-@app.post("/api/bulk/import", dependencies=[Depends(verify_auth)])
-def api_bulk_import(req: BulkImportRequest):
-    count = import_bulk_posts(req.posts)
-    return {"success": True, "count": count}
-
-@app.get("/api/posts", dependencies=[Depends(verify_auth)])
-def api_get_posts(filter_type: Optional[str] = None):
-    all_posts = get_posts(limit=200)
-    if filter_type == "scheduled":
-        filtered = [p for p in all_posts if p["status"] == "scheduled"]
-    elif filter_type == "pending":
-        filtered = [p for p in all_posts if p["status"] == "pending_approval"]
-    elif filter_type == "history":
-        filtered = [p for p in all_posts if p["status"] in ["success", "partial_failed", "failed", "publishing", "rejected"]]
-    else:
-        filtered = all_posts
-    return {"posts": filtered}
-
-@app.get("/api/posts/{post_id}", dependencies=[Depends(verify_auth)])
-def api_get_post(post_id: int):
+@app.post("/api/posts/{post_id}/duplicate", dependencies=[Depends(verify_auth)])
+def api_duplicate_post(post_id: int, req: DuplicatePostRequest):
     post = get_post_by_id(post_id)
     if not post:
-        raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
-    return {"post": post}
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-@app.get("/")
-def serve_index():
-    return FileResponse(STATIC_DIR / "index.html")
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài viết để nhân bản.")
+    
+    new_id = create_post(
+        fb_caption=post.get("fb_caption", ""),
+        ig_caption=post.get("ig_caption", ""),
+        google_caption=post.get("google_caption", ""),
+        images=post.get("images", []),
+        target_fb=bool(post.get("target_fb")),
+        target_ig=bool(post.get("target_ig")),
+        target_story=bool(post.get("target_story")),
+        target_google=bool(post.get("target_google")),
+        google_action_type=post.get("google_action_type", "LEARN_MORE"),
+        google_action_url=post.get("google_action_url"),
+        story_image=post.get("story_image"),
+        story_template=post.get("story_template", "organic"),
+        story_hook=post.get("story_hook", ""),
+        story_link=post.get("story_link", ""),
+        scheduled_time=req.new_scheduled_time or post.get("scheduled_time"),
+        status="scheduled" if (req.new_scheduled_time or post.get("scheduled_time")) else "draft"
+    )
+    return {"success": True, "new_post_id": new_id, "message": "Đã nhân bản bài viết thành công"}
