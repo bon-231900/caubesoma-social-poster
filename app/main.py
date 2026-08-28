@@ -636,7 +636,8 @@ def api_exchange_permanent_token(req: ExchangeTokenRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/settings/test", dependencies=[Depends(verify_admin_auth)])
+@app.post("/api/settings/test", dependencies=[Depends(verify_auth)])
+@app.get("/api/meta/status", dependencies=[Depends(verify_auth)])
 def api_test_settings(req: Optional[SettingsTestRequest] = None):
     settings = get_settings()
     page_id = (req.fb_page_id if req else None) or settings.get("fb_page_id")
