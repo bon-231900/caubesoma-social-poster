@@ -111,10 +111,18 @@ Chỉ trả về JSON thuần túy, không có giải thích thêm."""
                     text_out = text_out[:-3]
                 text_out = text_out.strip()
                 parsed = json.loads(text_out)
+                fb_c = parsed.get("fb_caption") or parsed.get("facebook") or ""
+                ig_c = parsed.get("ig_caption") or parsed.get("instagram") or ""
+                google_c = parsed.get("google_caption") or parsed.get("google") or ""
+                hook = parsed.get("story_hook") or parsed.get("hook") or ""
                 return {
-                    "fb_caption": parsed.get("fb_caption", ""),
-                    "ig_caption": parsed.get("ig_caption", ""),
-                    "google_caption": parsed.get("google_caption", ""),
+                    "fb_caption": fb_c,
+                    "facebook": fb_c,
+                    "ig_caption": ig_c,
+                    "instagram": ig_c,
+                    "google_caption": google_c,
+                    "google": google_c,
+                    "story_hook": hook,
                     "viral_caption": parsed.get("viral_caption", ""),
                     "sales_caption": parsed.get("sales_caption", ""),
                     "trend_caption": parsed.get("trend_caption", ""),
