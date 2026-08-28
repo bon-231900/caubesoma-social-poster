@@ -217,12 +217,64 @@
             </div>
 
             <!-- Story Designer Option -->
-            <div v-show="postForm.target_story" class="p-3.5 bg-purple-50/60 rounded-xl border border-purple-200 space-y-2">
-              <label class="block text-xs font-bold text-purple-900 uppercase">Mẫu thiết kế Story 9:16:</label>
-              <div class="grid grid-cols-3 gap-2">
-                <button type="button" @click="postForm.story_template = 'organic'" :class="postForm.story_template === 'organic' ? 'bg-emerald-600 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🌿 Hữu cơ</button>
-                <button type="button" @click="postForm.story_template = 'juice'" :class="postForm.story_template === 'juice' ? 'bg-orange-500 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🍹 Nước ép</button>
-                <button type="button" @click="postForm.story_template = 'sale'" :class="postForm.story_template === 'sale' ? 'bg-rose-600 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🔥 Flash Sale</button>
+            <div v-show="postForm.target_story" class="p-4 bg-gradient-to-br from-purple-50 via-slate-50 to-emerald-50 rounded-2xl border border-purple-200/80 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-black text-purple-900 uppercase flex items-center space-x-1.5">
+                  <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
+                  <span>5 Mẫu Thiết Kế Story 9:16 Chuyên Nghiệp:</span>
+                </label>
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview()" 
+                  :disabled="isGeneratingStory || postForm.images.length === 0" 
+                  class="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[11px] font-bold transition flex items-center space-x-1 disabled:opacity-40 cursor-pointer shadow-sm">
+                  <i v-if="isGeneratingStory" class="fa-solid fa-circle-notch fa-spin"></i>
+                  <i v-else class="fa-solid fa-rotate"></i>
+                  <span>{{ isGeneratingStory ? 'Đang tạo mẫu...' : 'Tạo / Đổi Mẫu' }}</span>
+                </button>
+              </div>
+
+              <!-- 5 Story Template Buttons -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview('organic')" 
+                  :class="postForm.story_template === 'organic' ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20 ring-2 ring-emerald-300' : 'bg-white text-slate-700 hover:bg-emerald-50 border border-slate-200'" 
+                  class="p-2 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1">
+                  <span>🌿 Hữu cơ Organic</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview('juice')" 
+                  :class="postForm.story_template === 'juice' ? 'bg-orange-500 text-white font-bold shadow-md shadow-orange-500/20 ring-2 ring-orange-300' : 'bg-white text-slate-700 hover:bg-orange-50 border border-slate-200'" 
+                  class="p-2 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1">
+                  <span>🍹 Nước ép Detox</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview('sale')" 
+                  :class="postForm.story_template === 'sale' ? 'bg-rose-600 text-white font-bold shadow-md shadow-rose-500/20 ring-2 ring-rose-300' : 'bg-white text-slate-700 hover:bg-rose-50 border border-slate-200'" 
+                  class="p-2 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1">
+                  <span>🔥 Flash Sale</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview('editorial')" 
+                  :class="postForm.story_template === 'editorial' ? 'bg-slate-800 text-amber-300 font-bold shadow-md shadow-slate-900/30 ring-2 ring-amber-300' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'" 
+                  class="p-2 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1">
+                  <span>✨ Tạp chí Sang trọng</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  @click="generateStoryPreview('polaroid')" 
+                  :class="postForm.story_template === 'polaroid' ? 'bg-amber-600 text-white font-bold shadow-md shadow-amber-500/20 ring-2 ring-amber-300' : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200'" 
+                  class="p-2 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1">
+                  <span>⭐ Review Bán chạy</span>
+                </button>
               </div>
             </div>
 
@@ -256,7 +308,7 @@
             </div>
 
             <!-- Action: Post Now or Schedule -->
-            <div class="pt-4 border-t border-slate-100 flex flex-col sm:row items-center justify-between gap-4">
+            <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div class="flex items-center space-x-3 w-full sm:w-auto">
                 <label class="flex items-center space-x-1.5 cursor-pointer">
                   <input type="radio" value="now" v-model="postForm.action" class="text-emerald-600">
@@ -380,21 +432,24 @@
                 </div>
               </div>
 
-              <!-- Story Image Background -->
-              <div v-if="postForm.story_image || postForm.images.length > 0" class="absolute inset-0 z-0">
-                <img :src="getMediaUrl(postForm.story_image || postForm.images[0])" class="w-full h-full object-cover">
+              <!-- Story Image Canvas -->
+              <div v-if="postForm.story_image" class="absolute inset-0 z-0">
+                <img :src="getMediaUrl(postForm.story_image)" class="w-full h-full object-cover">
+              </div>
+              <div v-else-if="postForm.images.length > 0" class="absolute inset-0 z-0">
+                <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
               </div>
               <div v-else class="absolute inset-0 z-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 flex flex-col items-center justify-center p-4 text-slate-400 text-center space-y-2">
                 <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl text-emerald-400">
                   <i class="fa-solid fa-wand-magic-sparkles"></i>
                 </div>
-                <p class="text-[10px] text-slate-300 font-medium">Chọn ảnh hoặc tạo bài 1-Click để xem trước Story</p>
+                <p class="text-[10px] text-slate-300 font-medium">Chọn ảnh để hệ thống tự động render mẫu Story 9:16</p>
               </div>
 
-              <!-- Story Sticker & Hook -->
+              <!-- Story Sticker & Link -->
               <div class="z-10 text-center space-y-2 mt-auto">
-                <div v-if="postForm.story_hook || postForm.fb_caption" class="bg-white/95 backdrop-blur-md text-slate-900 font-black text-xs p-2.5 rounded-xl shadow-xl leading-snug border border-white/40">
+                <div v-if="!postForm.story_image && (postForm.story_hook || postForm.fb_caption)" class="bg-white/95 backdrop-blur-md text-slate-900 font-black text-xs p-2.5 rounded-xl shadow-xl leading-snug border border-white/40">
                   {{ postForm.story_hook || (postForm.fb_caption ? postForm.fb_caption.slice(0, 60) + '...' : '') }}
                 </div>
                 <div>
