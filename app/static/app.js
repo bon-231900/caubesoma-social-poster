@@ -255,6 +255,9 @@ createApp({
           this.postForm.images.push(...filenames);
           this.showToast(`Đã tải lên ${filenames.length} ảnh thành công!`, 'success');
           this.loadMediaLibrary();
+          if (this.postForm.target_story && this.postForm.images.length > 0) {
+            this.generateStoryPreview();
+          }
         } else {
           this.showToast(data.detail || 'Lỗi tải ảnh', 'error');
         }
@@ -278,6 +281,11 @@ createApp({
 
     removeImage(idx) {
       this.postForm.images.splice(idx, 1);
+      if (this.postForm.images.length === 0) {
+        this.postForm.story_image = '';
+      } else if (this.postForm.target_story) {
+        this.generateStoryPreview();
+      }
     },
 
     getMediaUrl(filename) {
@@ -309,6 +317,9 @@ createApp({
             this.postForm.story_hook = data.data.story_hook;
           }
           this.showToast('✨ Gemini AI đã tạo xong 3 Caption chuẩn phong cách ROOTS!', 'success');
+          if (this.postForm.target_story && this.postForm.images.length > 0) {
+            this.generateStoryPreview();
+          }
         } else {
           this.showToast(data.detail || 'Lỗi tạo Caption AI', 'error');
         }
@@ -317,6 +328,53 @@ createApp({
       } finally {
         this.isAiGenerating = false;
       }
+    },
+
+    // ── STORY DESIGNER GENERATOR ──
+    async generateStoryPreview(templateName = null) {
+      if (templateName) {
+        this.postForm.story_template = templateName;
+      }
+      if (!this.postForm.images || this.postForm.images.length === 0) {
+        this.showToast('Vui lòng tải lên ít nhất 1 ảnh để tạo mẫu Story 9:16', 'info');
+        return;
+      }
+      this.isGeneratingStory = true;
+      try {
+        const res = await this.authFetch('/api/story/preview-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image_name: this.postForm.images[0],
+            caption: this.postForm.fb_caption || this.aiUserHint || '',
+            template: this.postForm.story_template || 'organic',
+            hook: this.postForm.story_hook || this.postForm.fb_caption || '',
+            link: this.postForm.story_link || 'https://roots.vn'
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.story_image) {
+          this.postForm.story_image = data.story_image;
+          this.showToast(`✨ Đã áp dụng mẫu thiết kế Story 9:16 (${this.getTemplateLabel(this.postForm.story_template)})!`, 'success');
+        } else {
+          this.showToast(data.detail || 'Không thể tạo mẫu Story', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi khi thiết kế Story: ' + e.message, 'error');
+      } finally {
+        this.isGeneratingStory = false;
+      }
+    },
+
+    getTemplateLabel(tpl) {
+      const map = {
+        organic: '🌿 Hữu cơ Organic',
+        juice: '🍹 Nước ép Detox',
+        sale: '🔥 Flash Sale',
+        editorial: '✨ Tạp chí Sang trọng',
+        polaroid: '⭐ Review Bán chạy'
+      };
+      return map[tpl] || tpl;
     },
 
     // ── ROOTS CATALOG METHODS ──
