@@ -256,7 +256,7 @@
             </div>
 
             <!-- Action: Post Now or Schedule -->
-            <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="pt-4 border-t border-slate-100 flex flex-col sm:row items-center justify-between gap-4">
               <div class="flex items-center space-x-3 w-full sm:w-auto">
                 <label class="flex items-center space-x-1.5 cursor-pointer">
                   <input type="radio" value="now" v-model="postForm.action" class="text-emerald-600">
@@ -369,28 +369,39 @@
             </div>
 
             <!-- 3. STORY 9:16 REALISTIC MOCKUP -->
-            <div v-show="previewPlatform === 'story'" class="mx-auto max-w-[240px] aspect-[9/16] rounded-3xl overflow-hidden shadow-xl bg-slate-900 text-white relative border-4 border-slate-800 flex flex-col justify-between p-3.5">
+            <div v-show="previewPlatform === 'story'" class="mx-auto max-w-[240px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl bg-slate-900 text-white relative border-4 border-slate-800 flex flex-col justify-between p-4 select-none">
               <!-- Story Header -->
               <div class="flex items-center space-x-2 z-10">
-                <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[9px]">R</div>
-                <span class="text-[10px] font-bold">rootsvn.official</span>
-                <span class="text-[9px] text-slate-400">1h</span>
+                <img v-if="getIgPic() || getFbPic()" :src="getIgPic() || getFbPic()" class="w-7 h-7 rounded-full object-cover border border-white/50 shadow-sm">
+                <div v-else class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">R</div>
+                <div>
+                  <span class="text-[11px] font-bold block leading-none text-white">{{ getIgUsername() }}</span>
+                  <span class="text-[9px] text-slate-300">1h</span>
+                </div>
               </div>
 
               <!-- Story Image Background -->
-              <div v-if="postForm.images.length > 0" class="absolute inset-0 z-0">
-                <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+              <div v-if="postForm.story_image || postForm.images.length > 0" class="absolute inset-0 z-0">
+                <img :src="getMediaUrl(postForm.story_image || postForm.images[0])" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+              </div>
+              <div v-else class="absolute inset-0 z-0 bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 flex flex-col items-center justify-center p-4 text-slate-400 text-center space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl text-emerald-400">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <p class="text-[10px] text-slate-300 font-medium">Chọn ảnh hoặc tạo bài 1-Click để xem trước Story</p>
               </div>
 
               <!-- Story Sticker & Hook -->
               <div class="z-10 text-center space-y-2 mt-auto">
-                <div v-if="postForm.story_hook" class="bg-white/90 backdrop-blur-md text-slate-900 font-black text-xs p-2 rounded-xl shadow-lg">
-                  {{ postForm.story_hook }}
+                <div v-if="postForm.story_hook || postForm.fb_caption" class="bg-white/95 backdrop-blur-md text-slate-900 font-black text-xs p-2.5 rounded-xl shadow-xl leading-snug border border-white/40">
+                  {{ postForm.story_hook || (postForm.fb_caption ? postForm.fb_caption.slice(0, 60) + '...' : '') }}
                 </div>
-                <div class="inline-flex items-center space-x-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">
-                  <i class="fa-solid fa-link"></i>
-                  <span>roots.vn</span>
+                <div>
+                  <a :href="postForm.story_link || 'https://roots.vn'" target="_blank" class="inline-flex items-center space-x-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white text-[10px] font-black px-3.5 py-1.5 rounded-full shadow-lg transition">
+                    <i class="fa-solid fa-link"></i>
+                    <span>{{ (postForm.story_link || 'roots.vn').replace(/^https?:\/\//, '').split('/')[0] }}</span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -398,16 +409,16 @@
             <!-- 4. GOOGLE BUSINESS REALISTIC MOCKUP -->
             <div v-show="previewPlatform === 'google'" class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left p-4 space-y-3">
               <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/30">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/30 font-black">
                   <i class="fa-brands fa-google"></i>
                 </div>
                 <div>
-                  <h4 class="text-xs font-bold text-slate-900 leading-tight">ROOTS Organic Store & Juice Bar</h4>
-                  <p class="text-[10px] text-amber-700 mt-0.5">⭐⭐⭐⭐⭐ 4.9 (1.2k đánh giá trên Google Maps)</p>
+                  <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS Organic Store & Juice Bar' }}</h4>
+                  <p class="text-[10px] text-amber-700 mt-0.5 font-medium">⭐⭐⭐⭐⭐ 4.9 (1.2k đánh giá trên Google Maps)</p>
                 </div>
               </div>
 
-              <div v-if="postForm.images.length > 0" class="aspect-video bg-slate-100 rounded-xl overflow-hidden">
+              <div v-if="postForm.images.length > 0" class="aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-100">
                 <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
               </div>
 
@@ -415,8 +426,8 @@
                 {{ postForm.google_caption || postForm.fb_caption || 'Nội dung hiển thị trên Google Search & Maps...' }}
               </p>
 
-              <div class="pt-2">
-                <a :href="postForm.google_action_url || 'https://roots.vn'" target="_blank" class="inline-block px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-sm">
+              <div class="pt-2 border-t border-slate-100">
+                <a :href="postForm.google_action_url || 'https://roots.vn'" target="_blank" class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
                   {{ postForm.google_action_type === 'ORDER' ? 'Đặt hàng ngay' : (postForm.google_action_type === 'CALL' ? 'Gọi ngay' : 'Tìm hiểu thêm') }}
                 </a>
               </div>
