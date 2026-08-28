@@ -44,7 +44,7 @@
             <i class="fa-solid fa-circle-exclamation"></i>
             <span>{{ loginError }}</span>
           </div>
-          <button type="submit" :disabled="isLoggingIn" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 text-sm disabled:opacity-50">
+          <button type="submit" :disabled="isLoggingIn" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 text-sm disabled:opacity-50 cursor-pointer">
             <i v-if="isLoggingIn" class="fa-solid fa-circle-notch fa-spin"></i>
             <span>{{ isLoggingIn ? 'Đang xác thực...' : 'Đăng Nhập Hệ Thống' }}</span>
           </button>
@@ -70,13 +70,17 @@
 
         <!-- Navigation Tabs -->
         <nav class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
-          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-feather-pointed"></i>
             <span>Tạo bài</span>
           </button>
           <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-store"></i>
             <span>Kho ROOTS</span>
+          </button>
+          <button @click="activeTab = 'bulk'" :class="activeTab === 'bulk' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+            <span>Excel Hàng Loạt</span>
           </button>
           <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-calendar-days"></i>
@@ -92,7 +96,7 @@
           </button>
           <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer">
             <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>Hàng đợi</span>
+            <span>Hàng đợi & Lịch sử</span>
             <span v-if="pendingPosts.length > 0" class="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1"></span>
           </button>
           <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
@@ -193,7 +197,13 @@
 
             <!-- Upload Box -->
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Hình ảnh bài viết:</label>
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs font-bold text-slate-700 uppercase">Hình ảnh bài viết (Tối đa 10 ảnh):</label>
+                <button type="button" @click="activeTab = 'library'" class="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center space-x-1">
+                  <i class="fa-solid fa-images"></i>
+                  <span>Chọn từ Thư viện</span>
+                </button>
+              </div>
               <div @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop.prevent="handleFileDrop" :class="isDragging ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-300 bg-slate-50/50'" class="border-2 border-dashed rounded-2xl p-6 text-center hover:border-emerald-400 transition cursor-pointer relative">
                 <input type="file" multiple accept="image/*" @change="handleFileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                 <div class="space-y-2">
@@ -201,15 +211,16 @@
                     <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
                   </div>
                   <p class="text-xs font-bold text-slate-700">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
-                  <p class="text-[10px] text-slate-400">Hỗ trợ JPG, PNG, WEBP tối đa 12MB/ảnh</p>
+                  <p class="text-[10px] text-slate-400">Hỗ trợ JPG, PNG, WEBP tối đa 12MB/ảnh (Tối đa 10 ảnh)</p>
                 </div>
               </div>
 
               <!-- Selected Images List -->
-              <div v-if="postForm.images.length > 0" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-3">
-                <div v-for="(img, idx) in postForm.images" :key="idx" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+              <div v-if="postForm.images.length > 0" class="grid grid-cols-4 sm:grid-cols-6 gap-2.5 mt-3">
+                <div v-for="(img, idx) in postForm.images" :key="idx" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
                   <img :src="getMediaUrl(img)" class="w-full h-full object-cover">
-                  <button type="button" @click="removeImage(idx)" class="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow cursor-pointer">
+                  <span v-if="idx === 0" class="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">Ảnh chính</span>
+                  <button type="button" @click="removeImage(idx)" class="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow cursor-pointer" title="Xóa ảnh này">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -276,35 +287,109 @@
                   <span>⭐ Review Bán chạy</span>
                 </button>
               </div>
+
+              <!-- Hook & Link Input for Story -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-purple-200/60">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Câu Hook / Tiêu đề Story:</label>
+                  <input type="text" v-model="postForm.story_hook" placeholder="Nhập câu giật tít Story..." class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Link Sticker chuyển hướng:</label>
+                  <input type="text" v-model="postForm.story_link" placeholder="https://roots.vn" class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+              </div>
             </div>
 
             <!-- Captions Tabs -->
-            <div class="space-y-2">
+            <div class="space-y-3">
               <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-2">
-                  <button type="button" @click="captionTab = 'fb'" :class="captionTab === 'fb' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Facebook</button>
-                  <button type="button" @click="captionTab = 'ig'" :class="captionTab === 'ig' ? 'border-b-2 border-pink-600 text-pink-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Instagram</button>
-                  <button type="button" @click="captionTab = 'google'" :class="captionTab === 'google' ? 'border-b-2 border-amber-600 text-amber-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Google Maps</button>
+                  <button type="button" @click="captionTab = 'fb'" :class="captionTab === 'fb' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer flex items-center space-x-1.5">
+                    <i class="fa-brands fa-facebook"></i>
+                    <span>Facebook</span>
+                  </button>
+                  <button type="button" @click="captionTab = 'ig'" :class="captionTab === 'ig' ? 'border-b-2 border-pink-600 text-pink-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer flex items-center space-x-1.5">
+                    <i class="fa-brands fa-instagram"></i>
+                    <span>Instagram</span>
+                  </button>
+                  <button type="button" @click="captionTab = 'google'" :class="captionTab === 'google' ? 'border-b-2 border-amber-600 text-amber-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer flex items-center space-x-1.5">
+                    <i class="fa-brands fa-google"></i>
+                    <span>Google Maps</span>
+                  </button>
+                </div>
+
+                <!-- Quick Variable Inserters -->
+                <div class="hidden sm:flex items-center space-x-1 pb-1">
+                  <span class="text-[10px] font-bold text-slate-400">Chèn nhanh:</span>
+                  <button type="button" @click="insertVariable('#rootsorganic #organicfood')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono cursor-pointer">#Tag</button>
+                  <button type="button" @click="insertVariable('https://roots.vn')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono cursor-pointer">Link</button>
+                  <button type="button" @click="insertVariable('Hotline: 0868 472 236')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono cursor-pointer">Hotline</button>
                 </div>
               </div>
 
-              <div v-show="captionTab === 'fb'">
+              <!-- Facebook Caption Area -->
+              <div v-show="captionTab === 'fb'" class="space-y-2">
                 <textarea v-model="postForm.fb_caption" rows="5" placeholder="Nhập nội dung Facebook..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
-              </div>
-              <div v-show="captionTab === 'ig'">
-                <textarea v-model="postForm.ig_caption" rows="5" placeholder="Nhập nội dung Instagram (#hashtag, @mention)..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
-              </div>
-              <div v-show="captionTab === 'google'" class="space-y-2">
-                <textarea v-model="postForm.google_caption" rows="4" placeholder="Nhập nội dung Google Maps..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
-                <div class="grid grid-cols-2 gap-2">
-                  <select v-model="postForm.google_action_type" class="border border-slate-200 rounded-lg p-2 text-xs outline-none font-medium">
-                    <option value="LEARN_MORE">Tìm hiểu thêm</option>
-                    <option value="ORDER">Đặt hàng ngay</option>
-                    <option value="CALL">Gọi ngay</option>
-                  </select>
-                  <input type="text" v-model="postForm.google_action_url" placeholder="https://roots.vn" class="border border-slate-200 rounded-lg p-2 text-xs outline-none">
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Hỗ trợ định dạng icon và link</span>
+                  <span>{{ (postForm.fb_caption || '').length }} ký tự</span>
                 </div>
               </div>
+
+              <!-- Instagram Caption Area -->
+              <div v-show="captionTab === 'ig'" class="space-y-2">
+                <textarea v-model="postForm.ig_caption" rows="5" placeholder="Nhập nội dung Instagram (#hashtag, @mention)..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Tối đa 2,200 ký tự & 30 hashtags</span>
+                  <span :class="(postForm.ig_caption || '').length > 2200 ? 'text-rose-600 font-bold' : ''">{{ (postForm.ig_caption || '').length }} / 2200</span>
+                </div>
+              </div>
+
+              <!-- Google Maps Caption & CTA Buttons -->
+              <div v-show="captionTab === 'google'" class="space-y-3 bg-amber-50/40 p-3.5 rounded-xl border border-amber-200/80">
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-bold text-amber-900 uppercase flex items-center space-x-1">
+                    <i class="fa-brands fa-google text-amber-600"></i>
+                    <span>Nội Dung & Nút CTA Google Business (Maps):</span>
+                  </label>
+                  <span class="text-[10px] text-amber-700 font-medium">Hiển thị trực tiếp trên Tìm kiếm & Google Maps</span>
+                </div>
+
+                <textarea v-model="postForm.google_caption" rows="4" placeholder="Nhập nội dung bài đăng trên Google Maps..." class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
+
+                <!-- Full Google CTA Button Selector & URL -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Loại Nút Kêu Gọi Hành Động (CTA Button):</label>
+                    <select v-model="postForm.google_action_type" class="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs outline-none font-bold text-slate-800 focus:ring-2 focus:ring-amber-500">
+                      <option value="LEARN_MORE">🔘 Tìm hiểu thêm (LEARN_MORE)</option>
+                      <option value="ORDER">🛒 Đặt hàng ngay (ORDER)</option>
+                      <option value="BOOK">📅 Đặt chỗ / Đặt bàn (BOOK)</option>
+                      <option value="SHOP">🛍️ Mua sắm ngay (SHOP)</option>
+                      <option value="SIGN_UP">✍️ Đăng ký (SIGN_UP)</option>
+                      <option value="CALL">📞 Gọi ngay (CALL)</option>
+                      <option value="NONE">❌ Không gắn nút (NONE)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Đường dẫn liên kết nút (Action URL):</label>
+                    <input 
+                      type="text" 
+                      v-model="postForm.google_action_url" 
+                      :disabled="postForm.google_action_type === 'NONE' || postForm.google_action_type === 'CALL'"
+                      placeholder="https://roots.vn/san-pham/..." 
+                      class="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100 disabled:text-slate-400">
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-[10px] text-amber-800/80 pt-1">
+                  <span>* Khách hàng bấm nút CTA trên Google Maps sẽ chuyển trực tiếp tới link sản phẩm của bạn.</span>
+                  <span>{{ (postForm.google_caption || '').length }} ký tự</span>
+                </div>
+              </div>
+
             </div>
 
             <!-- Action: Post Now or Schedule -->
@@ -481,9 +566,10 @@
                 {{ postForm.google_caption || postForm.fb_caption || 'Nội dung hiển thị trên Google Search & Maps...' }}
               </p>
 
-              <div class="pt-2 border-t border-slate-100">
+              <!-- Real Dynamic CTA Button in Google Preview -->
+              <div v-if="postForm.google_action_type !== 'NONE'" class="pt-2 border-t border-slate-100">
                 <a :href="postForm.google_action_url || 'https://roots.vn'" target="_blank" class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
-                  {{ postForm.google_action_type === 'ORDER' ? 'Đặt hàng ngay' : (postForm.google_action_type === 'CALL' ? 'Gọi ngay' : 'Tìm hiểu thêm') }}
+                  {{ getGoogleCtaLabel(postForm.google_action_type) }}
                 </a>
               </div>
             </div>
@@ -565,7 +651,77 @@
         </div>
       </div>
 
-      <!-- TAB 3: CALENDAR -->
+      <!-- TAB 3: BULK UPLOAD EXCEL / CSV -->
+      <div v-show="activeTab === 'bulk'" class="space-y-6">
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <i class="fa-solid fa-file-excel text-emerald-600 text-lg"></i>
+                <span>Đăng Bài Tự Động Hàng Loạt Qua Excel / CSV</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">Lên lịch hàng trăm bài viết cho Facebook, Instagram và Google Maps chỉ với 1 file Excel.</p>
+            </div>
+            <button @click="downloadBulkTemplate" class="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer">
+              <i class="fa-solid fa-download"></i>
+              <span>Tải File Mẫu Excel (.xlsx)</span>
+            </button>
+          </div>
+
+          <!-- Drag and Drop Excel -->
+          <div @dragover.prevent="isDraggingBulk = true" @dragleave.prevent="isDraggingBulk = false" @drop.prevent="handleBulkFileDrop" :class="isDraggingBulk ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-300 bg-slate-50/50'" class="border-2 border-dashed rounded-2xl p-8 text-center hover:border-emerald-400 transition cursor-pointer relative">
+            <input type="file" accept=".xlsx,.xls,.csv" @change="handleBulkFileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div class="space-y-2">
+              <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-file-arrow-up"></i>
+              </div>
+              <p class="text-sm font-bold text-slate-800">Kéo thả file Excel / CSV vào đây hoặc bấm để chọn</p>
+              <p class="text-xs text-slate-400">Hỗ trợ đầy đủ cột Facebook, Instagram, Google Maps và CTA</p>
+            </div>
+          </div>
+
+          <!-- Preview Bulk Table -->
+          <div v-if="bulkPreviewPosts.length > 0" class="space-y-4 pt-4 border-t border-slate-100">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">Đã nhận diện {{ bulkPreviewPosts.length }} bài viết sẵn sàng nhập:</span>
+              <button @click="submitBulkImport" :disabled="isImportingBulk" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center space-x-2 disabled:opacity-50 cursor-pointer">
+                <i v-if="isImportingBulk" class="fa-solid fa-circle-notch fa-spin"></i>
+                <i v-else class="fa-solid fa-cloud-arrow-up"></i>
+                <span>{{ isImportingBulk ? 'Đang nhập...' : 'Nhập & Lên Lịch Toàn Bộ' }}</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96 custom-scrollbar">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th class="p-3">#</th>
+                    <th class="p-3">Nội dung Facebook</th>
+                    <th class="p-3">Nội dung Instagram</th>
+                    <th class="p-3">Google Maps & CTA</th>
+                    <th class="p-3">Ảnh</th>
+                    <th class="p-3">Thời gian lên lịch</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="(b, bIdx) in bulkPreviewPosts" :key="bIdx" class="hover:bg-slate-50">
+                    <td class="p-3 font-bold text-slate-400">{{ bIdx + 1 }}</td>
+                    <td class="p-3 max-w-xs truncate">{{ b.fb_caption }}</td>
+                    <td class="p-3 max-w-xs truncate">{{ b.ig_caption }}</td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 bg-amber-100 text-amber-800 font-bold rounded text-[10px]">{{ b.google_action_type || 'LEARN_MORE' }}</span>
+                    </td>
+                    <td class="p-3">{{ (b.images || []).length }} ảnh</td>
+                    <td class="p-3 font-mono text-[11px] text-slate-600">{{ b.scheduled_time || 'Đăng ngay' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: CALENDAR -->
       <div v-show="activeTab === 'calendar'" class="space-y-4">
         <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
@@ -588,33 +744,48 @@
         </div>
       </div>
 
-      <!-- TAB 4: MEDIA LIBRARY -->
+      <!-- TAB 5: MEDIA LIBRARY -->
       <div v-show="activeTab === 'library'" class="space-y-4">
         <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
             <i class="fa-solid fa-images text-emerald-600"></i>
-            <span>Thư Viện Ảnh Đã Tải</span>
+            <span>Thư Viện Ảnh Đã Tải ({{ mediaLibrary.length }} ảnh)</span>
           </h3>
-          <span class="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full">{{ mediaLibrary.length }} ảnh</span>
+          <button @click="loadMediaLibrary" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700 transition cursor-pointer">
+            <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+          </button>
         </div>
         <div class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-3">
-          <div v-for="item in mediaLibrary" :key="item.filename" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+          <div v-for="item in mediaLibrary" :key="item.filename" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
             <img :src="getMediaUrl(item.filename)" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-2">
+              <button @click="useMediaInComposer(item.filename)" class="w-7 h-7 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-xs shadow hover:bg-emerald-700" title="Chèn vào bài viết">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+              <button @click="deleteMediaItem(item.filename)" class="w-7 h-7 bg-rose-600 text-white rounded-lg flex items-center justify-center text-xs shadow hover:bg-rose-700" title="Xóa ảnh">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- TAB 5: TEMPLATES & HASHTAGS -->
+      <!-- TAB 6: TEMPLATES & HASHTAGS -->
       <div v-show="activeTab === 'templates'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
-            <i class="fa-solid fa-hashtag text-purple-600"></i>
-            <span>Nhóm Hashtags</span>
-          </h3>
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-hashtag text-purple-600"></i>
+              <span>Nhóm Hashtags Có Sẵn</span>
+            </h3>
+          </div>
           <div class="space-y-2">
-            <div v-for="g in hashtagGroups" :key="g.id" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <span class="font-bold text-slate-900 block">{{ g.name }}</span>
-              <span class="text-purple-600 font-mono mt-1 block">{{ g.hashtags }}</span>
+            <div v-for="g in hashtagGroups" :key="g.id" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+              <div>
+                <span class="font-bold text-slate-900 block">{{ g.name }}</span>
+                <span class="text-purple-600 font-mono mt-1 block">{{ g.hashtags }}</span>
+              </div>
+              <button @click="insertVariable(g.hashtags)" class="px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-bold cursor-pointer">Chèn</button>
             </div>
           </div>
         </div>
@@ -624,53 +795,66 @@
             <span>Mẫu Caption Có Sẵn</span>
           </h3>
           <div class="space-y-2">
-            <div v-for="t in captionTemplates" :key="t.id" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              <span class="font-bold text-slate-900 block">{{ t.name }}</span>
-              <p class="text-slate-600 mt-1 line-clamp-2">{{ t.content }}</p>
+            <div v-for="t in captionTemplates" :key="t.id" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+              <div class="flex-1 mr-3">
+                <span class="font-bold text-slate-900 block">{{ t.name }}</span>
+                <p class="text-slate-600 mt-1 line-clamp-2">{{ t.content }}</p>
+              </div>
+              <button @click="insertVariable(t.content)" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold cursor-pointer shrink-0">Chèn</button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- TAB 6: QUEUE / SCHEDULED -->
+      <!-- TAB 7: QUEUE / SCHEDULED / HISTORY -->
       <div v-show="activeTab === 'scheduled'" class="space-y-6">
         <div v-if="pendingPosts.length > 0" class="bg-amber-50 rounded-2xl p-5 border border-amber-200 space-y-4">
           <h3 class="font-bold text-amber-900 text-sm flex items-center space-x-2">
             <i class="fa-solid fa-hourglass-half text-amber-600"></i>
-            <span>Hàng Đợi Chờ Duyệt ({{ pendingPosts.length }})</span>
+            <span>Hàng Đợi Chờ Phê Duyệt ({{ pendingPosts.length }})</span>
           </h3>
           <div class="space-y-3">
             <div v-for="p in pendingPosts" :key="p.id" class="bg-white rounded-xl p-4 border border-amber-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
               <div class="text-xs text-slate-800 space-y-1">
-                <p class="font-bold line-clamp-2">{{ p.fb_caption || p.ig_caption || 'Bài viết không tiêu đề' }}</p>
+                <p class="font-bold line-clamp-2">{{ p.fb_caption || p.ig_caption || p.google_caption || 'Bài viết không tiêu đề' }}</p>
                 <span class="text-[10px] text-slate-400">{{ p.created_at }}</span>
               </div>
               <div v-if="currentUserRole === 'admin'" class="flex items-center space-x-2">
                 <button @click="approvePendingPost(p, 'publish_now')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 cursor-pointer">Duyệt & Đăng</button>
                 <button @click="rejectPendingPost(p)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 cursor-pointer">Từ chối</button>
               </div>
+              <span v-else class="text-xs font-bold text-amber-700">Đang chờ Admin duyệt</span>
             </div>
           </div>
         </div>
 
         <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-900 text-sm">Danh Sách Đã Lên Lịch ({{ scheduledPosts.length }})</h3>
-          <div class="space-y-3">
-            <div v-for="p in scheduledPosts" :key="p.id" class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex items-center justify-between text-xs">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-sm">Danh Sách Bài Đã Lên Lịch ({{ scheduledPosts.length }})</h3>
+            <button @click="loadScheduledPosts" class="text-xs text-slate-500 hover:text-slate-800">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </div>
+          <div v-if="scheduledPosts.length === 0" class="p-8 text-center text-slate-400 text-xs font-medium">
+            Chưa có bài viết nào trong lịch hẹn giờ.
+          </div>
+          <div v-else class="space-y-3">
+            <div v-for="p in scheduledPosts" :key="p.id" class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <div>
-                <p class="font-bold text-slate-900">{{ p.fb_caption || p.ig_caption }}</p>
-                <span class="text-slate-400 mt-1 block">Lên lịch lúc: {{ p.scheduled_time }}</span>
+                <p class="font-bold text-slate-900">{{ p.fb_caption || p.ig_caption || p.google_caption }}</p>
+                <span class="text-emerald-700 font-medium mt-1 block">📅 Hẹn giờ đăng: {{ p.scheduled_time }}</span>
               </div>
               <div class="flex items-center space-x-2">
-                <button v-if="currentUserRole === 'admin'" @click="publishNow(p.id)" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold cursor-pointer">Đăng ngay</button>
-                <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold cursor-pointer">Xóa</button>
+                <button v-if="currentUserRole === 'admin'" @click="publishNow(p.id)" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 cursor-pointer">Đăng ngay</button>
+                <button @click="duplicatePost(p.id)" class="px-2.5 py-1.5 bg-slate-200 text-slate-700 rounded-lg font-bold hover:bg-slate-300 cursor-pointer" title="Nhân bản bài này">Nhân bản</button>
+                <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold hover:bg-rose-100 cursor-pointer">Xóa</button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- TAB 7: SETTINGS -->
+      <!-- TAB 8: SETTINGS (ADMIN ONLY) -->
       <div v-show="activeTab === 'settings' && currentUserRole === 'admin'" class="max-w-2xl mx-auto space-y-6">
         <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
           <div class="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -706,7 +890,7 @@
             <input type="text" v-model="settingsForm.google_client_id" placeholder="Google OAuth Client ID..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
             <input type="password" v-model="settingsForm.google_client_secret" placeholder="Google OAuth Client Secret..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
             <div class="flex items-center justify-between pt-1">
-              <span v-if="settingsForm.google_connected" class="text-xs text-emerald-700 font-bold">✅ Đã liên kết Google Business</span>
+              <span v-if="settingsForm.google_connected" class="text-xs text-emerald-700 font-bold">✅ Đã liên kết Google Business ({{ settingsForm.google_location_name || 'ROOTS' }})</span>
               <span v-else class="text-xs text-amber-800">Chưa liên kết</span>
               <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer">Liên kết tài khoản Google</button>
             </div>
@@ -714,8 +898,24 @@
 
           <!-- Gemini AI Settings -->
           <div class="pt-4 border-t border-slate-100 space-y-3">
-            <label class="block text-xs font-bold text-slate-700 uppercase">Gemini AI Key:</label>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-slate-700 uppercase">Gemini AI Model & Key:</label>
+              <select v-model="settingsForm.gemini_model" class="border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold outline-none">
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Khuyên Dùng)</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              </select>
+            </div>
             <input type="password" v-model="settingsForm.gemini_api_key" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono outline-none focus:ring-2 focus:ring-purple-500">
+          </div>
+
+          <!-- Maintenance Action -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <button type="button" @click="runSystemMaintenance" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer">
+              <i class="fa-solid fa-broom"></i>
+              <span>Sao Lưu & Dọn Rác Hệ Thống</span>
+            </button>
+            <span class="text-[11px] text-slate-400">Tự động xóa ảnh mồ côi</span>
           </div>
 
           <!-- Save Button -->
@@ -726,7 +926,6 @@
         </div>
       </div>
 
-    
     <!-- FLOATING ACTION BAR: MULTI-PRODUCT COMBO -->
     <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="translate-y-full opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200 transform" leave-from-class="translate-y-0 opacity-100" leave-to-class="translate-y-full opacity-0">
       <div v-if="selectedComboProducts.length > 0 && activeTab === 'roots_catalog'" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-4 max-w-2xl w-full">
