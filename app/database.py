@@ -474,6 +474,20 @@ def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: in
             result.append(d)
         return result
 
+def get_media_by_hash(file_hash: str) -> dict:
+    if not file_hash:
+        return None
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM media_items WHERE file_hash = ? LIMIT 1", (file_hash,)).fetchone()
+        if row:
+            d = dict(row)
+            try:
+                d["tags"] = json.loads(d.get("tags") or "[]")
+            except Exception:
+                d["tags"] = []
+            return d
+    return None
+
 def update_media_tags(filename: str, tags: list):
     with get_db() as conn:
         conn.execute("UPDATE media_items SET tags = ? WHERE filename = ?", (json.dumps(tags or []), filename))
