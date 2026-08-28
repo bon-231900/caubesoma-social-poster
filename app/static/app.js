@@ -300,9 +300,9 @@ createApp({
         });
         const data = await res.json();
         if (res.ok && data.data) {
-          this.postForm.fb_caption = data.data.facebook || '';
-          this.postForm.ig_caption = data.data.instagram || '';
-          this.postForm.google_caption = data.data.google || '';
+          this.postForm.fb_caption = data.data.fb_caption || data.data.facebook || '';
+          this.postForm.ig_caption = data.data.ig_caption || data.data.instagram || '';
+          this.postForm.google_caption = data.data.google_caption || data.data.google || '';
           if (data.data.story_hook) {
             this.postForm.story_hook = data.data.story_hook;
           }
