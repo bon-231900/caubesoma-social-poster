@@ -459,7 +459,18 @@
             <div class="relative aspect-square bg-slate-50 p-2 flex items-center justify-center">
               <img :src="getRootsImageUrl(p.AnhSanPham || p.hinh_anh)" class="w-full h-full object-contain group-hover:scale-105 transition">
               <span class="absolute top-2 left-2 bg-slate-900/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded">{{ p.Brand || 'ROOTS' }}</span>
-              <span v-if="hasDiscount(p)" class="absolute top-2 right-2 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded">-{{ calcDiscountPercent(p) }}%</span>
+              
+              <!-- Combo Multi-Select Button -->
+              <button 
+                type="button" 
+                @click.stop="toggleSelectComboProduct(p)" 
+                :class="isComboProductSelected(p) ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-300' : 'bg-white/95 text-slate-500 hover:text-purple-600 hover:border-purple-400 border-slate-200'"
+                class="absolute top-2 right-2 w-7 h-7 rounded-xl border flex items-center justify-center text-xs shadow-md transition-all z-10 cursor-pointer" 
+                :title="isComboProductSelected(p) ? 'Bỏ chọn khỏi combo' : 'Chọn vào combo nhiều sản phẩm'">
+                <i :class="isComboProductSelected(p) ? 'fa-solid fa-check font-bold' : 'fa-solid fa-plus'"></i>
+              </button>
+
+              <span v-if="hasDiscount(p)" class="absolute top-10 right-2 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">-{{ calcDiscountPercent(p) }}%</span>
             </div>
             <div class="p-3.5 space-y-2 flex-1 flex flex-col justify-between">
               <div>
@@ -648,6 +659,181 @@
           </button>
         </div>
       </div>
+
+    
+    <!-- FLOATING ACTION BAR: MULTI-PRODUCT COMBO -->
+    <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="translate-y-full opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200 transform" leave-from-class="translate-y-0 opacity-100" leave-to-class="translate-y-full opacity-0">
+      <div v-if="selectedComboProducts.length > 0 && activeTab === 'roots_catalog'" class="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-4 max-w-2xl w-full">
+        <div class="flex items-center space-x-3 overflow-hidden">
+          <span class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-purple-500/30 shrink-0">
+            {{ selectedComboProducts.length }}
+          </span>
+          <div class="truncate">
+            <p class="text-xs font-bold text-slate-200">Đã chọn {{ selectedComboProducts.length }} sản phẩm vào Combo</p>
+            <p class="text-[10px] text-slate-400 truncate">{{ selectedComboProducts.map(p => p.TenSanPham || p.ten_san_pham).join(', ') }}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 shrink-0">
+          <button @click="clearSelectedComboProducts" class="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+            Bỏ chọn
+          </button>
+          <button @click="openComboCampaignModal" class="px-4 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:opacity-95 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-500/30 flex items-center space-x-2 transition-all cursor-pointer">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Tạo Bài Combo & Prompts AI</span>
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- COMBO CAMPAIGN & AI PROMPTS MODAL -->
+    <div v-if="comboModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm transition-all">
+      <div class="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center text-lg shadow-md shadow-purple-500/20">
+              <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900">
+                {{ comboModal.result ? comboModal.result.campaign_title : 'Chiến Dịch Combo & Prompts Tạo Ảnh AI' }}
+              </h3>
+              <p class="text-xs text-slate-500">
+                Tổng hợp {{ selectedComboProducts.length }} sản phẩm • Tổng giá: <b class="text-emerald-700">{{ comboModal.result ? comboModal.result.total_price_str : 'Đang tính...' }}</b>
+              </p>
+            </div>
+          </div>
+          <button @click="closeComboCampaignModal" class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          
+          <!-- Loading State -->
+          <div v-if="comboModal.isLoading" class="p-16 text-center space-y-3">
+            <i class="fa-solid fa-wand-magic-sparkles fa-spin text-4xl text-purple-600"></i>
+            <p class="text-sm font-bold text-slate-800">Gemini 3.5 Flash Lite đang phân tích nhóm sản phẩm Combo...</p>
+            <p class="text-xs text-slate-400">Đang tạo Caption đa kênh & 4 Prompts chụp ảnh AI...</p>
+          </div>
+
+          <!-- Loaded Result -->
+          <div v-else-if="comboModal.result" class="space-y-6">
+
+            <!-- 1. Bộ 4 Prompt Tạo Ảnh AI Chuyên Nghiệp -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-black uppercase tracking-wider text-purple-700 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>Bộ 4 Prompts Tạo Ảnh AI (Midjourney / FLUX.1 / Ideogram)</span>
+                </h4>
+                <span class="text-[11px] text-slate-400">Tự do tạo ảnh combo không giới hạn</span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  v-for="(pmt, pIdx) in comboModal.result.image_prompts" 
+                  :key="pIdx"
+                  class="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-purple-50/40 border border-slate-200 hover:border-purple-300 transition-all space-y-2.5 flex flex-col justify-between">
+                  
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-bold text-slate-900">{{ pmt.title_vi }}</span>
+                      <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                        {{ pmt.aspect_ratio }}
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed mb-2">{{ pmt.description_vi }}</p>
+                    
+                    <!-- Prompt Box -->
+                    <div class="p-2.5 bg-slate-900 text-emerald-300 rounded-xl font-mono text-[11px] leading-relaxed max-h-28 overflow-y-auto custom-scrollbar select-all">
+                      {{ pmt.prompt_en }}
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                    <span class="text-[10px] text-slate-400">{{ pmt.tool_tips }}</span>
+                    <button 
+                      type="button" 
+                      @click="copyPromptToClipboard(pmt.prompt_en, pIdx)" 
+                      :class="comboModal.copiedPromptIdx === pIdx ? 'bg-emerald-600 text-white' : 'bg-white hover:bg-purple-600 hover:text-white text-slate-700 border border-slate-200'"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
+                      <i :class="comboModal.copiedPromptIdx === pIdx ? 'fa-solid fa-check' : 'fa-regular fa-copy'"></i>
+                      <span>{{ comboModal.copiedPromptIdx === pIdx ? 'Đã Copy!' : 'Copy Prompt' }}</span>
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Caption Đa Kênh Tự Động -->
+            <div class="space-y-3 pt-2">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-pen-nib"></i>
+                  <span>Nội Dung Bài Đăng Combo Đa Kênh</span>
+                </h4>
+                
+                <!-- Channel Switch Tabs -->
+                <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+                  <button 
+                    type="button" 
+                    @click="comboModal.activeCaptionTab = 'fb'" 
+                    :class="comboModal.activeCaptionTab === 'fb' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
+                    Facebook
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="comboModal.activeCaptionTab = 'ig'" 
+                    :class="comboModal.activeCaptionTab === 'ig' ? 'bg-white text-pink-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
+                    Instagram
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="comboModal.activeCaptionTab = 'google'" 
+                    :class="comboModal.activeCaptionTab === 'google' ? 'bg-white text-amber-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer">
+                    Google Maps
+                  </button>
+                </div>
+              </div>
+
+              <!-- Caption Text Area -->
+              <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto custom-scrollbar">
+                {{ comboModal.activeCaptionTab === 'fb' ? comboModal.result.fb_caption : (comboModal.activeCaptionTab === 'ig' ? comboModal.result.ig_caption : comboModal.result.google_caption) }}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-500">Bấm nút bên phải để nạp toàn bộ ảnh & caption sang Trình Tạo Bài:</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button @click="closeComboCampaignModal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition cursor-pointer">
+              Đóng
+            </button>
+            <button 
+              v-if="comboModal.result" 
+              @click="applyComboToComposer" 
+              class="px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:opacity-95 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-500/30 flex items-center space-x-2 transition cursor-pointer">
+              <i class="fa-solid fa-arrow-right"></i>
+              <span>Chuyển Vào Soạn Bài & Đăng Ngay</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
 
     </main>
 
