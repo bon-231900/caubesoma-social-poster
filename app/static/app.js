@@ -26,6 +26,10 @@ createApp({
       isGeneratingAiHook: false,
       showToken: false,
 
+      // AI Box State
+      aiUserHint: '',
+      isAiGenerating: false,
+
       postForm: {
         target_fb: true,
         target_ig: true,
@@ -40,7 +44,7 @@ createApp({
         ig_caption: '',
         google_caption: '',
         google_action_type: 'LEARN_MORE',
-        google_action_url: '',
+        google_action_url: 'https://roots.vn',
         action: 'now',
         scheduled_time: ''
       },
@@ -75,13 +79,11 @@ createApp({
       },
 
       metaStatus: {
-        facebook: { connected: false, page_name: '', page_id: '', picture: '', error: '' },
-        instagram: { connected: false, username: '', account_id: '', profile_picture: '', error: '' }
+        facebook: { connected: false, page_name: 'ROOTS - Organic Store & Juice Bar', page_id: '', picture: '', error: '' },
+        instagram: { connected: false, username: 'rootsvn.official', account_id: '', profile_picture: '', error: '' }
       },
 
-      aiUserHint: '',
-      isAiGenerating: false,
-
+      // ROOTS Catalog
       rootsProducts: [],
       rootsCategories: {},
       selectedRootsCategory: 'all',
@@ -275,6 +277,39 @@ createApp({
       return `/api/media/${filename}`;
     },
 
+    // ── AI CAPTION ASSISTANT ──
+    setAiHint(promptText) {
+      this.aiUserHint = promptText;
+      this.generateAICaption();
+    },
+
+    async generateAICaption() {
+      this.isAiGenerating = true;
+      try {
+        const res = await this.authFetch('/api/ai/generate-caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images: this.postForm.images, user_hint: this.aiUserHint })
+        });
+        const data = await res.json();
+        if (res.ok && data.data) {
+          this.postForm.fb_caption = data.data.facebook || '';
+          this.postForm.ig_caption = data.data.instagram || '';
+          this.postForm.google_caption = data.data.google || '';
+          if (data.data.story_hook) {
+            this.postForm.story_hook = data.data.story_hook;
+          }
+          this.showToast('✨ Gemini AI đã tạo xong 3 Caption chuẩn phong cách ROOTS!', 'success');
+        } else {
+          this.showToast(data.detail || 'Lỗi tạo Caption AI', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi kết nối AI: ' + e.message, 'error');
+      } finally {
+        this.isAiGenerating = false;
+      }
+    },
+
     // ── ROOTS CATALOG METHODS ──
     async loadRootsCategories() {
       try {
@@ -372,34 +407,6 @@ createApp({
       } finally {
         this.isGenerating1Click = false;
         this.generatingProductId = null;
-      }
-    },
-
-    // ── AI CAPTION ──
-    async generateAICaption() {
-      this.isAiGenerating = true;
-      try {
-        const res = await this.authFetch('/api/ai/generate-caption', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ images: this.postForm.images, user_hint: this.aiUserHint })
-        });
-        const data = await res.json();
-        if (res.ok && data.data) {
-          this.postForm.fb_caption = data.data.facebook || '';
-          this.postForm.ig_caption = data.data.instagram || '';
-          this.postForm.google_caption = data.data.google || '';
-          if (data.data.story_hook) {
-            this.postForm.story_hook = data.data.story_hook;
-          }
-          this.showToast('✨ Đã tạo xong Caption thông minh bằng Gemini AI!', 'success');
-        } else {
-          this.showToast(data.detail || 'Lỗi tạo Caption AI', 'error');
-        }
-      } catch (e) {
-        this.showToast('Lỗi kết nối AI: ' + e.message, 'error');
-      } finally {
-        this.isAiGenerating = false;
       }
     },
 
@@ -605,16 +612,18 @@ createApp({
         }
       } catch (e) {}
     },
-    insertVariable(key) {
-      const tag = `{${key}}`;
+    insertVariable(tag) {
       this.postForm.fb_caption = (this.postForm.fb_caption || '') + ' ' + tag;
       this.postForm.ig_caption = (this.postForm.ig_caption || '') + ' ' + tag;
     },
     getFbName() {
-      return this.metaStatus.facebook.page_name || 'ROOTS - Organic Store & Juice Bar';
+      return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.page_name) || 'ROOTS - Organic Store & Juice Bar';
     },
     getFbPic() {
-      return this.metaStatus.facebook.picture || this.metaStatus.instagram.profile_picture || '';
+      return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.picture) || '';
+    },
+    getIgUsername() {
+      return (this.metaStatus && this.metaStatus.instagram && this.metaStatus.instagram.username) || 'rootsvn.official';
     }
   }
 }).mount('#app');
