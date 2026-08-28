@@ -156,206 +156,182 @@ def _load_product_image(image_filename_or_url: str) -> Image.Image:
 download_roots_image = _load_product_image
 
 def _cover_crop(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Center-crop an image to completely cover the target dimensions."""
     target_w, target_h = size
-    img_w, img_h = image.size
-    scale = max(target_w / img_w, target_h / img_h)
-    resized_w = max(target_w, int(img_w * scale))
-    resized_h = max(target_h, int(img_h * scale))
-    resized = image.resize((resized_w, resized_h), Image.Resampling.LANCZOS)
-    left = (resized_w - target_w) // 2
-    top = (resized_h - target_h) // 2
+    scale = max(target_w / image.width, target_h / image.height)
+    resized = image.resize((int(image.width * scale), int(image.height * scale)), Image.Resampling.LANCZOS)
+    left = (resized.width - target_w) // 2
+    top = (resized.height - target_h) // 2
     return resized.crop((left, top, left + target_w, top + target_h))
 
 def download_and_fit_to_square_1_1(image_filename_or_url: str, output_size: int = 1080) -> str:
-    """Download product image and fit cleanly to 1:1 square canvas."""
-    prod_img = _load_product_image(image_filename_or_url)
-    canvas = Image.new("RGBA", (output_size, output_size), (255, 255, 255, 255))
-    pw, ph = prod_img.size
-    max_dim = int(output_size * 0.88)
-    scale = min(max_dim / pw, max_dim / ph)
-    nw = int(pw * scale)
-    nh = int(ph * scale)
-    resized_p = prod_img.resize((nw, nh), Image.Resampling.LANCZOS)
-    pos_x = (output_size - nw) // 2
-    pos_y = (output_size - nh) // 2
-    canvas.paste(resized_p, (pos_x, pos_y), resized_p)
-    out_filename = f"roots_sq_{uuid.uuid4().hex[:10]}.jpg"
+    orig = _load_product_image(image_filename_or_url)
+    W, H = output_size, output_size
+    square_canvas = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+    max_inner = int(output_size * 0.90)
+    scale = min(max_inner / orig.width, max_inner / orig.height)
+    new_w, new_h = int(orig.width * scale), int(orig.height * scale)
+    resized_product = orig.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    pos_x = (W - new_w) // 2
+    pos_y = (H - new_h) // 2
+    square_canvas.paste(resized_product, (pos_x, pos_y), resized_product)
+    out_filename = f"roots_sq_{uuid.uuid4().hex[:12]}.jpg"
     out_path = UPLOAD_DIR / out_filename
-    canvas.convert("RGB").save(out_path, "JPEG", quality=95)
+    square_canvas.convert("RGB").save(out_path, format="JPEG", quality=95, optimize=True)
     return out_filename
 
 def create_social_feed_creative(
-    product: dict,
+    image_filename_or_url: str,
+    product_name: str,
+    brand: str,
+    category: str,
+    price: str,
+    old_price: str = "",
     aspect_ratio: str = "4:5",
-    bg_style: str = "organic"
 ) -> str:
-    """Studio-quality post generator for ROOTS Organic Store."""
-    if aspect_ratio == "1:1":
-        W, H = 1080, 1080
-    else:
-        W, H = 1080, 1350
-        
-    canvas = Image.new("RGBA", (W, H), (250, 252, 248, 255))
+    source = _load_product_image(image_filename_or_url)
+    dims = {
+        "1:1": (1080, 1080),
+        "4:5": (1080, 1350),
+        "9:16": (1080, 1920),
+        "16:9": (1920, 1080),
+    }
+    W, H = dims.get(aspect_ratio, (1080, 1350))
+    background = _cover_crop(source, (W, H)).filter(ImageFilter.GaussianBlur(34))
+    background = Image.alpha_composite(background, Image.new("RGBA", (W, H), (6, 44, 31, 160)))
+    canvas = background.copy()
+
+    hero_box = (58, 166, W - 58, 854)
+    panel_y = 900
+    panel_h = 450
+
+    hero = _cover_crop(source, (hero_box[2] - hero_box[0], hero_box[3] - hero_box[1]))
+    hero_mask = Image.new("L", hero.size, 0)
+    ImageDraw.Draw(hero_mask).rounded_rectangle((0, 0, hero.width, hero.height), radius=44, fill=255)
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle((hero_box[0] + 10, hero_box[1] + 14, hero_box[2] + 10, hero_box[3] + 14), radius=44, fill=(0, 0, 0, 115))
+    canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(22)))
+    canvas.paste(hero, (hero_box[0], hero_box[1]), hero_mask)
     draw = ImageDraw.Draw(canvas)
-    
-    top_header_h = int(H * 0.14)
-    draw.rectangle([0, 0, W, top_header_h], fill=(22, 101, 52, 255))
-    
-    brand_font = get_font("bold", 42)
-    sub_font = get_font("medium", 22)
-    draw.text((40, 28), "ROOTS ORGANIC STORE", fill=(255, 255, 255, 255), font=brand_font)
-    draw.text((42, 82), "🌱 THỰC PHẨM & DINH DƯỠNG HỮU CƠ CHUẨN QUỐC TẾ", fill=(187, 247, 208, 255), font=sub_font)
-    
-    img_name = product.get("AnhSanPham") or product.get("hinh_anh") or product.get("image") or ""
-    if img_name:
-        try:
-            prod_img = _load_product_image(img_name)
-            pw, ph = prod_img.size
-            max_pw = int(W * 0.82)
-            max_ph = int(H * 0.52)
-            scale = min(max_pw / pw, max_ph / ph)
-            nw = int(pw * scale)
-            nh = int(ph * scale)
-            resized_p = prod_img.resize((nw, nh), Image.Resampling.LANCZOS)
-            
-            px = (W - nw) // 2
-            py = top_header_h + int((H * 0.55 - nh) // 2) + 20
-            
-            shadow = Image.new("RGBA", (nw + 40, nh + 40), (0, 0, 0, 0))
-            s_draw = ImageDraw.Draw(shadow)
-            s_draw.ellipse([10, 10, nw + 30, nh + 30], fill=(0, 0, 0, 35))
-            shadow = shadow.filter(ImageFilter.GaussianBlur(16))
-            canvas.paste(shadow, (px - 20, py - 10), shadow)
-            canvas.paste(resized_p, (px, py), resized_p)
-        except Exception as e:
-            print(f"Error loading product image: {e}")
+    draw.rounded_rectangle(hero_box, radius=44, outline=(255, 255, 255, 210), width=4)
 
-    card_y = int(H * 0.68)
-    card_margin = 35
-    card_h = H - card_y - 35
-    draw.rounded_rectangle(
-        [card_margin, card_y, W - card_margin, card_y + card_h],
-        radius=30,
-        fill=(255, 255, 255, 255),
-        outline=(220, 238, 225, 255),
-        width=3
+    panel = Image.new("RGBA", (W, panel_h), (247, 250, 245, 247))
+    ImageDraw.Draw(panel).rounded_rectangle((0, 0, W, panel_h), radius=50, fill=(247, 250, 245, 247))
+    canvas.alpha_composite(panel, (0, panel_y))
+    draw = ImageDraw.Draw(canvas)
+
+    category_text = clean_text_for_render(category or brand or "Sản phẩm hữu cơ").upper()[:55]
+    draw.text((64, panel_y + 30), category_text, font=get_font(23, bold=True), fill=(5, 150, 105))
+
+    title = clean_text_for_render(product_name or "Sản phẩm hữu cơ cao cấp")
+    title_lines, title_font, line_height = wrap_and_fit_text(
+        draw, title, W - 130, panel_h - 180, initial_size=46, min_size=28, bold=True, serif=True
     )
-    
-    prod_name = clean_text_for_render(product.get("TenSanPham") or product.get("ten_san_pham") or "Sản Phẩm Hữu Cơ ROOTS")
-    title_font = get_font("bold", 36)
-    name_lines = wrap_and_fit_text(draw, prod_name, title_font, W - card_margin * 2 - 60, max_lines=2)
-    
-    curr_y = card_y + 30
-    for line in name_lines:
-        draw.text((card_margin + 30, curr_y), line, fill=(15, 23, 42, 255), font=title_font)
-        curr_y += 46
-        
-    badge_font = get_font("medium", 20)
-    origin = product.get("XuatXu") or product.get("Brand") or "ROOTS Certified"
-    badge_text = f"📍 Xuất xứ: {origin}"
-    draw.text((card_margin + 30, curr_y + 10), badge_text, fill=(71, 85, 105, 255), font=badge_font)
-    
-    price_val = product.get("GiaSauKm") or product.get("gia") or ""
-    price_orig = product.get("GiaTruocKm") or product.get("gia_goc") or ""
-    
-    if price_val:
-        try:
-            formatted_price = f"{int(float(price_val)):,}đ".replace(",", ".")
-        except Exception:
-            formatted_price = f"{price_val}đ"
-            
-        price_font = get_font("bold", 44)
-        draw.text((card_margin + 30, card_y + card_h - 75), formatted_price, fill=(22, 101, 52, 255), font=price_font)
-        
-        if price_orig and float(price_orig) > float(price_val):
-            try:
-                formatted_orig = f"{int(float(price_orig)):,}đ".replace(",", ".")
-                orig_font = get_font("medium", 24)
-                orig_x = card_margin + 30 + int(draw.textlength(formatted_price, font=price_font)) + 20
-                orig_y = card_y + card_h - 62
-                draw.text((orig_x, orig_y), formatted_orig, fill=(148, 163, 184, 255), font=orig_font)
-                strike_w = int(draw.textlength(formatted_orig, font=orig_font))
-                draw.line([(orig_x, orig_y + 14), (orig_x + strike_w, orig_y + 14)], fill=(239, 68, 68, 255), width=2)
-            except Exception:
-                pass
+    y = panel_y + 70
+    for line in title_lines[:3]:
+        draw.text((64, y), line, font=title_font, fill=(15, 42, 34))
+        y += line_height
 
-    cta_w = 230
-    cta_h = 60
-    cta_x = W - card_margin - cta_w - 30
-    cta_y = card_y + card_h - 80
-    draw.rounded_rectangle([cta_x, cta_y, cta_x + cta_w, cta_y + cta_h], radius=16, fill=(22, 101, 52, 255))
-    cta_font = get_font("bold", 22)
-    cta_text = "ĐẶT MUA NGAY"
-    tw = int(draw.textlength(cta_text, font=cta_font))
-    draw.text((cta_x + (cta_w - tw) // 2, cta_y + 18), cta_text, fill=(255, 255, 255, 255), font=cta_font)
+    price_y = panel_y + panel_h - 110
+    draw.text((64, price_y), price, font=get_font(50, bold=True), fill=(4, 120, 87))
 
-    out_filename = f"roots_creative_{uuid.uuid4().hex[:10]}.jpg"
-    out_path = UPLOAD_DIR / out_filename
-    canvas.convert("RGB").save(out_path, "JPEG", quality=95)
-    return out_filename
+    draw.rounded_rectangle((W - 364, price_y - 4, W - 62, price_y + 74), radius=40, fill=(5, 150, 105))
+    draw.text((W - 300, price_y + 18), "ĐẶT HÀNG NGAY", font=get_font(25, bold=True), fill="white")
+    draw.text((64, panel_y + panel_h - 35), "Tươi sạch mỗi ngày  •  roots.vn", font=get_font(20), fill=(71, 94, 84))
 
-def select_story_template(product: dict) -> str:
-    gia = float(product.get("GiaSauKm") or product.get("gia", 0) or 0)
-    gia_goc = float(product.get("GiaTruocKm") or product.get("gia_goc", 0) or 0)
-    danhmuc = (product.get("DanhMuc") or product.get("danh_muc") or "").lower()
-    
-    if gia_goc > gia and ((gia_goc - gia) / gia_goc) >= 0.15:
-        return "flash_sale"
-    if "nước ép" in danhmuc or "juice" in danhmuc or "detox" in danhmuc:
-        return "juice_bar"
-    if "bánh" in danhmuc or "bakery" in danhmuc:
-        return "organic_recipe"
-    return "glassmorphism"
+    output_name = f"roots_creative_{aspect_ratio.replace(':', '_')}_{uuid.uuid4().hex[:12]}.jpg"
+    canvas.convert("RGB").save(UPLOAD_DIR / output_name, format="JPEG", quality=94, optimize=True)
+    return output_name
+
+def select_story_template(category: str, has_sale: bool) -> str:
+    cat_lower = (category or "").lower()
+    if has_sale:
+        return "sale"
+    if any(k in cat_lower for k in ["juice", "nước ép", "sinh tố", "đồ uống", "trà", "kombucha", "sữa"]):
+        return "juice"
+    return "organic"
 
 def quick_generate_post_from_product(product: dict, aspect_ratio: str = "4:5") -> dict:
-    normalized = normalize_product_dict(product)
-    feed_image_name = create_social_feed_creative(normalized, aspect_ratio=aspect_ratio)
-    
-    story_hook = f"🌱 Khám phá {normalized.get('TenSanPham')} hữu cơ chuẩn quốc tế tại ROOTS!"
-    story_template = select_story_template(normalized)
-    
-    story_image_name = None
-    try:
-        story_image_name = create_story_image(
-            image_name=feed_image_name,
-            caption_hint=normalized.get("TenSanPham", ""),
-            template=story_template,
-            hook_text=story_hook,
-            story_link="https://roots.vn"
-        )
-    except Exception as e:
-        story_image_name = feed_image_name
+    if not isinstance(product, dict):
+        raise ValueError("Dữ liệu sản phẩm không hợp lệ.")
 
-    prompt_hint = (
-        f"Viết bài giới thiệu sản phẩm '{normalized.get('TenSanPham')}', "
-        f"Giá: {normalized.get('GiaSauKm')}đ (Giá gốc: {normalized.get('GiaTruocKm')}đ). "
-        f"Xuất xứ: {normalized.get('XuatXu')}. Thương hiệu: {normalized.get('Brand')}. "
-        f"Điểm nổi bật: Thực phẩm hữu cơ sạch 100%, bổ dưỡng, chuẩn tự nhiên tại siêu thị ROOTS Organic Store & Juice Bar."
-    )
-    
-    captions = {}
+    prod_name = str(product.get("TenSanPham") or "Sản phẩm hữu cơ cao cấp").strip()[:150]
+    brand = str(product.get("Brand") or "ROOTS").strip()[:60]
+    origin = str(product.get("XuatXu") or "Tự nhiên").strip()[:60]
+    category = str(product.get("DanhMuc") or "Thực phẩm sạch").strip()[:80]
+    raw_img = str(product.get("AnhSanPham") or "").strip()
+
+    if not raw_img:
+        raise ValueError("Sản phẩm không có ảnh đại diện từ ROOTS.")
+
     try:
-        captions = generate_social_captions(
-            images=[feed_image_name],
-            user_hint=prompt_hint
-        )
-    except Exception as e:
-        captions = {
-            "facebook": f"🌿 {normalized.get('TenSanPham')} - Chuẩn hữu cơ tươi ngon tại ROOTS!\n\n✨ Xuất xứ: {normalized.get('XuatXu')}\n💰 Giá: {normalized.get('GiaSauKm')}đ\n\n👉 Ghé ngay siêu thị ROOTS hoặc đặt giao tận nơi tại https://roots.vn",
-            "instagram": f"Tươi mát & chuẩn lành cùng {normalized.get('TenSanPham')} 🌿\n\n#ROOTSOrganic #EatClean #OrganicFood #HealthyLifestyle",
-            "google": f"🌿 {normalized.get('TenSanPham')} đã có mặt tại ROOTS Organic Store. Mua sắm thực phẩm sạch ngay hôm nay!",
-            "story_hook": story_hook
-        }
+        price_km = float(product.get("GiaSauKm") or 0)
+    except (ValueError, TypeError):
+        price_km = 0.0
+
+    try:
+        price_truoc_km = float(product.get("GiaTruocKm") or 0)
+    except (ValueError, TypeError):
+        price_truoc_km = 0.0
+
+    has_discount = price_truoc_km > price_km and price_km > 0
+    price_str = f"{price_km:,.0f}đ" if price_km > 0 else "Liên hệ"
+    old_price_str = f"{price_truoc_km:,.0f}đ" if has_discount else ""
+    product_url = "https://roots.vn"
+
+    square_img_filename = download_and_fit_to_square_1_1(raw_img, output_size=1080)
+    feed_img_filename = create_social_feed_creative(
+        raw_img,
+        product_name=prod_name,
+        brand=brand,
+        category=category,
+        price=price_str,
+        old_price=old_price_str,
+        aspect_ratio=aspect_ratio,
+    )
+
+    hint = (
+        f"Viết bài bán hàng mạng xã hội cho sản phẩm của siêu thị hữu cơ ROOTS:\n"
+        f"- Tên sản phẩm: {prod_name}\n"
+        f"- Thương hiệu: {brand}\n"
+        f"- Xuất xứ: {origin}\n"
+        f"- Danh mục: {category}\n"
+        f"- Giá ưu đãi: {price_str}"
+        + (f" (Giá gốc: {old_price_str})" if old_price_str else "")
+        + f"\n- Link mua hàng chính hãng: {product_url}\n"
+        f"Hãy làm nổi bật độ tươi ngon, hữu cơ, an toàn cho sức khỏe và kêu gọi đặt hàng ngay."
+    )
+
+    ai_data = generate_social_captions(images=[square_img_filename], user_hint=hint)
+    fb_cap = ai_data.get("fb_caption") or ai_data.get("sales_caption") or ""
+    ig_cap = ai_data.get("ig_caption") or ai_data.get("viral_caption") or fb_cap
+    chosen_template = select_story_template(category, has_discount)
+    hook_text = (ai_data.get("trend_caption") or "").split("\n")[0].replace('"', "").replace("'", "").strip()
+    if not hook_text:
+        hook_text = f"🔥 {prod_name[:40]} - Chỉ {price_str}!"
+
+    story_img_filename = create_story_image(
+        source_image_name=square_img_filename,
+        caption_hint=hook_text + f"\n{brand} • {category} • Đặt ngay tại ROOTS",
+        template=chosen_template,
+        story_link=product_url
+    )
+
+    google_cap = ai_data.get("google_caption") or fb_cap
+    if len(google_cap) > 1500:
+        google_cap = google_cap[:1497] + "..."
 
     return {
-        "feed_image": feed_image_name,
-        "story_image": story_image_name,
-        "story_template": story_template,
-        "story_hook": story_hook,
-        "story_link": "https://roots.vn",
-        "fb_caption": captions.get("facebook", ""),
-        "ig_caption": captions.get("instagram", ""),
-        "google_caption": captions.get("google", ""),
-        "product_data": normalized
+        "product_name": prod_name,
+        "brand": brand,
+        "price": price_str,
+        "old_price": old_price_str,
+        "product_url": product_url,
+        "square_image": square_img_filename,
+        "feed_image": feed_img_filename,
+        "story_image": story_img_filename,
+        "story_template": chosen_template,
+        "fb_caption": fb_cap,
+        "ig_caption": ig_cap,
+        "google_caption": google_cap,
+        "story_hook": hook_text,
     }
