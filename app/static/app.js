@@ -288,6 +288,30 @@ createApp({
       }
     },
 
+    useMediaInComposer(filename) {
+      if (!this.postForm.images.includes(filename)) {
+        this.postForm.images.push(filename);
+        this.showToast('Đã thêm ảnh vào bài viết!', 'success');
+        this.activeTab = 'composer';
+        if (this.postForm.target_story) {
+          this.generateStoryPreview();
+        }
+      } else {
+        this.showToast('Ảnh này đã có trong bài viết.', 'info');
+      }
+    },
+
+    async deleteMediaItem(filename) {
+      if (!confirm('Bạn có chắc muốn xóa ảnh này khỏi thư viện?')) return;
+      try {
+        const res = await this.authFetch(`/api/media/${filename}`, { method: 'DELETE' });
+        if (res.ok) {
+          this.showToast('Đã xóa ảnh thành công', 'info');
+          this.loadMediaLibrary();
+        }
+      } catch (e) {}
+    },
+
     getMediaUrl(filename) {
       if (!filename) return '';
       if (filename.startsWith('http://') || filename.startsWith('https://')) return filename;
@@ -375,6 +399,87 @@ createApp({
         polaroid: '⭐ Review Bán chạy'
       };
       return map[tpl] || tpl;
+    },
+
+    getGoogleCtaLabel(type) {
+      const map = {
+        LEARN_MORE: 'Tìm hiểu thêm',
+        ORDER: 'Đặt hàng ngay',
+        BOOK: 'Đặt chỗ ngay',
+        SHOP: 'Mua sắm ngay',
+        SIGN_UP: 'Đăng ký ngay',
+        CALL: 'Gọi ngay: 0868 472 236',
+        NONE: 'Không nút'
+      };
+      return map[type] || 'Tìm hiểu thêm';
+    },
+
+    // ── BULK UPLOAD EXCEL METHODS ──
+    async downloadBulkTemplate() {
+      try {
+        window.open('/api/bulk/template', '_blank');
+      } catch (e) {
+        this.showToast('Lỗi tải file mẫu: ' + e.message, 'error');
+      }
+    },
+
+    handleBulkFileDrop(e) {
+      this.isDraggingBulk = false;
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        this.parseBulkFile(e.dataTransfer.files[0]);
+      }
+    },
+
+    handleBulkFileInput(e) {
+      if (e.target.files && e.target.files[0]) {
+        this.parseBulkFile(e.target.files[0]);
+      }
+    },
+
+    async parseBulkFile(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await this.authFetch('/api/bulk/preview', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.bulkPreviewPosts = data.posts || [];
+          this.showToast(`✨ Đã đọc thành công ${data.count} bài viết từ file Excel!`, 'success');
+        } else {
+          this.showToast(data.detail || 'Lỗi đọc file Excel', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi kết nối khi đọc Excel: ' + e.message, 'error');
+      }
+    },
+
+    async submitBulkImport() {
+      if (!this.bulkPreviewPosts || this.bulkPreviewPosts.length === 0) return;
+      this.isImportingBulk = true;
+      try {
+        const res = await this.authFetch('/api/bulk/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ posts: this.bulkPreviewPosts })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.showToast(`✅ Đã nhập thành công ${data.imported_count} bài viết vào lịch đăng!`, 'success');
+          this.bulkPreviewPosts = [];
+          this.activeTab = 'scheduled';
+          this.loadScheduledPosts();
+          this.loadCalendarEvents();
+        } else {
+          this.showToast(data.detail || 'Lỗi nhập bài viết', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi máy chủ khi nhập bài: ' + e.message, 'error');
+      } finally {
+        this.isImportingBulk = false;
+      }
     },
 
     // ── ROOTS CATALOG METHODS ──
@@ -681,6 +786,18 @@ createApp({
       }
     },
 
+    async runSystemMaintenance() {
+      try {
+        const res = await this.authFetch('/api/maintenance/run', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.showToast(`✅ Đã sao lưu database (${data.backup}) và dọn ${data.deleted_orphaned_media} ảnh thừa!`, 'success');
+        }
+      } catch (e) {
+        this.showToast('Lỗi bảo trì: ' + e.message, 'error');
+      }
+    },
+
     // ── MEDIA, CALENDAR, QUEUE HELPERS ──
     async loadMediaLibrary() {
       try {
@@ -761,6 +878,20 @@ createApp({
         }
       } catch (e) {}
     },
+    async duplicatePost(id) {
+      try {
+        const res = await this.authFetch(`/api/posts/${id}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.showToast('✨ Đã nhân bản bài viết thành công!', 'success');
+          this.loadScheduledPosts();
+        }
+      } catch (e) {}
+    },
     async deleteScheduledPost(id) {
       if (!confirm('Xóa bài viết này?')) return;
       try {
@@ -772,8 +903,14 @@ createApp({
       } catch (e) {}
     },
     insertVariable(tag) {
-      this.postForm.fb_caption = (this.postForm.fb_caption || '') + ' ' + tag;
-      this.postForm.ig_caption = (this.postForm.ig_caption || '') + ' ' + tag;
+      if (this.captionTab === 'fb') {
+        this.postForm.fb_caption = (this.postForm.fb_caption || '') + ' ' + tag;
+      } else if (this.captionTab === 'ig') {
+        this.postForm.ig_caption = (this.postForm.ig_caption || '') + ' ' + tag;
+      } else {
+        this.postForm.google_caption = (this.postForm.google_caption || '') + ' ' + tag;
+      }
+      this.showToast(`Đã chèn "${tag}" vào ô soạn thảo!`, 'info');
     },
     getFbName() {
       return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.page_name) || 'ROOTS - Organic Store & Juice Bar';
