@@ -14,6 +14,7 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    [v-cloak] { display: none; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -69,32 +70,32 @@
 
         <!-- Navigation Tabs -->
         <nav class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
-          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-feather-pointed"></i>
             <span>Tạo bài</span>
           </button>
-          <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-store"></i>
             <span>Kho ROOTS</span>
           </button>
-          <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-calendar-days"></i>
             <span>Lịch đăng</span>
           </button>
-          <button @click="activeTab = 'library'" :class="activeTab === 'library' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button @click="activeTab = 'library'" :class="activeTab === 'library' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-images"></i>
             <span>Thư viện</span>
           </button>
-          <button @click="activeTab = 'templates'" :class="activeTab === 'templates' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button @click="activeTab = 'templates'" :class="activeTab === 'templates' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-hashtag"></i>
             <span>Mẫu & Tag</span>
           </button>
-          <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative">
+          <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer">
             <i class="fa-solid fa-clock-rotate-left"></i>
             <span>Hàng đợi</span>
             <span v-if="pendingPosts.length > 0" class="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1"></span>
           </button>
-          <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+          <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-sliders"></i>
             <span>Cài đặt</span>
           </button>
@@ -106,7 +107,7 @@
             <i :class="currentUserRole === 'admin' ? 'fa-solid fa-crown text-amber-600' : 'fa-solid fa-user-tie text-blue-600'" class="mr-1"></i>
             {{ currentUserRole === 'admin' ? 'Admin' : 'Staff' }}
           </span>
-          <button @click="handleLogout" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 flex items-center justify-center transition" title="Đăng xuất">
+          <button @click="handleLogout" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 flex items-center justify-center transition cursor-pointer" title="Đăng xuất">
             <i class="fa-solid fa-right-from-bracket text-xs"></i>
           </button>
         </div>
@@ -121,21 +122,48 @@
         
         <!-- Left Column: Form -->
         <div class="lg:col-span-7 space-y-6">
-          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
-                <i class="fa-solid fa-pen-nib text-emerald-600"></i>
-                <span>Nội Dung Bài Đăng</span>
-              </h3>
-              <div class="flex items-center space-x-2">
-                <button type="button" @click="generateAICaption" :disabled="isAiGenerating" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-500/20 transition flex items-center space-x-1.5 disabled:opacity-50">
-                  <i v-if="isAiGenerating" class="fa-solid fa-circle-notch fa-spin"></i>
-                  <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
-                  <span>{{ isAiGenerating ? 'AI Đang Viết...' : 'Viết Bằng AI' }}</span>
-                </button>
-              </div>
+
+          <!-- AI Caption Assistant Box -->
+          <div class="bg-gradient-to-br from-purple-50 via-indigo-50 to-purple-50 rounded-2xl p-5 border border-purple-200/80 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-purple-900 uppercase flex items-center space-x-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-600 text-sm"></i>
+                <span>Trợ Lý Viết Bài Gemini AI (ROOTS Tone):</span>
+              </span>
+              <span class="text-[10px] font-bold bg-purple-200/70 text-purple-800 px-2 py-0.5 rounded-full">Gemini 2.5 Flash</span>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <input 
+                type="text" 
+                v-model="aiUserHint" 
+                @keyup.enter="generateAICaption"
+                placeholder="Nhập yêu cầu AI (Ví dụ: Nước ép Detox giảm cân, Flash Sale 20%, Sữa hạt hữu cơ...)" 
+                class="flex-1 bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500 shadow-sm">
+              <button 
+                type="button" 
+                @click="generateAICaption" 
+                :disabled="isAiGenerating" 
+                class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white rounded-xl text-xs font-black shadow-md shadow-purple-500/30 transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer whitespace-nowrap">
+                <i v-if="isAiGenerating" class="fa-solid fa-circle-notch fa-spin"></i>
+                <i v-else class="fa-solid fa-bolt"></i>
+                <span>{{ isAiGenerating ? 'Đang viết...' : 'Viết Bằng AI' }}</span>
+              </button>
             </div>
 
+            <!-- AI Quick Prompts Chips -->
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+              <span class="text-[11px] font-bold text-purple-700 mr-1">Gợi ý nhanh:</span>
+              <button type="button" @click="setAiHint('Giới thiệu thực phẩm hữu cơ sạch chuẩn quốc tế tại siêu thị ROOTS Organic')" class="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] font-semibold transition cursor-pointer">🌿 Thực phẩm hữu cơ</button>
+              <button type="button" @click="setAiHint('Nước ép Detox tươi mỗi ngày, thanh lọc cơ thể từ Juice Bar ROOTS')" class="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] font-semibold transition cursor-pointer">🍹 Nước ép Detox</button>
+              <button type="button" @click="setAiHint('Chương trình ưu đãi Giờ Vàng Săn Sale giảm sốc đến 30% cho khách mua tại ROOTS')" class="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] font-semibold transition cursor-pointer">🔥 Flash Sale giảm sốc</button>
+              <button type="button" @click="setAiHint('Gợi ý thực đơn Eat Clean dinh dưỡng cho cả gia đình cùng ROOTS Organic')" class="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] font-semibold transition cursor-pointer">✨ Thực đơn Healthy</button>
+            </div>
+          </div>
+
+          <!-- Main Post Form -->
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+            
             <!-- Platform Targets Checkboxes -->
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Đăng lên nền tảng:</label>
@@ -181,10 +209,20 @@
               <div v-if="postForm.images.length > 0" class="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-3">
                 <div v-for="(img, idx) in postForm.images" :key="idx" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
                   <img :src="getMediaUrl(img)" class="w-full h-full object-cover">
-                  <button type="button" @click="removeImage(idx)" class="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow">
+                  <button type="button" @click="removeImage(idx)" class="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow cursor-pointer">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Story Designer Option -->
+            <div v-show="postForm.target_story" class="p-3.5 bg-purple-50/60 rounded-xl border border-purple-200 space-y-2">
+              <label class="block text-xs font-bold text-purple-900 uppercase">Mẫu thiết kế Story 9:16:</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" @click="postForm.story_template = 'organic'" :class="postForm.story_template === 'organic' ? 'bg-emerald-600 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🌿 Hữu cơ</button>
+                <button type="button" @click="postForm.story_template = 'juice'" :class="postForm.story_template === 'juice' ? 'bg-orange-500 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🍹 Nước ép</button>
+                <button type="button" @click="postForm.story_template = 'sale'" :class="postForm.story_template === 'sale' ? 'bg-rose-600 text-white font-bold' : 'bg-white text-slate-700 border border-slate-200'" class="p-2 rounded-lg text-xs transition cursor-pointer">🔥 Flash Sale</button>
               </div>
             </div>
 
@@ -192,9 +230,9 @@
             <div class="space-y-2">
               <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-2">
-                  <button type="button" @click="captionTab = 'fb'" :class="captionTab === 'fb' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition">Facebook</button>
-                  <button type="button" @click="captionTab = 'ig'" :class="captionTab === 'ig' ? 'border-b-2 border-pink-600 text-pink-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition">Instagram</button>
-                  <button type="button" @click="captionTab = 'google'" :class="captionTab === 'google' ? 'border-b-2 border-amber-600 text-amber-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition">Google Maps</button>
+                  <button type="button" @click="captionTab = 'fb'" :class="captionTab === 'fb' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Facebook</button>
+                  <button type="button" @click="captionTab = 'ig'" :class="captionTab === 'ig' ? 'border-b-2 border-pink-600 text-pink-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Instagram</button>
+                  <button type="button" @click="captionTab = 'google'" :class="captionTab === 'google' ? 'border-b-2 border-amber-600 text-amber-600 font-bold' : 'text-slate-500 font-medium'" class="pb-2 text-xs transition cursor-pointer">Google Maps</button>
                 </div>
               </div>
 
@@ -204,8 +242,16 @@
               <div v-show="captionTab === 'ig'">
                 <textarea v-model="postForm.ig_caption" rows="5" placeholder="Nhập nội dung Instagram (#hashtag, @mention)..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
               </div>
-              <div v-show="captionTab === 'google'">
-                <textarea v-model="postForm.google_caption" rows="5" placeholder="Nhập nội dung Google Maps..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
+              <div v-show="captionTab === 'google'" class="space-y-2">
+                <textarea v-model="postForm.google_caption" rows="4" placeholder="Nhập nội dung Google Maps..." class="w-full border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent custom-scrollbar resize-none"></textarea>
+                <div class="grid grid-cols-2 gap-2">
+                  <select v-model="postForm.google_action_type" class="border border-slate-200 rounded-lg p-2 text-xs outline-none font-medium">
+                    <option value="LEARN_MORE">Tìm hiểu thêm</option>
+                    <option value="ORDER">Đặt hàng ngay</option>
+                    <option value="CALL">Gọi ngay</option>
+                  </select>
+                  <input type="text" v-model="postForm.google_action_url" placeholder="https://roots.vn" class="border border-slate-200 rounded-lg p-2 text-xs outline-none">
+                </div>
               </div>
             </div>
 
@@ -223,7 +269,7 @@
                 <input v-if="postForm.action === 'schedule'" type="datetime-local" v-model="postForm.scheduled_time" class="border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
 
-              <button type="button" @click="submitPost" :disabled="isSubmitting" class="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 disabled:opacity-50">
+              <button type="button" @click="submitPost" :disabled="isSubmitting" class="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer">
                 <i v-if="isSubmitting" class="fa-solid fa-circle-notch fa-spin"></i>
                 <i v-else :class="postForm.action === 'now' ? 'fa-solid fa-paper-plane' : 'fa-solid fa-calendar-check'"></i>
                 <span>{{ isSubmitting ? 'Đang xử lý...' : (currentUserRole === 'staff' ? 'Gửi Duyệt Bài Viết' : (postForm.action === 'now' ? 'Xuất Bản Ngay' : 'Lên Lịch Đăng Bài')) }}</span>
@@ -232,45 +278,150 @@
           </div>
         </div>
 
-        <!-- Right Column: Live Preview -->
+        <!-- Right Column: Multi-Platform Realistic Live Preview -->
         <div class="lg:col-span-5 space-y-4">
           <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4 sticky top-24">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
               <span class="text-xs font-bold text-slate-700 uppercase flex items-center space-x-1.5">
                 <i class="fa-solid fa-eye text-slate-400"></i>
-                <span>Xem Trước (Live Preview)</span>
+                <span>Xem Trước Thực Tế</span>
               </span>
               <div class="flex space-x-1 bg-slate-100 p-0.5 rounded-lg">
-                <button type="button" @click="previewPlatform = 'fb'" :class="previewPlatform === 'fb' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2 py-1 rounded text-[10px] transition">FB</button>
-                <button type="button" @click="previewPlatform = 'ig'" :class="previewPlatform === 'ig' ? 'bg-white text-pink-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2 py-1 rounded text-[10px] transition">IG</button>
+                <button type="button" @click="previewPlatform = 'fb'" :class="previewPlatform === 'fb' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2.5 py-1 rounded text-[11px] transition cursor-pointer">Facebook</button>
+                <button type="button" @click="previewPlatform = 'ig'" :class="previewPlatform === 'ig' ? 'bg-white text-pink-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2.5 py-1 rounded text-[11px] transition cursor-pointer">Instagram</button>
+                <button type="button" @click="previewPlatform = 'story'" :class="previewPlatform === 'story' ? 'bg-white text-purple-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2.5 py-1 rounded text-[11px] transition cursor-pointer">Story 9:16</button>
+                <button type="button" @click="previewPlatform = 'google'" :class="previewPlatform === 'google' ? 'bg-white text-amber-600 shadow-sm font-bold' : 'text-slate-500 font-medium'" class="px-2.5 py-1 rounded text-[11px] transition cursor-pointer">Google</button>
               </div>
             </div>
 
-            <!-- FB Mockup Card -->
-            <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left">
-              <div class="p-3.5 flex items-center space-x-3 border-b border-slate-100">
-                <img v-if="getFbPic()" :src="getFbPic()" class="w-10 h-10 rounded-full object-cover border border-slate-200">
-                <div v-else class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-sm">R</div>
-                <div>
-                  <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ getFbName() }}</h4>
-                  <p class="text-[10px] text-slate-400 mt-0.5 flex items-center space-x-1">
-                    <span>Vừa xong</span>
-                    <span>•</span>
-                    <i class="fa-solid fa-earth-americas text-[9px]"></i>
-                  </p>
+            <!-- 1. FACEBOOK REALISTIC MOCKUP -->
+            <div v-show="previewPlatform === 'fb'" class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left">
+              <div class="p-3.5 flex items-center justify-between border-b border-slate-100">
+                <div class="flex items-center space-x-3">
+                  <img v-if="getFbPic()" :src="getFbPic()" class="w-10 h-10 rounded-full object-cover border border-slate-200">
+                  <div v-else class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-sm">R</div>
+                  <div>
+                    <h4 class="text-xs font-bold text-slate-900 leading-tight flex items-center space-x-1">
+                      <span>{{ getFbName() }}</span>
+                      <i class="fa-solid fa-circle-check text-blue-500 text-[11px]"></i>
+                    </h4>
+                    <p class="text-[10px] text-slate-400 mt-0.5 flex items-center space-x-1">
+                      <span>Vừa xong</span>
+                      <span>•</span>
+                      <i class="fa-solid fa-earth-americas text-[9px]"></i>
+                    </p>
+                  </div>
                 </div>
+                <i class="fa-solid fa-ellipsis text-slate-400"></i>
               </div>
 
-              <!-- Caption in Mockup -->
+              <!-- Caption -->
               <div class="p-3.5 text-xs text-slate-800 whitespace-pre-line leading-relaxed">
-                {{ (previewPlatform === 'fb' ? postForm.fb_caption : postForm.ig_caption) || 'Nội dung bài viết sẽ hiển thị ở đây...' }}
+                {{ postForm.fb_caption || 'Nội dung bài viết Facebook sẽ hiển thị ở đây...' }}
               </div>
 
-              <!-- Image in Mockup -->
+              <!-- Image -->
               <div v-if="postForm.images.length > 0" class="aspect-square bg-slate-100 overflow-hidden">
                 <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
               </div>
+
+              <!-- Facebook Like/Comment Bar -->
+              <div class="p-2.5 border-t border-slate-100 flex items-center justify-around text-slate-500 text-xs font-semibold">
+                <span class="flex items-center space-x-1.5 hover:text-blue-600"><i class="fa-regular fa-thumbs-up"></i><span>Thích</span></span>
+                <span class="flex items-center space-x-1.5 hover:text-blue-600"><i class="fa-regular fa-comment"></i><span>Bình luận</span></span>
+                <span class="flex items-center space-x-1.5 hover:text-blue-600"><i class="fa-solid fa-share"></i><span>Chia sẻ</span></span>
+              </div>
             </div>
+
+            <!-- 2. INSTAGRAM REALISTIC MOCKUP -->
+            <div v-show="previewPlatform === 'ig'" class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left">
+              <div class="p-3 flex items-center justify-between border-b border-slate-100">
+                <div class="flex items-center space-x-2.5">
+                  <div class="p-0.5 bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 rounded-full">
+                    <img v-if="getFbPic()" :src="getFbPic()" class="w-8 h-8 rounded-full object-cover border-2 border-white">
+                    <div v-else class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-xs border-2 border-white">R</div>
+                  </div>
+                  <span class="text-xs font-bold text-slate-900 font-mono">{{ getIgUsername() }}</span>
+                </div>
+                <i class="fa-solid fa-ellipsis text-slate-400"></i>
+              </div>
+
+              <!-- Image (4:5 / 1:1) -->
+              <div v-if="postForm.images.length > 0" class="aspect-square bg-slate-100 overflow-hidden">
+                <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
+              </div>
+
+              <!-- Actions Bar -->
+              <div class="p-3 border-t border-slate-100 space-y-2">
+                <div class="flex items-center justify-between text-base text-slate-800">
+                  <div class="flex items-center space-x-4">
+                    <i class="fa-regular fa-heart hover:text-rose-600 cursor-pointer"></i>
+                    <i class="fa-regular fa-comment hover:text-slate-600 cursor-pointer"></i>
+                    <i class="fa-regular fa-paper-plane hover:text-slate-600 cursor-pointer"></i>
+                  </div>
+                  <i class="fa-regular fa-bookmark hover:text-slate-600 cursor-pointer"></i>
+                </div>
+                <div class="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
+                  <span class="font-bold mr-1.5 font-mono">{{ getIgUsername() }}</span>
+                  <span>{{ postForm.ig_caption || postForm.fb_caption || 'Nội dung bài viết Instagram...' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. STORY 9:16 REALISTIC MOCKUP -->
+            <div v-show="previewPlatform === 'story'" class="mx-auto max-w-[240px] aspect-[9/16] rounded-3xl overflow-hidden shadow-xl bg-slate-900 text-white relative border-4 border-slate-800 flex flex-col justify-between p-3.5">
+              <!-- Story Header -->
+              <div class="flex items-center space-x-2 z-10">
+                <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[9px]">R</div>
+                <span class="text-[10px] font-bold">rootsvn.official</span>
+                <span class="text-[9px] text-slate-400">1h</span>
+              </div>
+
+              <!-- Story Image Background -->
+              <div v-if="postForm.images.length > 0" class="absolute inset-0 z-0">
+                <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+              </div>
+
+              <!-- Story Sticker & Hook -->
+              <div class="z-10 text-center space-y-2 mt-auto">
+                <div v-if="postForm.story_hook" class="bg-white/90 backdrop-blur-md text-slate-900 font-black text-xs p-2 rounded-xl shadow-lg">
+                  {{ postForm.story_hook }}
+                </div>
+                <div class="inline-flex items-center space-x-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">
+                  <i class="fa-solid fa-link"></i>
+                  <span>roots.vn</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. GOOGLE BUSINESS REALISTIC MOCKUP -->
+            <div v-show="previewPlatform === 'google'" class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left p-4 space-y-3">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/30">
+                  <i class="fa-brands fa-google"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-slate-900 leading-tight">ROOTS Organic Store & Juice Bar</h4>
+                  <p class="text-[10px] text-amber-700 mt-0.5">⭐⭐⭐⭐⭐ 4.9 (1.2k đánh giá trên Google Maps)</p>
+                </div>
+              </div>
+
+              <div v-if="postForm.images.length > 0" class="aspect-video bg-slate-100 rounded-xl overflow-hidden">
+                <img :src="getMediaUrl(postForm.images[0])" class="w-full h-full object-cover">
+              </div>
+
+              <p class="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                {{ postForm.google_caption || postForm.fb_caption || 'Nội dung hiển thị trên Google Search & Maps...' }}
+              </p>
+
+              <div class="pt-2">
+                <a :href="postForm.google_action_url || 'https://roots.vn'" target="_blank" class="inline-block px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-sm">
+                  {{ postForm.google_action_type === 'ORDER' ? 'Đặt hàng ngay' : (postForm.google_action_type === 'CALL' ? 'Gọi ngay' : 'Tìm hiểu thêm') }}
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -284,17 +435,17 @@
               <i class="fa-solid fa-store"></i>
             </div>
             <div>
-              <h3 class="font-bold text-slate-900 text-sm">Kho Sản Phẩm ROOTS.vn</h3>
+              <h3 class="font-bold text-slate-900 text-sm">Kho Sản Phẩm ROOTS.vn ({{ rootsPagination.total_items }} sản phẩm)</h3>
               <p class="text-xs text-slate-500">Tự động đồng bộ và tạo bài Studio 1-Click</p>
             </div>
           </div>
           <div class="flex items-center space-x-2 w-full sm:w-auto">
-            <select v-model="selectedRootsCategory" @change="loadRootsData" class="border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500">
-              <option value="all">Tất cả danh mục</option>
+            <select v-model="selectedRootsCategory" @change="rootsPagination.current_page = 1; loadRootsData()" class="border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="all">Tất cả danh mục ({{ rootsPagination.total_items }})</option>
               <option v-for="(cat, name) in rootsCategories" :key="name" :value="name">{{ name }} ({{ cat.count }})</option>
             </select>
-            <input type="text" v-model="rootsSearchQuery" @keyup.enter="loadRootsData" placeholder="Tìm sản phẩm..." class="border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500">
-            <button @click="loadRootsData" class="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition">Tìm</button>
+            <input type="text" v-model="rootsSearchQuery" @keyup.enter="rootsPagination.current_page = 1; loadRootsData()" placeholder="Tìm sản phẩm..." class="border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            <button @click="rootsPagination.current_page = 1; loadRootsData()" class="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition cursor-pointer">Tìm</button>
           </div>
         </div>
 
@@ -317,7 +468,7 @@
               </div>
               <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <span class="text-xs font-black text-emerald-700">{{ formatRootsPrice(p.GiaSauKm || p.gia) }}</span>
-                <button type="button" @click="quickGenerateRootsPost(p)" :disabled="isGenerating1Click && generatingProductId === p.id" class="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white rounded-lg text-[10px] font-bold shadow transition flex items-center space-x-1 disabled:opacity-50">
+                <button type="button" @click="quickGenerateRootsPost(p)" :disabled="isGenerating1Click && generatingProductId === p.id" class="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white rounded-lg text-[10px] font-bold shadow transition flex items-center space-x-1 disabled:opacity-50 cursor-pointer">
                   <i v-if="isGenerating1Click && generatingProductId === p.id" class="fa-solid fa-circle-notch fa-spin"></i>
                   <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
                   <span>Tạo bài</span>
@@ -327,11 +478,13 @@
           </div>
         </div>
 
-        <!-- Pagination -->
+        <!-- Full Numbered Pagination -->
         <div class="flex items-center justify-center space-x-2 pt-4">
-          <button @click="changeRootsPage(rootsPagination.current_page - 1)" :disabled="rootsPagination.current_page <= 1" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40">Trang trước</button>
-          <span class="text-xs font-bold text-slate-600">Trang {{ rootsPagination.current_page }} / {{ rootsPagination.total_pages || 1 }}</span>
-          <button @click="changeRootsPage(rootsPagination.current_page + 1)" :disabled="rootsPagination.current_page >= rootsPagination.total_pages" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40">Trang sau</button>
+          <button @click="changeRootsPage(1)" :disabled="rootsPagination.current_page <= 1" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 cursor-pointer">Đầu</button>
+          <button @click="changeRootsPage(rootsPagination.current_page - 1)" :disabled="rootsPagination.current_page <= 1" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 cursor-pointer">Trước</button>
+          <span class="text-xs font-bold px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg">Trang {{ rootsPagination.current_page }} / {{ rootsPagination.total_pages || 1 }}</span>
+          <button @click="changeRootsPage(rootsPagination.current_page + 1)" :disabled="rootsPagination.current_page >= rootsPagination.total_pages" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 cursor-pointer">Sau</button>
+          <button @click="changeRootsPage(rootsPagination.total_pages)" :disabled="rootsPagination.current_page >= rootsPagination.total_pages" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold disabled:opacity-40 cursor-pointer">Cuối</button>
         </div>
       </div>
 
@@ -416,8 +569,8 @@
                 <span class="text-[10px] text-slate-400">{{ p.created_at }}</span>
               </div>
               <div v-if="currentUserRole === 'admin'" class="flex items-center space-x-2">
-                <button @click="approvePendingPost(p, 'publish_now')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700">Duyệt & Đăng</button>
-                <button @click="rejectPendingPost(p)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100">Từ chối</button>
+                <button @click="approvePendingPost(p, 'publish_now')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 cursor-pointer">Duyệt & Đăng</button>
+                <button @click="rejectPendingPost(p)" class="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 cursor-pointer">Từ chối</button>
               </div>
             </div>
           </div>
@@ -432,8 +585,8 @@
                 <span class="text-slate-400 mt-1 block">Lên lịch lúc: {{ p.scheduled_time }}</span>
               </div>
               <div class="flex items-center space-x-2">
-                <button v-if="currentUserRole === 'admin'" @click="publishNow(p.id)" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold">Đăng ngay</button>
-                <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold">Xóa</button>
+                <button v-if="currentUserRole === 'admin'" @click="publishNow(p.id)" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold cursor-pointer">Đăng ngay</button>
+                <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold cursor-pointer">Xóa</button>
               </div>
             </div>
           </div>
@@ -448,7 +601,7 @@
               <i class="fa-solid fa-sliders text-emerald-600"></i>
               <span>Cấu Hình Hệ Thống</span>
             </h3>
-            <button @click="testSettingsConnection" :disabled="isTesting" class="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition flex items-center space-x-1 disabled:opacity-50">
+            <button @click="testSettingsConnection" :disabled="isTesting" class="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition flex items-center space-x-1 disabled:opacity-50 cursor-pointer">
               <i v-if="isTesting" class="fa-solid fa-circle-notch fa-spin"></i>
               <i v-else class="fa-solid fa-network-wired"></i>
               <span>Kiểm tra kết nối</span>
@@ -478,7 +631,7 @@
             <div class="flex items-center justify-between pt-1">
               <span v-if="settingsForm.google_connected" class="text-xs text-emerald-700 font-bold">✅ Đã liên kết Google Business</span>
               <span v-else class="text-xs text-amber-800">Chưa liên kết</span>
-              <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition">Liên kết tài khoản Google</button>
+              <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer">Liên kết tài khoản Google</button>
             </div>
           </div>
 
@@ -489,7 +642,7 @@
           </div>
 
           <!-- Save Button -->
-          <button @click="saveSettings" :disabled="isSaving" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 text-xs disabled:opacity-50">
+          <button @click="saveSettings" :disabled="isSaving" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2 text-xs disabled:opacity-50 cursor-pointer">
             <i v-if="isSaving" class="fa-solid fa-circle-notch fa-spin"></i>
             <span>{{ isSaving ? 'Đang lưu...' : 'Lưu Toàn Bộ Cấu Hình' }}</span>
           </button>
