@@ -164,6 +164,7 @@ createApp({
             if (this.currentUserRole === 'admin') {
               this.loadSettings();
             }
+            this.loadMetaStatus();
             this.loadScheduledPosts();
             this.loadPendingPosts();
             this.loadRootsCategories();
@@ -199,6 +200,7 @@ createApp({
           if (this.currentUserRole === 'admin') {
             this.loadSettings();
           }
+          this.loadMetaStatus();
           this.loadScheduledPosts();
           this.loadPendingPosts();
           this.loadRootsCategories();
@@ -719,10 +721,23 @@ createApp({
       return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.page_name) || 'ROOTS - Organic Store & Juice Bar';
     },
     getFbPic() {
-      return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.picture) || '';
+      return (this.metaStatus && this.metaStatus.facebook && this.metaStatus.facebook.picture) || 'https://roots.vn/themes/roots/assets/images/logo.png';
     },
     getIgUsername() {
       return (this.metaStatus && this.metaStatus.instagram && this.metaStatus.instagram.username) || 'rootsvn.official';
+    },
+    getIgPic() {
+      return (this.metaStatus && this.metaStatus.instagram && this.metaStatus.instagram.profile_picture) || this.getFbPic();
+    },
+    async loadMetaStatus() {
+      try {
+        const res = await this.authFetch('/api/meta/status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.facebook) this.metaStatus.facebook = data.facebook;
+          if (data.instagram) this.metaStatus.instagram = data.instagram;
+        }
+      } catch (e) {}
     }
   }
 }).mount('#app');
