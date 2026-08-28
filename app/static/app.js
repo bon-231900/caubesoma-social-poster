@@ -97,6 +97,13 @@ createApp({
         total_items: 0
       },
       selectedComboProducts: [],
+      comboModal: {
+        show: false,
+        isLoading: false,
+        result: null,
+        activeCaptionTab: 'fb',
+        copiedPromptIdx: null
+      },
 
       mediaLibrary: [],
       selectedMediaTag: 'all',
@@ -311,6 +318,98 @@ createApp({
     },
 
     // ── ROOTS CATALOG METHODS ──
+    
+    // ── COMBO MULTI-PRODUCT METHODS ──
+    toggleSelectComboProduct(product) {
+      const pId = product.id || product.MaNoiBo;
+      const idx = this.selectedComboProducts.findIndex(p => (p.id || p.MaNoiBo) === pId);
+      if (idx > -1) {
+        this.selectedComboProducts.splice(idx, 1);
+      } else {
+        if (this.selectedComboProducts.length >= 10) {
+          this.showToast('Bạn chỉ có thể chọn tối đa 10 sản phẩm vào 1 Combo', 'error');
+          return;
+        }
+        this.selectedComboProducts.push(product);
+      }
+    },
+
+    isComboProductSelected(product) {
+      const pId = product.id || product.MaNoiBo;
+      return this.selectedComboProducts.some(p => (p.id || p.MaNoiBo) === pId);
+    },
+
+    clearSelectedComboProducts() {
+      this.selectedComboProducts = [];
+    },
+
+    async openComboCampaignModal() {
+      if (this.selectedComboProducts.length === 0) return;
+      this.comboModal.show = true;
+      this.comboModal.isLoading = true;
+      this.comboModal.result = null;
+      this.comboModal.copiedPromptIdx = null;
+
+      try {
+        const res = await this.authFetch('/api/roots/combo-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            products: this.selectedComboProducts,
+            campaign_angle: 'Tối ưu dinh dưỡng hữu cơ kết hợp'
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.comboModal.result = data.data;
+        } else {
+          this.showToast(data.detail || 'Lỗi tạo chiến dịch Combo AI', 'error');
+          this.comboModal.show = false;
+        }
+      } catch (err) {
+        this.showToast('Lỗi kết nối khi gọi AI Combo: ' + err.message, 'error');
+        this.comboModal.show = false;
+      } finally {
+        this.comboModal.isLoading = false;
+      }
+    },
+
+    closeComboCampaignModal() {
+      this.comboModal.show = false;
+    },
+
+    copyPromptToClipboard(text, idx) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.comboModal.copiedPromptIdx = idx;
+        this.showToast('✨ Đã copy Prompt AI vào Clipboard!', 'success');
+        setTimeout(() => {
+          if (this.comboModal.copiedPromptIdx === idx) {
+            this.comboModal.copiedPromptIdx = null;
+          }
+        }, 3000);
+      });
+    },
+
+    applyComboToComposer() {
+      if (!this.comboModal.result) return;
+      const res = this.comboModal.result;
+      this.postForm.fb_caption = res.fb_caption || '';
+      this.postForm.ig_caption = res.ig_caption || '';
+      this.postForm.google_caption = res.google_caption || '';
+      
+      // Auto attach images from selected combo products if available
+      const comboImgs = this.selectedComboProducts
+        .map(p => p.AnhSanPham || p.hinh_anh)
+        .filter(Boolean);
+      if (comboImgs.length > 0) {
+        this.postForm.images = [...comboImgs];
+      }
+
+      this.closeComboCampaignModal();
+      this.activeTab = 'composer';
+      this.showToast(`✨ Đã nạp thành công nội dung Combo ${this.selectedComboProducts.length} sản phẩm sang Trình Tạo Bài!`, 'success');
+    },
+
     async loadRootsCategories() {
       try {
         const res = await this.authFetch('/api/roots/categories');
