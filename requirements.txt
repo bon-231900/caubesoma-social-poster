@@ -7,3 +7,4 @@ python-dotenv>=1.0.1
 pydantic>=2.6.0
 pillow>=10.2.0
 openpyxl>=3.1.2
+psycopg2-binary>=2.9.9
