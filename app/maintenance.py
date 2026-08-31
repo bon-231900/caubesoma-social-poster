@@ -21,8 +21,11 @@ def configure_logging():
 
 def backup_database() -> Path:
     destination = BACKUP_DIR / f"automation-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db"
-    with sqlite3.connect(DB_PATH) as source, sqlite3.connect(destination) as target:
-        source.backup(target)
+    if DB_PATH.exists():
+        with sqlite3.connect(DB_PATH) as source, sqlite3.connect(destination) as target:
+            source.backup(target)
+    else:
+        destination.touch()
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     for old in BACKUP_DIR.glob("automation-*.db"):
         if datetime.fromtimestamp(old.stat().st_mtime, timezone.utc) < cutoff:
