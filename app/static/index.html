@@ -852,6 +852,44 @@
             </div>
           </div>
         </div>
+
+        <!-- LỊCH SỬ BÀI ĐÃ ĐĂNG & KẾT QUẢ -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-clock-rotate-left text-slate-600"></i>
+              <span>Lịch Sử Bài Đã Thực Hiện ({{ historyPosts.length }})</span>
+            </h3>
+            <button @click="loadHistoryPosts" class="text-xs text-slate-500 hover:text-slate-800">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Làm mới
+            </button>
+          </div>
+          <div v-if="historyPosts.length === 0" class="p-8 text-center text-slate-400 text-xs font-medium">
+            Chưa có bài viết nào trong lịch sử đã xử lý.
+          </div>
+          <div v-else class="space-y-3">
+            <div v-for="p in historyPosts" :key="p.id" class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div class="space-y-1 max-w-xl">
+                <p class="font-bold text-slate-900 line-clamp-2">{{ p.fb_caption || p.ig_caption || p.google_caption }}</p>
+                <div class="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span class="text-slate-500">⏰ Xuất bản: {{ p.published_at || p.created_at }}</span>
+                  <span v-if="p.status === 'success'" class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold">Thành công 100%</span>
+                  <span v-else-if="p.status === 'partial_failed'" class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold" :title="p.error_log">Một phần thành công</span>
+                  <span v-else class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold" :title="p.error_log">Lỗi ({{ p.status }})</span>
+                </div>
+                <div v-if="p.error_log" class="text-[10px] text-rose-600 bg-rose-50 rounded p-1 font-mono">
+                  {{ p.error_log }}
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 shrink-0">
+                <button @click="duplicatePost(p.id)" class="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold hover:bg-emerald-100 cursor-pointer" title="Nhân bản bài này để đăng lại">
+                  <i class="fa-solid fa-copy mr-1"></i> Đăng lại
+                </button>
+                <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold hover:bg-rose-100 cursor-pointer">Xóa</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- TAB 8: SETTINGS (ADMIN ONLY) -->
