@@ -1,21 +1,140 @@
 import json
 import hashlib
+import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from app.config import DB_PATH
+from app.config import DB_PATH, DATABASE_URL
 from app.time_utils import normalize_schedule
+
+class PGRow(dict):
+    """Dictionary-like row wrapper compatible with sqlite3.Row and dict(row)."""
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+class PGCursor:
+    def __init__(self, raw_cursor):
+        self._cur = raw_cursor
+        self.lastrowid = None
+        self.rowcount = 0
+        self._is_pragma = False
+
+    def execute(self, sql: str, params=None):
+        cleaned = sql.strip()
+        if cleaned.upper().startswith("PRAGMA"):
+            self._is_pragma = True
+            return self
+
+        self._is_pragma = False
+
+        # 1. Convert AUTOINCREMENT to SERIAL
+        cleaned = re.sub(r'\bINTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b', 'SERIAL PRIMARY KEY', cleaned, flags=re.IGNORECASE)
+
+        # 2. Convert INSERT OR REPLACE for Postgres
+        if 'INSERT OR REPLACE INTO SESSIONS' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+sessions\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO sessions (\1) VALUES (\2) ON CONFLICT (token_hash) DO UPDATE SET role = EXCLUDED.role, expires_at = EXCLUDED.expires_at, created_at = EXCLUDED.created_at', cleaned, flags=re.IGNORECASE)
+        elif 'INSERT OR REPLACE INTO OAUTH_STATES' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+oauth_states\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO oauth_states (\1) VALUES (\2) ON CONFLICT (state_hash) DO UPDATE SET expires_at = EXCLUDED.expires_at', cleaned, flags=re.IGNORECASE)
+        elif 'INSERT OR REPLACE INTO MEDIA_ITEMS' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+media_items\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO media_items (\1) VALUES (\2) ON CONFLICT (filename) DO UPDATE SET original_name = EXCLUDED.original_name, file_hash = EXCLUDED.file_hash, mime_type = EXCLUDED.mime_type, file_size = EXCLUDED.file_size, width = EXCLUDED.width, height = EXCLUDED.height, tags = EXCLUDED.tags', cleaned, flags=re.IGNORECASE)
+        elif 'INSERT OR REPLACE INTO PRODUCT_AI_CACHE' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+product_ai_cache\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO product_ai_cache (\1) VALUES (\2) ON CONFLICT (product_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload_json = EXCLUDED.payload_json, updated_at = EXCLUDED.updated_at', cleaned, flags=re.IGNORECASE)
+        elif 'INSERT OR REPLACE INTO BACKGROUND_JOBS' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+background_jobs\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO background_jobs (\1) VALUES (\2) ON CONFLICT (job_id) DO UPDATE SET job_type = EXCLUDED.job_type, status = EXCLUDED.status, progress = EXCLUDED.progress, current_step = EXCLUDED.current_step, result_json = EXCLUDED.result_json, error_message = EXCLUDED.error_message, updated_at = EXCLUDED.updated_at', cleaned, flags=re.IGNORECASE)
+
+        # 3. Convert ? to %s
+        cleaned = cleaned.replace("?", "%s")
+
+        # 4. Auto-append RETURNING id for inserts into tables with id column
+        has_returning_id = False
+        is_insert = cleaned.strip().upper().startswith("INSERT INTO")
+        if is_insert and any(t in cleaned.upper() for t in ["POSTS", "HASHTAG_GROUPS", "CAPTION_TEMPLATES", "MEDIA_ITEMS"]):
+            if "RETURNING" not in cleaned.upper():
+                cleaned = cleaned.rstrip(" ;") + " RETURNING id"
+                has_returning_id = True
+
+        if params is not None:
+            self._cur.execute(cleaned, tuple(params))
+        else:
+            self._cur.execute(cleaned)
+
+        self.rowcount = self._cur.rowcount
+        if has_returning_id:
+            res = self._cur.fetchone()
+            if res and "id" in res:
+                self.lastrowid = res["id"]
+        return self
+
+    def fetchone(self):
+        if self._is_pragma:
+            return None
+        row = self._cur.fetchone()
+        return PGRow(row) if row is not None else None
+
+    def fetchall(self):
+        if self._is_pragma:
+            return []
+        rows = self._cur.fetchall()
+        return [PGRow(r) for r in rows]
+
+    def close(self):
+        self._cur.close()
+
+class PGConnection:
+    def __init__(self, raw_conn):
+        self._conn = raw_conn
+
+    def cursor(self):
+        from psycopg2.extras import RealDictCursor
+        return PGCursor(self._conn.cursor(cursor_factory=RealDictCursor))
+
+    def execute(self, sql: str, params=None):
+        cur = self.cursor()
+        cur.execute(sql, params)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+def is_postgres_active() -> bool:
+    return bool(DATABASE_URL and (DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://")))
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=30000;")
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if is_postgres_active():
+        import psycopg2
+        conn_str = DATABASE_URL
+        if conn_str.startswith("postgres://"):
+            conn_str = "postgresql://" + conn_str[len("postgres://"):]
+        raw_conn = psycopg2.connect(conn_str, connect_timeout=15)
+        pg_conn = PGConnection(raw_conn)
+        try:
+            yield pg_conn
+        finally:
+            pg_conn.close()
+    else:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=30000;")
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -57,29 +176,30 @@ def init_db():
             )
         """)
         
-        # Upgrade existing database schema if columns are missing
-        cursor.execute("PRAGMA table_info(posts)")
-        existing_cols = [r["name"] for r in cursor.fetchall()]
-        cols_to_add = [
-            ("target_story", "INTEGER DEFAULT 0"),
-            ("story_image", "TEXT"),
-            ("story_template", "TEXT DEFAULT 'glassmorphism'"),
-            ("story_hook", "TEXT DEFAULT ''"),
-            ("story_link", "TEXT DEFAULT ''"),
-            ("story_fb_id", "TEXT"),
-            ("story_ig_id", "TEXT"),
-            ("google_caption", "TEXT DEFAULT ''"),
-            ("target_google", "INTEGER DEFAULT 0"),
-            ("google_action_type", "TEXT DEFAULT 'LEARN_MORE'"),
-            ("google_action_url", "TEXT DEFAULT ''"),
-            ("google_post_id", "TEXT"),
-            ("attempt_count", "INTEGER DEFAULT 0"),
-            ("last_attempt_at", "TEXT"),
-            ("platform_results", "TEXT DEFAULT '{}'")
-        ]
-        for col_name, col_type in cols_to_add:
-            if col_name not in existing_cols:
-                cursor.execute(f"ALTER TABLE posts ADD COLUMN {col_name} {col_type}")
+        # Upgrade existing database schema if columns are missing (SQLite only)
+        if not is_postgres_active():
+            cursor.execute("PRAGMA table_info(posts)")
+            existing_cols = [r["name"] for r in cursor.fetchall()]
+            cols_to_add = [
+                ("target_story", "INTEGER DEFAULT 0"),
+                ("story_image", "TEXT"),
+                ("story_template", "TEXT DEFAULT 'glassmorphism'"),
+                ("story_hook", "TEXT DEFAULT ''"),
+                ("story_link", "TEXT DEFAULT ''"),
+                ("story_fb_id", "TEXT"),
+                ("story_ig_id", "TEXT"),
+                ("google_caption", "TEXT DEFAULT ''"),
+                ("target_google", "INTEGER DEFAULT 0"),
+                ("google_action_type", "TEXT DEFAULT 'LEARN_MORE'"),
+                ("google_action_url", "TEXT DEFAULT ''"),
+                ("google_post_id", "TEXT"),
+                ("attempt_count", "INTEGER DEFAULT 0"),
+                ("last_attempt_at", "TEXT"),
+                ("platform_results", "TEXT DEFAULT '{}'")
+            ]
+            for col_name, col_type in cols_to_add:
+                if col_name not in existing_cols:
+                    cursor.execute(f"ALTER TABLE posts ADD COLUMN {col_name} {col_type}")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -95,10 +215,11 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
-        cursor.execute("PRAGMA table_info(sessions)")
-        sess_cols = [r["name"] for r in cursor.fetchall()]
-        if "role" not in sess_cols:
-            cursor.execute("ALTER TABLE sessions ADD COLUMN role TEXT DEFAULT 'admin'")
+        if not is_postgres_active():
+            cursor.execute("PRAGMA table_info(sessions)")
+            sess_cols = [r["name"] for r in cursor.fetchall()]
+            if "role" not in sess_cols:
+                cursor.execute("ALTER TABLE sessions ADD COLUMN role TEXT DEFAULT 'admin'")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS oauth_states (
@@ -106,8 +227,6 @@ def init_db():
                 expires_at TEXT NOT NULL
             )
         """)
-
-        # Media Library Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS media_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,8 +241,6 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
-
-        # Hashtag Groups Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hashtag_groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,8 +250,6 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
-
-        # Caption Templates Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS caption_templates (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,18 +260,14 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
-
-        # Product AI Cache Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS product_ai_cache (
                 product_id TEXT PRIMARY KEY,
-                cache_key TEXT NOT NULL,
+                cache_key TEXT,
                 payload_json TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
         """)
-
-        # Background Jobs Table (Dramatiq / Task Queue Pattern)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS background_jobs (
                 job_id TEXT PRIMARY KEY,
@@ -262,27 +373,29 @@ def create_post(
             INSERT INTO posts (
                 title, fb_caption, ig_caption, google_caption, images,
                 target_fb, target_ig, target_story, target_google,
-                google_action_type, google_action_url,
-                status, scheduled_time, created_at,
-                story_image, story_template, story_hook, story_link
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                google_action_type, google_action_url, story_image,
+                story_template, story_hook, story_link,
+                status, scheduled_time, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             title, fb_caption, ig_caption, google_caption, images_json,
-            1 if target_fb else 0, 1 if target_ig else 0, 1 if target_story else 0, 1 if target_google else 0,
-            google_action_type, google_action_url,
-            status, scheduled_time, created_at,
-            story_image, story_template, story_hook, story_link
+            1 if target_fb else 0, 1 if target_ig else 0,
+            1 if target_story else 0, 1 if target_google else 0,
+            google_action_type, google_action_url, story_image,
+            story_template, story_hook, story_link,
+            status, scheduled_time, created_at
         ))
         conn.commit()
         return cursor.lastrowid
 
-def get_posts(limit: int = 100, status: str = None) -> list:
+def get_posts(status: str = None, limit: int = 100) -> list:
     with get_db() as conn:
         cursor = conn.cursor()
         if status:
-            cursor.execute("SELECT * FROM posts WHERE status = ? ORDER BY id DESC LIMIT ?", (status, limit))
+            cursor.execute('SELECT * FROM posts WHERE status = ? ORDER BY id DESC LIMIT ?', (status, limit))
         else:
-            cursor.execute("SELECT * FROM posts ORDER BY id DESC LIMIT ?", (limit,))
+            cursor.execute('SELECT * FROM posts ORDER BY id DESC LIMIT ?', (limit,))
         rows = cursor.fetchall()
         result = []
         for r in rows:
@@ -298,10 +411,10 @@ def get_posts(limit: int = 100, status: str = None) -> list:
             result.append(d)
         return result
 
-def get_post_by_id(post_id: int) -> dict:
+def get_post_by_id(post_id: int):
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM posts WHERE id = ?", (post_id,))
+        cursor.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -464,15 +577,12 @@ def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: in
         query += " ORDER BY id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
         rows = conn.execute(query, params).fetchall()
-        result = []
+        items = []
         for r in rows:
             d = dict(r)
-            try:
-                d['tags'] = json.loads(d['tags'])
-            except Exception:
-                d['tags'] = []
-            result.append(d)
-        return result
+            d["tags"] = json.loads(d.get("tags") or "[]")
+            items.append(d)
+        return items
 
 def get_media_by_hash(file_hash: str) -> dict:
     if not file_hash:
@@ -481,16 +591,13 @@ def get_media_by_hash(file_hash: str) -> dict:
         row = conn.execute("SELECT * FROM media_items WHERE file_hash = ? LIMIT 1", (file_hash,)).fetchone()
         if row:
             d = dict(row)
-            try:
-                d["tags"] = json.loads(d.get("tags") or "[]")
-            except Exception:
-                d["tags"] = []
+            d["tags"] = json.loads(d.get("tags") or "[]")
             return d
     return None
 
 def update_media_tags(filename: str, tags: list):
     with get_db() as conn:
-        conn.execute("UPDATE media_items SET tags = ? WHERE filename = ?", (json.dumps(tags or []), filename))
+        conn.execute("UPDATE media_items SET tags = ? WHERE filename = ?", (json.dumps(tags), filename))
         conn.commit()
 
 def delete_media_item(filename: str):
@@ -510,7 +617,7 @@ def create_hashtag_group(name: str, hashtags: str, category: str = "Chung") -> i
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO hashtag_groups (name, hashtags, category, created_at) VALUES (?, ?, ?, ?)",
-                       (name, hashtags, category, utc_now_iso()))
+                       (name.strip(), hashtags.strip(), category.strip(), utc_now_iso()))
         conn.commit()
         return cursor.lastrowid
 
@@ -528,7 +635,7 @@ def create_caption_template(name: str, content: str, category: str = "Sáº£n pháº
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO caption_templates (name, content, category, brand_voice, created_at) VALUES (?, ?, ?, ?, ?)",
-                       (name, content, category, brand_voice, utc_now_iso()))
+                       (name.strip(), content.strip(), category.strip(), brand_voice.strip(), utc_now_iso()))
         conn.commit()
         return cursor.lastrowid
 
