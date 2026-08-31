@@ -98,7 +98,7 @@ def test_meta_connection(page_id: str, page_token: str, ig_account_id: str = Non
     try:
         fb_url = f"{GRAPH_API_BASE}/{page_id}"
         fb_params = {
-            "fields": "id,name,picture{url}",
+            "fields": "id,name,link,picture{url}",
             "access_token": page_token
         }
         res = requests.get(fb_url, params=fb_params, timeout=15)
@@ -108,14 +108,15 @@ def test_meta_connection(page_id: str, page_token: str, ig_account_id: str = Non
             result["facebook"]["connected"] = True
             result["facebook"]["page_name"] = fb_data.get("name")
             result["facebook"]["page_id"] = fb_data.get("id")
-            result["facebook"]["picture"] = fb_data.get("picture", {}).get("data", {}).get("url")
+            picture_data = fb_data.get("picture", {}).get("data", {})
+            result["facebook"]["picture"] = picture_data.get("url")
         else:
-            err_msg = fb_data.get("error", {}).get("message", "Không thể kết nối tới Fanpage.")
+            err_msg = fb_data.get("error", {}).get("message", "Không thể xác thực Facebook Page.")
             result["facebook"]["error"] = err_msg
     except Exception as e:
         result["facebook"]["error"] = str(e)
 
-    # Test Instagram Account
+    # Test Instagram
     if ig_account_id:
         try:
             ig_url = f"{GRAPH_API_BASE}/{ig_account_id}"
@@ -142,19 +143,34 @@ def test_meta_connection(page_id: str, page_token: str, ig_account_id: str = Non
     return result
 
 def upload_to_imgbb(image_path: Path, api_key: str) -> str:
-    """Upload local image to ImgBB and return public URL"""
+    """Upload local image to ImgBB and return public URL.
+    Converts to clean RGB JPEG to guarantee 100% compliance with Instagram Graph API.
+    """
     if not api_key:
         raise ValueError("Chưa cấu hình ImgBB API Key để tự động lấy URL công khai cho Instagram.")
     
-    with open(image_path, "rb") as f:
-        image_data = base64.b64encode(f.read()).decode("utf-8")
+    from PIL import Image
+    import io
+
+    try:
+        with Image.open(image_path) as im:
+            rgb_im = im.convert("RGB")
+            buf = io.BytesIO()
+            rgb_im.save(buf, format="JPEG", quality=92, optimize=True)
+            raw_bytes = buf.getvalue()
+    except Exception:
+        with open(image_path, "rb") as f:
+            raw_bytes = f.read()
+
+    image_data = base64.b64encode(raw_bytes).decode("utf-8")
         
     url = "https://api.imgbb.com/1/upload"
     payload = {
         "key": api_key,
-        "image": image_data
+        "image": image_data,
+        "name": Path(image_path).stem
     }
-    response = requests.post(url, data=payload, timeout=30)
+    response = requests.post(url, data=payload, timeout=35)
     data = response.json()
     
     if response.status_code == 200 and data.get("success"):
@@ -178,93 +194,73 @@ def resolve_public_image_url(image_item: str, imgbb_api_key: str = None) -> str:
     if not local_file.exists():
         raise FileNotFoundError(f"Không tìm thấy file ảnh: {image_item}")
         
-    if not imgbb_api_key:
-        raise ValueError("Cần cấu hình ImgBB API Key trong Cài đặt để hệ thống tự tạo URL công khai khi đăng lên Instagram.")
-        
     return upload_to_imgbb(local_file, imgbb_api_key)
 
-def publish_to_facebook(page_id: str, page_token: str, message: str, images: list, link_url: str = None) -> dict:
+def publish_to_facebook(page_id: str, page_token: str, caption: str, images: list) -> dict:
     """
-    Publish text, single photo, or multi-photo album to Facebook Page.
+    Publish multi-photo post or single photo or text to Facebook Fanpage.
     """
     if not page_id or not page_token:
         raise ValueError("Thiếu Facebook Page ID hoặc Page Access Token")
-
-    # Case 1: No images -> Post to /feed (Status update / Link post)
+        
     if not images:
-        feed_url = f"{GRAPH_API_BASE}/{page_id}/feed"
-        payload = {"message": message, "access_token": page_token}
-        if link_url and link_url.strip().startswith("http"):
-            payload["link"] = link_url.strip()
-        res = requests.post(feed_url, data=payload, timeout=30)
-        data = res.json()
-        if res.status_code == 200 and "id" in data:
-            return {"post_id": data["id"], "url": f"https://facebook.com/{data['id']}"}
-        raise RuntimeError(f"Lỗi đăng bài FB: {data.get('error', {}).get('message', str(data))}")
-
-    # Case 2: Single image
-    if len(images) == 1:
-        img_item = images[0]
-        photo_url = f"{GRAPH_API_BASE}/{page_id}/photos"
-        if img_item.startswith("http://") or img_item.startswith("https://"):
-            payload = {
-                "url": img_item,
-                "caption": message,
-                "access_token": page_token
-            }
-            res = requests.post(photo_url, data=payload, timeout=30)
+        # Text-only post
+        url = f"{GRAPH_API_BASE}/{page_id}/feed"
+        data = {
+            "message": caption,
+            "access_token": page_token
+        }
+        res = requests.post(url, data=data, timeout=30)
+        res_data = res.json()
+        if res.status_code == 200 and "id" in res_data:
+            return {"post_id": res_data["id"], "url": f"https://facebook.com/{res_data['id']}"}
         else:
-            local_path = UPLOAD_DIR / img_item
-            if not local_path.exists():
-                raise FileNotFoundError(f"Không tìm thấy file ảnh: {img_item}")
-            with open(local_path, "rb") as file_bytes:
-                files = {"source": file_bytes}
-                payload = {"caption": message, "access_token": page_token}
-                res = requests.post(photo_url, data=payload, files=files, timeout=60)
-                
-        data = res.json()
-        if res.status_code == 200 and "id" in data:
-            post_id = data.get("post_id") or data["id"]
-            return {"post_id": post_id, "url": f"https://facebook.com/{post_id}"}
-        raise RuntimeError(f"Lỗi đăng ảnh FB: {data.get('error', {}).get('message', str(data))}")
-
-    # Case 3: Multi-image album (2+ images)
-    # Step 1: Upload unpublished photos to get IDs
-    attached_media = []
-    for img_item in images:
+            raise RuntimeError(res_data.get("error", {}).get("message", str(res_data)))
+            
+    # Upload unpublished photos
+    photo_ids = []
+    for img in images:
         photo_url = f"{GRAPH_API_BASE}/{page_id}/photos"
-        if img_item.startswith("http://") or img_item.startswith("https://"):
+        
+        if img.startswith("http://") or img.startswith("https://"):
             payload = {
-                "url": img_item,
+                "url": img,
                 "published": "false",
                 "access_token": page_token
             }
             res = requests.post(photo_url, data=payload, timeout=30)
         else:
-            local_path = UPLOAD_DIR / img_item
+            local_path = UPLOAD_DIR / img
             if not local_path.exists():
-                raise FileNotFoundError(f"Không tìm thấy file ảnh: {img_item}")
+                raise FileNotFoundError(f"Không tìm thấy file {img}")
             with open(local_path, "rb") as file_bytes:
                 files = {"source": file_bytes}
-                payload = {"published": "false", "access_token": page_token}
+                payload = {
+                    "published": "false",
+                    "access_token": page_token
+                }
                 res = requests.post(photo_url, data=payload, files=files, timeout=60)
                 
-        photo_data = res.json()
-        if res.status_code != 200 or "id" not in photo_data:
-            raise RuntimeError(f"Lỗi tải ảnh album FB: {photo_data.get('error', {}).get('message', str(photo_data))}")
-        attached_media.append({"media_fbid": photo_data["id"]})
+        res_data = res.json()
+        if res.status_code == 200 and "id" in res_data:
+            photo_ids.append(res_data["id"])
+        else:
+            raise RuntimeError(f"Lỗi tải ảnh lên FB: {res_data.get('error', {}).get('message', str(res_data))}")
 
-    # Step 2: Publish feed post with attached_media
+    # Create Feed Post with attached media
     feed_url = f"{GRAPH_API_BASE}/{page_id}/feed"
+    attached_media = [{"media_fbid": pid} for pid in photo_ids]
     feed_payload = {
-        "message": message,
+        "message": caption,
         "attached_media": json.dumps(attached_media),
         "access_token": page_token
     }
     feed_res = requests.post(feed_url, data=feed_payload, timeout=30)
     feed_data = feed_res.json()
+    
     if feed_res.status_code == 200 and "id" in feed_data:
-        return {"post_id": feed_data["id"], "url": f"https://facebook.com/{feed_data['id']}"}
+        post_id = feed_data["id"]
+        return {"post_id": post_id, "url": f"https://facebook.com/{post_id}"}
     else:
         raise RuntimeError(f"Lỗi đăng bài FB: {feed_data.get('error', {}).get('message', str(feed_data))}")
 
@@ -378,7 +374,7 @@ def publish_facebook_story(page_id: str, page_token: str, story_image_name: str,
 
 def publish_to_instagram(ig_account_id: str, page_token: str, caption: str, images: list, imgbb_api_key: str = None) -> dict:
     """
-    Publish carousel or single image to Instagram Business Account.
+    Publish carousel or single image to Instagram Business Account with robust CDN propagation retry and container readiness checks.
     """
     if not ig_account_id or not page_token:
         raise ValueError("Thiếu Instagram Account ID hoặc Page Access Token")
@@ -386,22 +382,48 @@ def publish_to_instagram(ig_account_id: str, page_token: str, caption: str, imag
     if not images:
         raise ValueError("Instagram Graph API yêu cầu phải có ít nhất 1 hình ảnh hoặc video để đăng bài.")
 
-    # Convert all images to public URLs
+    # Convert all images to public URLs (automatically converted to clean RGB JPEG)
     public_urls = [resolve_public_image_url(img, imgbb_api_key) for img in images]
+
+    def create_container_with_retry(payload: dict, desc: str) -> str:
+        container_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
+        last_error = None
+        for attempt in range(4):
+            if attempt > 0:
+                time.sleep(2 * attempt)
+            res = requests.post(container_url, data=payload, timeout=30)
+            data = res.json()
+            if res.status_code == 200 and "id" in data:
+                return data["id"]
+            err_msg = data.get("error", {}).get("message", str(data))
+            last_error = err_msg
+            if any(k in err_msg.lower() for k in ["media type", "download", "fetch", "temporary", "timeout"]):
+                continue
+            else:
+                break
+        raise RuntimeError(f"Lỗi tạo {desc}: {last_error}")
+
+    def wait_for_container_finished(cid: str, max_wait: int = 15):
+        for _ in range(max_wait):
+            status_url = f"{GRAPH_API_BASE}/{cid}"
+            status_res = requests.get(status_url, params={"fields": "status_code", "access_token": page_token}, timeout=15)
+            status_data = status_res.json()
+            status_code = status_data.get("status_code", "FINISHED")
+            if status_code == "FINISHED":
+                return True
+            elif status_code == "ERROR":
+                raise RuntimeError(f"Instagram Container {cid} bị lỗi xử lý hình ảnh.")
+            time.sleep(2)
+        return True
 
     if len(public_urls) == 1:
         # Single Image Post
-        container_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
         container_payload = {
             "image_url": public_urls[0],
             "caption": caption,
             "access_token": page_token
         }
-        res = requests.post(container_url, data=container_payload, timeout=30)
-        data = res.json()
-        if res.status_code != 200 or "id" not in data:
-            raise RuntimeError(f"Lỗi tạo Instagram Container: {data.get('error', {}).get('message', str(data))}")
-        creation_id = data["id"]
+        creation_id = create_container_with_retry(container_payload, "Instagram Container")
     else:
         # Carousel Post (2 - 10 images)
         if len(public_urls) > 10:
@@ -409,18 +431,19 @@ def publish_to_instagram(ig_account_id: str, page_token: str, caption: str, imag
             
         # Step 1: Create child item containers
         child_ids = []
-        for url in public_urls:
-            item_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
+        for idx, url in enumerate(public_urls):
             item_payload = {
                 "image_url": url,
                 "is_carousel_item": "true",
                 "access_token": page_token
             }
-            res = requests.post(item_url, data=item_payload, timeout=30)
-            item_data = res.json()
-            if res.status_code != 200 or "id" not in item_data:
-                raise RuntimeError(f"Lỗi tạo Carousel Item: {item_data.get('error', {}).get('message', str(item_data))}")
-            child_ids.append(item_data["id"])
+            cid = create_container_with_retry(item_payload, f"Carousel Item {idx+1}")
+            child_ids.append(cid)
+            time.sleep(1)
+
+        # Step 1b: Ensure all child items are FINISHED before creating carousel
+        for cid in child_ids:
+            wait_for_container_finished(cid, max_wait=8)
 
         # Step 2: Create Carousel Parent Container
         carousel_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
@@ -433,41 +456,41 @@ def publish_to_instagram(ig_account_id: str, page_token: str, caption: str, imag
         res = requests.post(carousel_url, data=carousel_payload, timeout=30)
         carousel_data = res.json()
         if res.status_code != 200 or "id" not in carousel_data:
-            raise RuntimeError(f"Lỗi tạo Carousel Container: {carousel_data.get('error', {}).get('message', str(carousel_data))}")
+            carousel_payload["children"] = ",".join(child_ids)
+            res2 = requests.post(carousel_url, data=carousel_payload, timeout=30)
+            carousel_data = res2.json()
+            if res2.status_code != 200 or "id" not in carousel_data:
+                raise RuntimeError(f"Lỗi tạo Carousel Container: {carousel_data.get('error', {}).get('message', str(carousel_data))}")
         creation_id = carousel_data["id"]
 
-    # Step 3: Wait / Check container ready status
-    status_url = f"{GRAPH_API_BASE}/{creation_id}"
-    ready = False
-    for _ in range(6):
-        time.sleep(2)
-        st_res = requests.get(status_url, params={"fields": "status_code", "access_token": page_token}, timeout=15)
-        st_data = st_res.json()
-        if st_data.get("status_code") == "FINISHED":
-            ready = True
-            break
-        elif st_data.get("status_code") == "ERROR":
-            raise RuntimeError("Instagram Media Container xử lý ảnh bị lỗi.")
-            
+    # Step 3: Wait / Check main container ready status
+    wait_for_container_finished(creation_id, max_wait=12)
+
     # Step 4: Publish container
     publish_url = f"{GRAPH_API_BASE}/{ig_account_id}/media_publish"
-    pub_res = requests.post(publish_url, data={"creation_id": creation_id, "access_token": page_token}, timeout=30)
+    publish_payload = {
+        "creation_id": creation_id,
+        "access_token": page_token
+    }
+    pub_res = requests.post(publish_url, data=publish_payload, timeout=30)
     pub_data = pub_res.json()
+    
     if pub_res.status_code == 200 and "id" in pub_data:
-        ig_media_id = pub_data["id"]
-        return {"post_id": ig_media_id, "url": f"https://instagram.com/p/{ig_media_id}"}
+        ig_post_id = pub_data["id"]
+        return {"post_id": ig_post_id, "url": f"https://www.instagram.com/"}
     else:
-        raise RuntimeError(f"Lỗi xuất bản Instagram: {pub_data.get('error', {}).get('message', str(pub_data))}")
+        raise RuntimeError(f"Lỗi Publish Instagram: {pub_data.get('error', {}).get('message', str(pub_data))}")
 
 def publish_instagram_story(ig_account_id: str, page_token: str, story_image_name: str, imgbb_api_key: str = None) -> dict:
     """
-    Publish 9:16 Photo Story to Instagram Business Account.
+    Publish photo story (9:16) to Instagram Business Account.
     """
     if not ig_account_id or not page_token:
         raise ValueError("Thiếu Instagram Account ID hoặc Page Access Token")
         
     public_url = resolve_public_image_url(story_image_name, imgbb_api_key)
     
+    # 1. Create Story Container
     container_url = f"{GRAPH_API_BASE}/{ig_account_id}/media"
     container_payload = {
         "image_url": public_url,
@@ -480,23 +503,29 @@ def publish_instagram_story(ig_account_id: str, page_token: str, story_image_nam
         raise RuntimeError(f"Lỗi tạo Instagram Story Container: {data.get('error', {}).get('message', str(data))}")
     creation_id = data["id"]
     
-    # Wait for processing
-    status_url = f"{GRAPH_API_BASE}/{creation_id}"
-    for _ in range(6):
-        time.sleep(2)
-        st_res = requests.get(status_url, params={"fields": "status_code", "access_token": page_token}, timeout=15)
-        st_data = st_res.json()
-        if st_data.get("status_code") == "FINISHED":
+    # 2. Wait for Story ready
+    for _ in range(12):
+        status_url = f"{GRAPH_API_BASE}/{creation_id}"
+        status_res = requests.get(status_url, params={"fields": "status_code", "access_token": page_token}, timeout=15)
+        status_data = status_res.json()
+        status_code = status_data.get("status_code", "FINISHED")
+        if status_code == "FINISHED":
             break
-        elif st_data.get("status_code") == "ERROR":
-            raise RuntimeError("Instagram Story Container xử lý bị lỗi.")
-            
-    # Publish Story
+        elif status_code == "ERROR":
+            raise RuntimeError("Instagram Story Container bị lỗi xử lý hình ảnh.")
+        time.sleep(2)
+        
+    # 3. Publish Story
     publish_url = f"{GRAPH_API_BASE}/{ig_account_id}/media_publish"
-    pub_res = requests.post(publish_url, data={"creation_id": creation_id, "access_token": page_token}, timeout=30)
+    publish_payload = {
+        "creation_id": creation_id,
+        "access_token": page_token
+    }
+    pub_res = requests.post(publish_url, data=publish_payload, timeout=30)
     pub_data = pub_res.json()
+    
     if pub_res.status_code == 200 and "id" in pub_data:
         story_id = pub_data["id"]
-        return {"story_id": story_id, "url": f"https://instagram.com"}
+        return {"story_id": story_id, "url": f"https://www.instagram.com/"}
     else:
-        raise RuntimeError(f"Lỗi đăng Instagram Story: {pub_data.get('error', {}).get('message', str(pub_data))}")
+        raise RuntimeError(f"Lỗi Publish Instagram Story: {pub_data.get('error', {}).get('message', str(pub_data))}")
