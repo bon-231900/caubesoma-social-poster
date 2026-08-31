@@ -811,6 +811,14 @@ createApp({
         const res = await this.authFetch('/api/posts?filter_type=scheduled');
         const data = await res.json();
         this.scheduledPosts = data.posts || [];
+        this.loadHistoryPosts();
+      } catch (e) {}
+    },
+    async loadHistoryPosts() {
+      try {
+        const res = await this.authFetch('/api/posts?filter_type=history');
+        const data = await res.json();
+        this.historyPosts = data.posts || [];
       } catch (e) {}
     },
     async loadPendingPosts() {
