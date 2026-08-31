@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 STATIC_DIR = BASE_DIR / "app" / "static"
 DB_PATH = BASE_DIR / "automation.db"
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
 ENV_PATH = BASE_DIR / ".env"
 LOG_DIR = BASE_DIR / "logs"
 BACKUP_DIR = BASE_DIR / "backups"
@@ -57,7 +58,7 @@ def get_settings() -> dict:
         "gemini_api_key": _value(values, "GEMINI_API_KEY"),
         "gemini_model": _value(values, "GEMINI_MODEL", "gemini-flash-latest"),
         "google_client_id": _value(values, "GOOGLE_CLIENT_ID"),
-        "google_client_secret": _value(values, "GOOGLE_CLIENT_SECRET", "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"),
+        "google_client_secret": _value(values, "GOOGLE_CLIENT_SECRET"),
         "google_refresh_token": _value(values, "GOOGLE_REFRESH_TOKEN"),
         "google_access_token": _value(values, "GOOGLE_ACCESS_TOKEN"),
         "google_token_expiry": _value(values, "GOOGLE_TOKEN_EXPIRY", "0"),
@@ -90,9 +91,6 @@ def check_single_password(password: str, raw_pass: str, hash_pass: str) -> bool:
     return False
 
 def verify_user_role(password: str, settings: dict) -> str:
-    """
-    Returns 'admin', 'staff', or '' (invalid).
-    """
     clean_p = str(password or "").strip()
     if not clean_p:
         return ""
