@@ -110,31 +110,44 @@ class PGConnection:
     def close(self):
         self._conn.close()
 
+_PG_FALLBACK_TO_SQLITE = False
+
 def is_postgres_active() -> bool:
-    return bool(DATABASE_URL and (DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://")))
+    global _PG_FALLBACK_TO_SQLITE
+    return bool(DATABASE_URL and (DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://"))) and not _PG_FALLBACK_TO_SQLITE
 
 @contextmanager
 def get_db():
+    global _PG_FALLBACK_TO_SQLITE
     if is_postgres_active():
-        import psycopg2
-        conn_str = DATABASE_URL
-        if conn_str.startswith("postgres://"):
-            conn_str = "postgresql://" + conn_str[len("postgres://"):]
-        raw_conn = psycopg2.connect(conn_str, connect_timeout=15)
-        pg_conn = PGConnection(raw_conn)
         try:
-            yield pg_conn
-        finally:
-            pg_conn.close()
-    else:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA busy_timeout=30000;")
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
+            import psycopg2
+            conn_str = DATABASE_URL
+            if conn_str.startswith("postgres://"):
+                conn_str = "postgresql://" + conn_str[len("postgres://"):]
+            raw_conn = psycopg2.connect(conn_str, connect_timeout=10)
+            pg_conn = PGConnection(raw_conn)
+            try:
+                yield pg_conn
+            finally:
+                pg_conn.close()
+            return
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Không thể kết nối PostgreSQL (%s). Tự động chuyển sang SQLite local để tránh sập server!", e
+            )
+            if "Network is unreachable" in str(e) or "could not translate host name" in str(e):
+                _PG_FALLBACK_TO_SQLITE = True
+
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=30000;")
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
