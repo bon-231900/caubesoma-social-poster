@@ -25,6 +25,9 @@ createApp({
       isGeneratingStory: false,
       isGeneratingAiHook: false,
       showToken: false,
+      storyMode: 'custom',
+      isDraggingStory: false,
+      isUploadingStoryImage: false,
 
       // AI Box State
       aiUserHint: '',
@@ -255,7 +258,7 @@ createApp({
           this.postForm.images.push(...filenames);
           this.showToast(`Đã tải lên ${filenames.length} ảnh thành công!`, 'success');
           this.loadMediaLibrary();
-          if (this.postForm.target_story && this.postForm.images.length > 0) {
+          if (this.postForm.target_story && this.postForm.images.length > 0 && !this.postForm.story_image && this.storyMode === 'template') {
             this.generateStoryPreview();
           }
         } else {
@@ -279,11 +282,72 @@ createApp({
       }
     },
 
+    // ── CUSTOM STORY 9:16 UPLOAD ──
+    async uploadStoryFile(file) {
+      if (!file) return;
+      this.isUploadingStoryImage = true;
+      const formData = new FormData();
+      formData.append('files', file);
+      try {
+        const res = await this.authFetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const filenames = data.filenames || (data.uploaded ? data.uploaded.map(u => u.filename) : []);
+          if (filenames.length > 0) {
+            this.postForm.story_image = filenames[0];
+            this.postForm.target_story = true;
+            this.storyMode = 'custom';
+            this.previewPlatform = 'story';
+            this.showToast('✨ Đã tải lên ảnh Story 9:16 riêng thành công!', 'success');
+            this.loadMediaLibrary();
+          }
+        } else {
+          this.showToast(data.detail || 'Lỗi tải ảnh Story', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi tải ảnh Story: ' + e.message, 'error');
+      } finally {
+        this.isUploadingStoryImage = false;
+      }
+    },
+
+    handleStoryFileInput(e) {
+      if (e.target.files && e.target.files[0]) {
+        this.uploadStoryFile(e.target.files[0]);
+      }
+    },
+
+    handleStoryFileDrop(e) {
+      this.isDraggingStory = false;
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        this.uploadStoryFile(e.dataTransfer.files[0]);
+      }
+    },
+
+    removeStoryImage() {
+      this.postForm.story_image = '';
+      this.showToast('Đã gỡ ảnh Story 9:16.', 'info');
+    },
+
+    useMediaAsStory(filename) {
+      this.postForm.story_image = filename;
+      this.postForm.target_story = true;
+      this.storyMode = 'custom';
+      this.activeTab = 'composer';
+      this.previewPlatform = 'story';
+      this.showToast('✨ Đã chọn ảnh làm Story 9:16!', 'success');
+    },
+
     removeImage(idx) {
       this.postForm.images.splice(idx, 1);
       if (this.postForm.images.length === 0) {
-        this.postForm.story_image = '';
-      } else if (this.postForm.target_story) {
+        if (this.storyMode === 'template') {
+          this.postForm.story_image = '';
+        }
+      } else if (this.postForm.target_story && this.storyMode === 'template') {
         this.generateStoryPreview();
       }
     },
@@ -293,7 +357,7 @@ createApp({
         this.postForm.images.push(filename);
         this.showToast('Đã thêm ảnh vào bài viết!', 'success');
         this.activeTab = 'composer';
-        if (this.postForm.target_story) {
+        if (this.postForm.target_story && this.storyMode === 'template' && !this.postForm.story_image) {
           this.generateStoryPreview();
         }
       } else {
@@ -676,8 +740,8 @@ createApp({
 
     // ── SUBMIT POST ──
     async submitPost() {
-      if (!this.postForm.fb_caption && !this.postForm.ig_caption && !this.postForm.google_caption) {
-        this.showToast('Vui lòng nhập nội dung bài viết.', 'error');
+      if (!this.postForm.fb_caption && !this.postForm.ig_caption && !this.postForm.google_caption && !this.postForm.story_image && !this.postForm.story_hook) {
+        this.showToast('Vui lòng nhập nội dung bài viết hoặc chọn ảnh Story.', 'error');
         return;
       }
       this.isSubmitting = true;
