@@ -429,8 +429,8 @@ async def upload_images(files: List[UploadFile] = File(...)):
 @app.post("/api/posts")
 @app.post("/api/posts/create")
 def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
-    if not req.fb_caption and not req.ig_caption and not req.google_caption and not req.story_hook:
-        raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất một nội dung đăng bài.")
+    if not req.fb_caption and not req.ig_caption and not req.google_caption and not req.story_hook and not req.story_image:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất một nội dung đăng bài hoặc chọn ảnh Story.")
     if req.action == "schedule" and not req.scheduled_time:
         raise HTTPException(status_code=400, detail="Vui lòng chọn thời gian lên lịch.")
 
