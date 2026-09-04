@@ -216,7 +216,8 @@ createApp({
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: this.loginPassword })\n        });
+          body: JSON.stringify({ password: this.loginPassword })
+        });
         const data = await res.json();
         if (res.ok && data.success) {
           this.isAuthenticated = true;
