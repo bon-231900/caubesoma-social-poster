@@ -167,8 +167,10 @@ def init_db():
                 target_ig INTEGER DEFAULT 1,
                 target_story INTEGER DEFAULT 0,
                 target_google INTEGER DEFAULT 0,
+                target_threads INTEGER DEFAULT 0,
                 google_action_type TEXT DEFAULT 'LEARN_MORE',
                 google_action_url TEXT DEFAULT '',
+                threads_caption TEXT DEFAULT '',
                 story_image TEXT,
                 story_template TEXT DEFAULT 'glassmorphism',
                 story_hook TEXT DEFAULT '',
@@ -180,6 +182,7 @@ def init_db():
                 fb_post_id TEXT,
                 ig_post_id TEXT,
                 google_post_id TEXT,
+                threads_post_id TEXT,
                 story_fb_id TEXT,
                 story_ig_id TEXT,
                 error_log TEXT,
@@ -203,6 +206,9 @@ def init_db():
                 ("story_ig_id", "TEXT"),
                 ("google_caption", "TEXT DEFAULT ''"),
                 ("target_google", "INTEGER DEFAULT 0"),
+                ("target_threads", "INTEGER DEFAULT 0"),
+                ("threads_caption", "TEXT DEFAULT ''"),
+                ("threads_post_id", "TEXT"),
                 ("google_action_type", "TEXT DEFAULT 'LEARN_MORE'"),
                 ("google_action_url", "TEXT DEFAULT ''"),
                 ("google_post_id", "TEXT"),
@@ -213,6 +219,15 @@ def init_db():
             for col_name, col_type in cols_to_add:
                 if col_name not in existing_cols:
                     cursor.execute(f"ALTER TABLE posts ADD COLUMN {col_name} {col_type}")
+        else:
+            try:
+                cursor.execute("""
+                    ALTER TABLE posts ADD COLUMN IF NOT EXISTS target_threads INTEGER DEFAULT 0;
+                    ALTER TABLE posts ADD COLUMN IF NOT EXISTS threads_caption TEXT DEFAULT '';
+                    ALTER TABLE posts ADD COLUMN IF NOT EXISTS threads_post_id TEXT;
+                """)
+            except Exception:
+                pass
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (
@@ -363,11 +378,13 @@ def create_post(
     fb_caption: str = "",
     ig_caption: str = "",
     google_caption: str = "",
+    threads_caption: str = "",
     images: list = None,
     target_fb: bool = True,
     target_ig: bool = True,
     target_story: bool = False,
     target_google: bool = False,
+    target_threads: bool = False,
     google_action_type: str = "LEARN_MORE",
     google_action_url: str = "",
     status: str = "draft",
@@ -384,17 +401,17 @@ def create_post(
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO posts (
-                title, fb_caption, ig_caption, google_caption, images,
-                target_fb, target_ig, target_story, target_google,
+                title, fb_caption, ig_caption, google_caption, threads_caption, images,
+                target_fb, target_ig, target_story, target_google, target_threads,
                 google_action_type, google_action_url, story_image,
                 story_template, story_hook, story_link,
                 status, scheduled_time, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            title, fb_caption, ig_caption, google_caption, images_json,
+            title, fb_caption, ig_caption, google_caption, threads_caption, images_json,
             1 if target_fb else 0, 1 if target_ig else 0,
-            1 if target_story else 0, 1 if target_google else 0,
+            1 if target_story else 0, 1 if target_google else 0, 1 if target_threads else 0,
             google_action_type, google_action_url, story_image,
             story_template, story_hook, story_link,
             status, scheduled_time, created_at
@@ -484,7 +501,7 @@ def get_due_scheduled_posts(now_iso: str = None) -> list:
             except Exception:
                 d['images'] = []
             result.append(d)
-    return result
+        return result
 
 def get_scheduled_posts() -> list:
     return get_due_scheduled_posts()
