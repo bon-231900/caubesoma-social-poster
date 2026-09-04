@@ -65,6 +65,12 @@ def get_settings() -> dict:
         "google_account_id": _value(values, "GOOGLE_ACCOUNT_ID"),
         "google_location_id": _value(values, "GOOGLE_LOCATION_ID", "2025447915592661087"),
         "google_location_name": _value(values, "GOOGLE_LOCATION_NAME", "ROOTS - Organic Store & Juice Bar"),
+        "threads_user_id": _value(values, "THREADS_USER_ID"),
+        "threads_username": _value(values, "THREADS_USERNAME", "roots.vn"),
+        "threads_access_token": _value(values, "THREADS_ACCESS_TOKEN"),
+        "threads_token_expiry": _value(values, "THREADS_TOKEN_EXPIRY", "0"),
+        "threads_app_id": _value(values, "THREADS_APP_ID"),
+        "threads_app_secret": _value(values, "THREADS_APP_SECRET"),
         "max_upload_mb": _int_value(values, "MAX_UPLOAD_MB", 12, 1, 100),
         "max_upload_batch_mb": _int_value(values, "MAX_UPLOAD_BATCH_MB", 48, 1, 500),
         "media_retention_days": _int_value(values, "MEDIA_RETENTION_DAYS", 90, 1, 3650),
@@ -95,22 +101,16 @@ def verify_user_role(password: str, settings: dict) -> str:
     if not clean_p:
         return ""
 
-    # 1. Check Admin password
-    admin_raw = (settings.get("admin_password") or os.environ.get("ADMIN_PASSWORD") or settings.get("app_password") or os.environ.get("APP_PASSWORD") or "caubesoma1812").strip()
-    admin_hash = (settings.get("admin_password_hash") or os.environ.get("ADMIN_PASSWORD_HASH") or settings.get("app_password_hash") or os.environ.get("APP_PASSWORD_HASH") or "").strip()
+    # 1. Check Admin Password (Explicit admin password takes precedence)
+    admin_raw = settings.get("admin_password") or settings.get("app_password")
+    admin_hash = settings.get("admin_password_hash") or settings.get("app_password_hash")
     if check_single_password(clean_p, admin_raw, admin_hash):
         return "admin"
 
-    # 2. Check Staff password
-    staff_raw = (settings.get("staff_password") or os.environ.get("STAFF_PASSWORD") or "roots123").strip()
-    staff_hash = (settings.get("staff_password_hash") or os.environ.get("STAFF_PASSWORD_HASH") or "").strip()
+    # 2. Check Staff Password
+    staff_raw = settings.get("staff_password")
+    staff_hash = settings.get("staff_password_hash")
     if check_single_password(clean_p, staff_raw, staff_hash):
-        return "staff"
-
-    # 3. Built-in hard fallback
-    if clean_p == "caubesoma1812":
-        return "admin"
-    if clean_p == "roots123":
         return "staff"
 
     return ""
@@ -136,6 +136,12 @@ def update_settings(updates: dict):
         "google_account_id": "GOOGLE_ACCOUNT_ID",
         "google_location_id": "GOOGLE_LOCATION_ID",
         "google_location_name": "GOOGLE_LOCATION_NAME",
+        "threads_user_id": "THREADS_USER_ID",
+        "threads_username": "THREADS_USERNAME",
+        "threads_access_token": "THREADS_ACCESS_TOKEN",
+        "threads_token_expiry": "THREADS_TOKEN_EXPIRY",
+        "threads_app_id": "THREADS_APP_ID",
+        "threads_app_secret": "THREADS_APP_SECRET",
         "max_upload_mb": "MAX_UPLOAD_MB",
         "max_upload_batch_mb": "MAX_UPLOAD_BATCH_MB",
         "media_retention_days": "MEDIA_RETENTION_DAYS",
