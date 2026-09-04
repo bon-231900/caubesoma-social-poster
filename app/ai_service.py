@@ -64,13 +64,15 @@ ROOTS - Organic Store and Juice Bar
 
 2. ig_caption (Tiếng Anh + Icon danh sách + Link tree + Footer ROOTS + Hashtags)
 3. google_caption (Tiếng Việt in hoa tiêu đề + cờ xuất xứ + công dụng sức khỏe + lời mời ghé 237 Nguyễn Công Trứ)
-4. viral_caption, sales_caption, trend_caption, hashtags.
+4. threads_caption (Phong cách Threads: Tự nhiên, ngắn gọn dưới 450 ký tự, đặt câu hỏi gợi mở thảo luận, kết hợp trải nghiệm healthy đời thường tại ROOTS, 1-2 hashtag)
+5. viral_caption, sales_caption, trend_caption, hashtags.
 
 Xuất ra đúng định dạng JSON:
 {{
   "fb_caption": "...",
   "ig_caption": "...",
   "google_caption": "...",
+  "threads_caption": "...",
   "viral_caption": "...",
   "sales_caption": "...",
   "trend_caption": "...",
@@ -114,6 +116,7 @@ Chỉ trả về JSON thuần túy, không có giải thích thêm."""
                 fb_c = parsed.get("fb_caption") or parsed.get("facebook") or ""
                 ig_c = parsed.get("ig_caption") or parsed.get("instagram") or ""
                 google_c = parsed.get("google_caption") or parsed.get("google") or ""
+                threads_c = parsed.get("threads_caption") or parsed.get("threads") or ""
                 hook = parsed.get("story_hook") or parsed.get("hook") or ""
                 return {
                     "fb_caption": fb_c,
@@ -122,6 +125,8 @@ Chỉ trả về JSON thuần túy, không có giải thích thêm."""
                     "instagram": ig_c,
                     "google_caption": google_c,
                     "google": google_c,
+                    "threads_caption": threads_c,
+                    "threads": threads_c,
                     "story_hook": hook,
                     "viral_caption": parsed.get("viral_caption", ""),
                     "sales_caption": parsed.get("sales_caption", ""),
