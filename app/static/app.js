@@ -38,6 +38,7 @@ createApp({
         target_ig: true,
         target_story: true,
         target_google: false,
+        target_threads: false,
         story_template: 'organic',
         story_hook: '',
         story_link: 'https://roots.vn',
@@ -46,10 +47,19 @@ createApp({
         fb_caption: '',
         ig_caption: '',
         google_caption: '',
+        threads_caption: '',
         google_action_type: 'LEARN_MORE',
         google_action_url: 'https://roots.vn',
         action: 'now',
         scheduled_time: ''
+      },
+      threadsProfile: {
+        connected: false,
+        username: 'roots.vn',
+        user_id: '',
+        profile_picture: '',
+        biography: '',
+        error: null
       },
       bulkPreviewPosts: [],
       scheduledPosts: [],
@@ -59,6 +69,9 @@ createApp({
         fb_page_id: '',
         fb_page_access_token: '',
         ig_business_account_id: '',
+        threads_user_id: '',
+        threads_access_token: '',
+        has_threads_token: false,
         imgbb_api_key: '',
         gemini_api_key: '',
         gemini_model: 'gemini-3.5-flash-lite',
@@ -139,6 +152,14 @@ createApp({
 
   async mounted() {
     await this.checkAuth();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('threads_connected') === 'success') {
+      this.showToast('🎉 Đã liên kết tài khoản Meta Threads @roots.vn thành công!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get('threads_error')) {
+      this.showToast('⚠️ Lỗi liên kết Threads: ' + params.get('threads_error'), 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0);
@@ -168,6 +189,7 @@ createApp({
               this.loadSettings();
             }
             this.loadMetaStatus();
+            this.loadThreadsStatus();
             this.loadScheduledPosts();
             this.loadPendingPosts();
             this.loadRootsCategories();
@@ -401,10 +423,11 @@ createApp({
           this.postForm.fb_caption = data.data.fb_caption || data.data.facebook || '';
           this.postForm.ig_caption = data.data.ig_caption || data.data.instagram || '';
           this.postForm.google_caption = data.data.google_caption || data.data.google || '';
+          this.postForm.threads_caption = data.data.threads_caption || data.data.threads || '';
           if (data.data.story_hook) {
             this.postForm.story_hook = data.data.story_hook;
           }
-          this.showToast('✨ Gemini AI đã tạo xong 3 Caption chuẩn phong cách ROOTS!', 'success');
+          this.showToast('✨ Gemini AI đã tạo xong 4 Caption chuẩn phong cách ROOTS (kèm Threads)!', 'success');
           if (this.postForm.target_story && this.postForm.images.length > 0) {
             this.generateStoryPreview();
           }
@@ -740,7 +763,7 @@ createApp({
 
     // ── SUBMIT POST ──
     async submitPost() {
-      if (!this.postForm.fb_caption && !this.postForm.ig_caption && !this.postForm.google_caption && !this.postForm.story_image && !this.postForm.story_hook) {
+      if (!this.postForm.fb_caption && !this.postForm.ig_caption && !this.postForm.google_caption && !this.postForm.threads_caption && !this.postForm.story_image && !this.postForm.story_hook) {
         this.showToast('Vui lòng nhập nội dung bài viết hoặc chọn ảnh Story.', 'error');
         return;
       }
@@ -847,6 +870,47 @@ createApp({
         }
       } catch (e) {
         this.showToast('Lỗi kết nối Google: ' + e.message, 'error');
+      }
+    },
+
+    async loadThreadsStatus() {
+      try {
+        const res = await this.authFetch('/api/threads/status');
+        if (res.ok) {
+          const data = await res.json();
+          this.threadsProfile = data;
+        }
+      } catch (e) {
+        console.error('Error loading Threads status:', e);
+      }
+    },
+
+    async connectThreads() {
+      try {
+        const res = await this.authFetch('/api/threads/auth-url');
+        const data = await res.json();
+        if (res.ok && data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          this.showToast(data.detail || 'Không thể tạo liên kết OAuth Threads.', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi kết nối Threads: ' + e.message, 'error');
+      }
+    },
+
+    async testThreadsConnection() {
+      try {
+        const res = await this.authFetch('/api/threads/test-connection', { method: 'POST' });
+        const data = await res.json();
+        this.threadsProfile = data;
+        if (data.connected) {
+          this.showToast(`✅ Threads @${data.username || 'roots.vn'} đã kết nối tốt!`, 'success');
+        } else {
+          this.showToast(`⚠️ Threads: ${data.error || 'Chưa kết nối'}`, 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi kiểm tra Threads: ' + e.message, 'error');
       }
     },
 
@@ -979,6 +1043,8 @@ createApp({
         this.postForm.fb_caption = (this.postForm.fb_caption || '') + ' ' + tag;
       } else if (this.captionTab === 'ig') {
         this.postForm.ig_caption = (this.postForm.ig_caption || '') + ' ' + tag;
+      } else if (this.captionTab === 'threads') {
+        this.postForm.threads_caption = (this.postForm.threads_caption || '') + ' ' + tag;
       } else {
         this.postForm.google_caption = (this.postForm.google_caption || '') + ' ' + tag;
       }
