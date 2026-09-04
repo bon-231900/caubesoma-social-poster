@@ -677,7 +677,12 @@ def api_threads_status():
 def api_threads_auth_url(request: Request):
     from app.threads_service import get_threads_auth_url
     settings = get_settings()
-    app_id = settings.get("threads_app_id") or "2039281703363967"
+    app_id = (settings.get("threads_app_id") or "").strip()
+    if not app_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng nhập 'Threads App ID' trong tab Cài đặt và bấm 'Lưu Cài Đặt' trước khi kết nối! (Lưu ý: Threads App ID khác với Facebook App ID)."
+        )
     redirect_uri = str(request.base_url).rstrip("/") + "/api/threads/callback"
     url = get_threads_auth_url(client_id=app_id, redirect_uri=redirect_uri, state="roots_threads_oauth")
     return {"auth_url": url, "redirect_uri": redirect_uri}
