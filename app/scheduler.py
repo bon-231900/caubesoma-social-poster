@@ -13,6 +13,7 @@ from app.meta_service import (
 )
 from app.story_service import create_story_image
 from app.google_service import publish_to_google_business
+from app.threads_service import publish_to_threads
 from app.maintenance import backup_database, cleanup_orphaned_media
 
 logger = logging.getLogger(__name__)
@@ -37,9 +38,11 @@ def publish_single_post(post_id: int):
     fb_success = bool(post.get("fb_post_id"))
     ig_success = bool(post.get("ig_post_id"))
     google_success = bool(post.get("google_post_id"))
+    threads_success = bool(post.get("threads_post_id"))
     fb_post_id = post.get("fb_post_id")
     ig_post_id = post.get("ig_post_id")
     google_post_id = post.get("google_post_id")
+    threads_post_id = post.get("threads_post_id")
     story_fb_id = post.get("story_fb_id")
     story_ig_id = post.get("story_ig_id")
     story_fb_success = bool(story_fb_id)
@@ -100,7 +103,8 @@ def publish_single_post(post_id: int):
                         page_id=page_id,
                         page_token=page_token,
                         story_image_name=story_img,
-                        link_url=post.get("story_link")
+                        link_url=post.get("story_link"),
+                        imgbb_api_key=imgbb_key
                     )
                     story_fb_id = fb_story_res.get("story_id")
                     story_fb_success = True
@@ -136,9 +140,33 @@ def publish_single_post(post_id: int):
         except Exception as e:
             errors.append(f"Google Business Error: {str(e)}")
 
+    # 5. Publish to Meta Threads (@roots.vn)
+    if post.get("target_threads") and not threads_success:
+        try:
+            threads_text = post.get("threads_caption") or post.get("fb_caption") or post.get("ig_caption") or ""
+            threads_res = publish_to_threads(
+                text=threads_text,
+                images=post.get("images", []),
+                imgbb_api_key=imgbb_key
+            )
+            threads_post_id = threads_res.get("thread_id")
+            threads_success = True
+        except Exception as e:
+            errors.append(f"Threads Error: {str(e)}")
+
     # Determine final status
-    targets_count = (1 if post.get("target_fb") else 0) + (1 if post.get("target_ig") else 0) + (1 if post.get("target_google") else 0)
-    success_count = (1 if fb_success else 0) + (1 if ig_success else 0) + (1 if google_success else 0)
+    targets_count = (
+        (1 if post.get("target_fb") else 0) +
+        (1 if post.get("target_ig") else 0) +
+        (1 if post.get("target_google") else 0) +
+        (1 if post.get("target_threads") else 0)
+    )
+    success_count = (
+        (1 if fb_success else 0) +
+        (1 if ig_success else 0) +
+        (1 if google_success else 0) +
+        (1 if threads_success else 0)
+    )
     if post.get("target_story"):
         if post.get("target_fb"):
             targets_count += 1
@@ -164,6 +192,7 @@ def publish_single_post(post_id: int):
         fb_post_id=fb_post_id,
         ig_post_id=ig_post_id,
         google_post_id=google_post_id,
+        threads_post_id=threads_post_id,
         story_fb_id=story_fb_id,
         story_ig_id=story_ig_id,
         error_log=error_log,
@@ -171,6 +200,7 @@ def publish_single_post(post_id: int):
             "facebook_feed": fb_success, "instagram_feed": ig_success,
             "facebook_story": story_fb_success, "instagram_story": story_ig_success,
             "google_business": google_success,
+            "threads": threads_success
         }
     )
     return {
@@ -178,6 +208,7 @@ def publish_single_post(post_id: int):
         "fb_post_id": fb_post_id,
         "ig_post_id": ig_post_id,
         "google_post_id": google_post_id,
+        "threads_post_id": threads_post_id,
         "story_fb_id": story_fb_id,
         "story_ig_id": story_ig_id,
         "error_log": error_log
