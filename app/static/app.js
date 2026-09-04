@@ -889,8 +889,14 @@ createApp({
     },
 
     async connectThreads() {
+      if (!this.settingsForm.threads_app_id || !this.settingsForm.threads_app_id.trim()) {
+        this.showToast('Vui lòng nhập Threads App ID trước khi kết nối.', 'error');
+        return;
+      }
       try {
-        const res = await this.authFetch('/api/threads/auth-url');
+        await this.saveSettings();
+        const appId = encodeURIComponent(this.settingsForm.threads_app_id.trim());
+        const res = await this.authFetch(`/api/threads/auth-url?app_id=${appId}`);
         const data = await res.json();
         if (res.ok && data.auth_url) {
           window.location.href = data.auth_url;

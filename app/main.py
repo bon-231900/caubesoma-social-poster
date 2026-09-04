@@ -674,25 +674,25 @@ def api_threads_status():
     return get_threads_profile()
 
 @app.get("/api/threads/auth-url", dependencies=[Depends(verify_admin_auth)])
-def api_threads_auth_url(request: Request):
+def api_threads_auth_url(request: Request, app_id: Optional[str] = None):
     from app.threads_service import get_threads_auth_url
     settings = get_settings()
-    app_id = (settings.get("threads_app_id") or "").strip()
-    if not app_id:
+    used_app_id = (app_id or settings.get("threads_app_id") or "").strip()
+    if not used_app_id:
         raise HTTPException(
             status_code=400,
             detail="Vui lòng nhập 'Threads App ID' trong tab Cài đặt và bấm 'Lưu Cài Đặt' trước khi kết nối! (Lưu ý: Threads App ID khác với Facebook App ID)."
         )
     redirect_uri = str(request.base_url).rstrip("/") + "/api/threads/callback"
-    url = get_threads_auth_url(client_id=app_id, redirect_uri=redirect_uri, state="roots_threads_oauth")
+    url = get_threads_auth_url(client_id=used_app_id, redirect_uri=redirect_uri, state="roots_threads_oauth")
     return {"auth_url": url, "redirect_uri": redirect_uri}
 
 @app.get("/api/threads/callback")
 def api_threads_callback(code: str, request: Request):
     from app.threads_service import exchange_threads_code
     settings = get_settings()
-    app_id = settings.get("threads_app_id") or "2039281703363967"
-    app_secret = settings.get("threads_app_secret") or ""
+    app_id = (settings.get("threads_app_id") or "").strip()
+    app_secret = (settings.get("threads_app_secret") or "").strip()
     redirect_uri = str(request.base_url).rstrip("/") + "/api/threads/callback"
     try:
         res = exchange_threads_code(code=code, client_id=app_id, client_secret=app_secret, redirect_uri=redirect_uri)
@@ -950,3 +950,5 @@ def api_duplicate_post(post_id: int, req: DuplicatePostRequest):
         status="scheduled" if (req.new_scheduled_time or post.get("scheduled_time")) else "draft"
     )
     return {"success": True, "new_post_id": new_id, "message": "Đã nhân bản bài viết thành công"}
+
+
