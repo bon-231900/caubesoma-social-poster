@@ -69,9 +69,12 @@ createApp({
         fb_page_id: '',
         fb_page_access_token: '',
         ig_business_account_id: '',
+        threads_app_id: '',
+        threads_app_secret: '',
         threads_user_id: '',
         threads_access_token: '',
         has_threads_token: false,
+        has_threads_app_secret: false,
         imgbb_api_key: '',
         gemini_api_key: '',
         gemini_model: 'gemini-3.5-flash-lite',
@@ -213,8 +216,7 @@ createApp({
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: this.loginPassword })
-        });
+          body: JSON.stringify({ password: this.loginPassword })\n        });
         const data = await res.json();
         if (res.ok && data.success) {
           this.isAuthenticated = true;
