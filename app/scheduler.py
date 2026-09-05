@@ -147,6 +147,7 @@ def publish_single_post(post_id: int):
             threads_res = publish_to_threads(
                 text=threads_text,
                 images=post.get("images", []),
+                topic_tag=post.get("threads_topic_tag"),
                 imgbb_api_key=imgbb_key
             )
             threads_post_id = threads_res.get("thread_id")

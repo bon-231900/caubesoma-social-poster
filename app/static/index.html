@@ -494,7 +494,7 @@
               </div>
 
               <!-- Threads Caption Area -->
-              <div v-show="captionTab === 'threads'" class="space-y-2 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
+              <div v-show="captionTab === 'threads'" class="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
                     <i class="fa-brands fa-threads text-sm"></i>
@@ -502,10 +502,49 @@
                   </span>
                   <span class="text-[10px] text-slate-500">Giới hạn 500 ký tự</span>
                 </div>
-                <textarea v-model="postForm.threads_caption" rows="5" placeholder="Viết nội dung ngắn gọn, dí dỏm, hỏi ý kiến cộng đồng hoặc kể câu chuyện healthy đời thường tại ROOTS..." class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent custom-scrollbar resize-none"></textarea>
+                <textarea v-model="postForm.threads_caption" rows="4" placeholder="Viết nội dung ngắn gọn, dí dỏm, hỏi ý kiến cộng đồng hoặc kể câu chuyện healthy đời thường tại ROOTS..." class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent custom-scrollbar resize-none"></textarea>
                 <div class="flex items-center justify-between text-[11px]" :class="(postForm.threads_caption || '').length > 500 ? 'text-rose-600 font-bold' : 'text-slate-400'">
                   <span>Phong cách: Tự nhiên, ngắn gọn, ít hashtag</span>
                   <span :class="(postForm.threads_caption || '').length > 500 ? 'text-rose-600 font-bold' : 'text-slate-600 font-medium'">{{ (postForm.threads_caption || '').length }} / 500 ký tự</span>
+                </div>
+
+                <!-- Threads Topic Tag Input -->
+                <div class="pt-2 border-t border-slate-200/80">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                      <i class="fa-solid fa-tag text-slate-700"></i>
+                      <span>Gắn thẻ Chủ đề Threads (Topic Tag):</span>
+                    </label>
+                    <span class="text-[10px] text-slate-500">Hiển thị: <b class="text-slate-800">roots.vn &gt; {{ postForm.threads_topic_tag || 'Chủ đề' }}</b></span>
+                  </div>
+                  <div class="relative">
+                    <input 
+                      type="text" 
+                      v-model="postForm.threads_topic_tag" 
+                      maxlength="50"
+                      placeholder="VD: Thực Phẩm Hữu Cơ, Eat Clean Sài Gòn, Nước Ép & Detox..." 
+                      class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent pr-8"
+                    >
+                    <button 
+                      v-if="postForm.threads_topic_tag" 
+                      @click="postForm.threads_topic_tag = ''" 
+                      type="button" 
+                      class="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <!-- Quick Topic Suggestions -->
+                  <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span class="text-[10px] text-slate-500 font-medium">Gợi ý chủ đề:</span>
+                    <button type="button" @click="postForm.threads_topic_tag = 'Thực Phẩm Hữu Cơ'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🌿 Thực Phẩm Hữu Cơ</button>
+                    <button type="button" @click="postForm.threads_topic_tag = 'Eat Clean Sài Gòn'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🥗 Eat Clean Sài Gòn</button>
+                    <button type="button" @click="postForm.threads_topic_tag = 'Nước Ép & Detox'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🍹 Nước Ép & Detox</button>
+                    <button type="button" @click="postForm.threads_topic_tag = 'Sống Khỏe Mỗi Ngày'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">✨ Sống Khỏe Mỗi Ngày</button>
+                    <button type="button" @click="postForm.threads_topic_tag = 'Ưu Đãi ROOTS'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🔥 Ưu Đãi ROOTS</button>
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                    * Threads chỉ cho phép <b>1 chủ đề duy nhất</b> mỗi bài. Không cần gõ dấu #, tối đa 50 ký tự. Bài đăng sẽ được đưa vào Topic Feed giúp thu hút nhiều người xem quan tâm chủ đề đó!
+                  </p>
                 </div>
               </div>
 
@@ -706,9 +745,15 @@
                     </div>
                   </div>
                   <div>
-                    <div class="flex items-center space-x-1">
+                    <div class="flex items-center space-x-1.5 flex-wrap">
                       <span class="text-xs font-black text-slate-900">{{ threadsProfile.username || 'roots.vn' }}</span>
                       <i class="fa-solid fa-circle-check text-blue-500 text-[10px]"></i>
+                      <template v-if="postForm.threads_topic_tag">
+                        <span class="text-slate-400 text-xs font-semibold">&gt;</span>
+                        <span class="text-xs font-bold text-slate-900 hover:underline cursor-pointer flex items-center">
+                          {{ postForm.threads_topic_tag }}
+                        </span>
+                      </template>
                     </div>
                     <span class="text-[10px] text-slate-400">Vừa xong</span>
                   </div>
@@ -1210,7 +1255,15 @@
                 <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-800 font-normal leading-relaxed whitespace-pre-wrap min-h-[100px]">
                   <span v-if="calendarModalCaptionTab === 'fb'">{{ selectedCalendarPost.fb_caption || 'Chưa có caption Facebook' }}</span>
                   <span v-else-if="calendarModalCaptionTab === 'ig'">{{ selectedCalendarPost.ig_caption || 'Chưa có caption Instagram' }}</span>
-                  <span v-else-if="calendarModalCaptionTab === 'threads'">{{ selectedCalendarPost.threads_caption || 'Chưa có caption Threads' }}</span>
+                  <div v-else-if="calendarModalCaptionTab === 'threads'" class="space-y-2">
+                    <div v-if="selectedCalendarPost.threads_topic_tag" class="flex items-center space-x-1.5 pb-2 border-b border-slate-200">
+                      <span class="text-[11px] text-slate-500 font-medium">Chủ đề gắn thẻ:</span>
+                      <span class="px-2 py-0.5 bg-slate-900 text-white rounded-md text-[10px] font-bold tracking-wide flex items-center space-x-1">
+                        <i class="fa-solid fa-tag text-[9px] mr-1"></i>{{ selectedCalendarPost.threads_topic_tag }}
+                      </span>
+                    </div>
+                    <p>{{ selectedCalendarPost.threads_caption || selectedCalendarPost.fb_caption || 'Chưa có caption Threads' }}</p>
+                  </div>
                   <div v-else class="space-y-2">
                     <p>{{ selectedCalendarPost.google_caption || 'Chưa có caption Google Maps' }}</p>
                     <div v-if="selectedCalendarPost.google_action_url" class="pt-2 border-t border-slate-200 flex items-center space-x-2 text-slate-500">

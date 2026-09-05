@@ -48,6 +48,7 @@ createApp({
         ig_caption: '',
         google_caption: '',
         threads_caption: '',
+        threads_topic_tag: '',
         google_action_type: 'LEARN_MORE',
         google_action_url: 'https://roots.vn',
         action: 'now',

@@ -106,6 +106,7 @@ class PostCreateRequest(BaseModel):
     ig_caption: str = ""
     google_caption: str = ""
     threads_caption: str = ""
+    threads_topic_tag: str = ""
     images: List[str] = []
     target_fb: bool = True
     target_ig: bool = True
@@ -469,6 +470,7 @@ def api_create_post(req: PostCreateRequest, auth: dict = Depends(verify_auth)):
         ig_caption=req.ig_caption,
         google_caption=req.google_caption,
         threads_caption=req.threads_caption,
+        threads_topic_tag=req.threads_topic_tag,
         images=req.images,
         target_fb=req.target_fb,
         target_ig=req.target_ig,
@@ -918,6 +920,7 @@ def api_get_calendar_events():
             "target_story": bool(p.get("target_story")),
             "target_google": bool(p.get("target_google")),
             "threads_caption": p.get("threads_caption", ""),
+            "threads_topic_tag": p.get("threads_topic_tag", ""),
             "story_template": p.get("story_template", "organic"),
             "story_hook": p.get("story_hook", ""),
             "google_action_type": p.get("google_action_type", "LEARN_MORE"),
@@ -945,9 +948,12 @@ def api_duplicate_post(post_id: int, req: DuplicatePostRequest):
         fb_caption=post.get("fb_caption", ""),
         ig_caption=post.get("ig_caption", ""),
         google_caption=post.get("google_caption", ""),
+        threads_caption=post.get("threads_caption", ""),
+        threads_topic_tag=post.get("threads_topic_tag", ""),
         images=post.get("images", []),
         target_fb=bool(post.get("target_fb")),
         target_ig=bool(post.get("target_ig")),
+        target_threads=bool(post.get("target_threads")),
         target_story=bool(post.get("target_story")),
         target_google=bool(post.get("target_google")),
         google_action_type=post.get("google_action_type", "LEARN_MORE"),

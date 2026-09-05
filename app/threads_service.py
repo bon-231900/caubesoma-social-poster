@@ -184,11 +184,12 @@ def publish_to_threads(
     token: str = None,
     text: str = "",
     images: list = None,
+    topic_tag: str = None,
     imgbb_api_key: str = None
 ) -> dict:
     """
     Publish text, single photo, or carousel to Meta Threads.
-    Supports up to 500 characters of text and up to 10 images.
+    Supports up to 500 characters of text, up to 10 images, and 1 topic tag.
     """
     if not user_id or not token:
         user_id, token = get_valid_threads_token()
@@ -198,6 +199,15 @@ def publish_to_threads(
 
     if len(clean_text) > 500:
         clean_text = clean_text[:497] + "..."
+
+    # Clean & validate topic tag (1-50 chars, no leading '#', no '.' or '&')
+    clean_topic_tag = None
+    if topic_tag:
+        t = str(topic_tag).strip().lstrip("#").replace(".", "").replace("&", "").strip()
+        if len(t) > 50:
+            t = t[:50].strip()
+        if t:
+            clean_topic_tag = t
 
     if not clean_text and not images:
         raise ValueError("Bài đăng Threads cần có ít nhất nội dung văn bản hoặc hình ảnh.")
@@ -211,6 +221,9 @@ def publish_to_threads(
             "text": clean_text,
             "access_token": token
         }
+        if clean_topic_tag:
+            payload["topic_tag"] = clean_topic_tag
+
         res = requests.post(container_url, data=payload, timeout=30)
         data = res.json()
         if res.status_code != 200 or "id" not in data:
@@ -227,6 +240,9 @@ def publish_to_threads(
             "text": clean_text,
             "access_token": token
         }
+        if clean_topic_tag:
+            payload["topic_tag"] = clean_topic_tag
+
         res = requests.post(container_url, data=payload, timeout=30)
         data = res.json()
         if res.status_code != 200 or "id" not in data:
@@ -265,6 +281,9 @@ def publish_to_threads(
             "text": clean_text,
             "access_token": token
         }
+        if clean_topic_tag:
+            carousel_payload["topic_tag"] = clean_topic_tag
+
         car_res = requests.post(container_url, data=carousel_payload, timeout=30)
         car_data = car_res.json()
         if car_res.status_code != 200 or "id" not in car_data:

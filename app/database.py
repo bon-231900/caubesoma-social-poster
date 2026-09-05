@@ -171,6 +171,7 @@ def init_db():
                 google_action_type TEXT DEFAULT 'LEARN_MORE',
                 google_action_url TEXT DEFAULT '',
                 threads_caption TEXT DEFAULT '',
+                threads_topic_tag TEXT DEFAULT '',
                 story_image TEXT,
                 story_template TEXT DEFAULT 'glassmorphism',
                 story_hook TEXT DEFAULT '',
@@ -208,6 +209,7 @@ def init_db():
                 ("target_google", "INTEGER DEFAULT 0"),
                 ("target_threads", "INTEGER DEFAULT 0"),
                 ("threads_caption", "TEXT DEFAULT ''"),
+                ("threads_topic_tag", "TEXT DEFAULT ''"),
                 ("threads_post_id", "TEXT"),
                 ("google_action_type", "TEXT DEFAULT 'LEARN_MORE'"),
                 ("google_action_url", "TEXT DEFAULT ''"),
@@ -224,6 +226,7 @@ def init_db():
                 cursor.execute("""
                     ALTER TABLE posts ADD COLUMN IF NOT EXISTS target_threads INTEGER DEFAULT 0;
                     ALTER TABLE posts ADD COLUMN IF NOT EXISTS threads_caption TEXT DEFAULT '';
+                    ALTER TABLE posts ADD COLUMN IF NOT EXISTS threads_topic_tag TEXT DEFAULT '';
                     ALTER TABLE posts ADD COLUMN IF NOT EXISTS threads_post_id TEXT;
                 """)
             except Exception:
@@ -379,6 +382,7 @@ def create_post(
     ig_caption: str = "",
     google_caption: str = "",
     threads_caption: str = "",
+    threads_topic_tag: str = "",
     images: list = None,
     target_fb: bool = True,
     target_ig: bool = True,
@@ -401,15 +405,15 @@ def create_post(
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO posts (
-                title, fb_caption, ig_caption, google_caption, threads_caption, images,
+                title, fb_caption, ig_caption, google_caption, threads_caption, threads_topic_tag, images,
                 target_fb, target_ig, target_story, target_google, target_threads,
                 google_action_type, google_action_url, story_image,
                 story_template, story_hook, story_link,
                 status, scheduled_time, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            title, fb_caption, ig_caption, google_caption, threads_caption, images_json,
+            title, fb_caption, ig_caption, google_caption, threads_caption, threads_topic_tag, images_json,
             1 if target_fb else 0, 1 if target_ig else 0,
             1 if target_story else 0, 1 if target_google else 0, 1 if target_threads else 0,
             google_action_type, google_action_url, story_image,
@@ -501,7 +505,7 @@ def get_due_scheduled_posts(now_iso: str = None) -> list:
             except Exception:
                 d['images'] = []
             result.append(d)
-        return result
+    return result
 
 def get_scheduled_posts() -> list:
     return get_due_scheduled_posts()
