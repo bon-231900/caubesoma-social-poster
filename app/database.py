@@ -49,6 +49,9 @@ class PGCursor:
         elif 'INSERT OR REPLACE INTO BACKGROUND_JOBS' in cleaned.upper():
             cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+background_jobs\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
                              r'INSERT INTO background_jobs (\1) VALUES (\2) ON CONFLICT (job_id) DO UPDATE SET job_type = EXCLUDED.job_type, status = EXCLUDED.status, progress = EXCLUDED.progress, current_step = EXCLUDED.current_step, result_json = EXCLUDED.result_json, error_message = EXCLUDED.error_message, updated_at = EXCLUDED.updated_at', cleaned, flags=re.IGNORECASE)
+        elif 'INSERT OR REPLACE INTO SETTINGS' in cleaned.upper():
+            cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+settings\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
+                             r'INSERT INTO settings (\1) VALUES (\2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', cleaned, flags=re.IGNORECASE)
 
         # 3. Convert ? to %s
         cleaned = cleaned.replace("?", "%s")
@@ -238,6 +241,18 @@ def init_db():
                 value TEXT
             )
         """)
+        try:
+            from dotenv import dotenv_values
+            from app.config import ENV_PATH
+            if ENV_PATH.exists():
+                env_defaults = dotenv_values(ENV_PATH)
+                for k, v in env_defaults.items():
+                    if v and str(v).strip():
+                        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)" if not is_postgres_active() else "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (k, str(v).strip()))
+                        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)" if not is_postgres_active() else "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING", (k.lower(), str(v).strip()))
+        except Exception:
+            pass
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
@@ -856,4 +871,36 @@ def save_or_touch_threads_topic(name: str, category: str = "Chung"):
                 VALUES (?, ?, ?, ?, 1, ?)
             """, (clean_name, "Cộng đồng mới", "Đang cập nhật", category, utc_now_iso()))
         conn.commit()
+
+
+# ─────────────────────────────────────────────────────────────
+# SETTINGS PERSISTENCE IN DATABASE (POSTGRES / SQLITE)
+# ─────────────────────────────────────────────────────────────
+def get_db_settings() -> dict:
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT key, value FROM settings")
+            rows = cursor.fetchall()
+            res = {}
+            for r in rows:
+                d = dict(r)
+                if d.get("key"):
+                    res[d["key"]] = d.get("value", "")
+            return res
+    except Exception as e:
+        return {}
+
+def update_db_settings(updates: dict):
+    if not updates:
+        return
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            for k, v in updates.items():
+                if v is not None:
+                    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (str(k), str(v)))
+            conn.commit()
+    except Exception as e:
+        print("update_db_settings error:", e)
 

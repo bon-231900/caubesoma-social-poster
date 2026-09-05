@@ -44,7 +44,13 @@ def exchange_threads_code(code: str, client_id: str, client_secret: str, redirec
     res = requests.post(THREADS_TOKEN_URL, data=payload, timeout=30)
     data = res.json()
     if res.status_code != 200 or "access_token" not in data:
-        err = data.get("error_message", data.get("error", "Lỗi đổi authorization code Threads"))
+        err = data.get("error_message") or data.get("error") or "Lỗi đổi authorization code Threads"
+        if isinstance(err, dict):
+            subcode = err.get("error_subcode")
+            msg = err.get("message") or str(err)
+            if subcode == 4279030 or "used" in msg.lower():
+                raise RuntimeError("Mã ủy quyền này đã được sử dụng một lần trước đó. Vui lòng bấm 'Kết nối 1-Click OAuth' để lấy mã mới.")
+            raise RuntimeError(f"Threads OAuth Error: {msg}")
         raise RuntimeError(f"Threads OAuth Error: {err}")
 
     short_token = data["access_token"]

@@ -692,7 +692,8 @@ def api_threads_auth_url(request: Request, app_id: Optional[str] = None):
 
 @app.get("/api/threads/callback")
 def api_threads_callback(code: str, request: Request):
-    from app.threads_service import exchange_threads_code
+    import urllib.parse
+    from app.threads_service import exchange_threads_code, get_threads_profile
     settings = get_settings()
     app_id = (settings.get("threads_app_id") or "").strip()
     app_secret = (settings.get("threads_app_secret") or "").strip()
@@ -701,7 +702,17 @@ def api_threads_callback(code: str, request: Request):
         res = exchange_threads_code(code=code, client_id=app_id, client_secret=app_secret, redirect_uri=redirect_uri)
         return RedirectResponse(url="/?threads_connected=success")
     except Exception as e:
-        return RedirectResponse(url=f"/?threads_error={str(e)}")
+        # Check if already connected despite error (e.g. repeated code usage or page refresh)
+        current_settings = get_settings()
+        if current_settings.get("threads_access_token"):
+            try:
+                prof = get_threads_profile()
+                if prof.get("username"):
+                    return RedirectResponse(url="/?threads_connected=success")
+            except Exception:
+                pass
+        err_msg = str(e)
+        return RedirectResponse(url=f"/?threads_error={urllib.parse.quote(err_msg)}")
 
 @app.post("/api/threads/test-connection", dependencies=[Depends(verify_auth)])
 def api_threads_test_connection():
