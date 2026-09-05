@@ -457,8 +457,8 @@ async def upload_images(files: List[UploadFile] = File(...)):
         try:
             from app.media_service import register_media_file
             register_media_file(unique_name, original_name=file.filename)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.error(f"Error registering media file {unique_name}: {e}")
         saved_files.append({
             "filename": unique_name,
             "url": f"/api/media/{unique_name}"

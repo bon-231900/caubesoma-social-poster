@@ -42,7 +42,7 @@ class PGCursor:
                              r'INSERT INTO oauth_states (\1) VALUES (\2) ON CONFLICT (state_hash) DO UPDATE SET expires_at = EXCLUDED.expires_at', cleaned, flags=re.IGNORECASE)
         elif 'INSERT OR REPLACE INTO MEDIA_ITEMS' in cleaned.upper():
             cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+media_items\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
-                             r'INSERT INTO media_items (\1) VALUES (\2) ON CONFLICT (filename) DO UPDATE SET original_name = EXCLUDED.original_name, file_hash = EXCLUDED.file_hash, mime_type = EXCLUDED.mime_type, file_size = EXCLUDED.file_size, width = EXCLUDED.width, height = EXCLUDED.height, tags = EXCLUDED.tags, file_data = CASE WHEN EXCLUDED.file_data IS NOT NULL AND EXCLUDED.file_data != \'\' THEN EXCLUDED.file_data ELSE media_items.file_data END', cleaned, flags=re.IGNORECASE)
+                             r'INSERT INTO media_items (\1) VALUES (\2) ON CONFLICT (filename) DO UPDATE SET original_name = EXCLUDED.original_name, file_hash = EXCLUDED.file_hash, mime_type = EXCLUDED.mime_type, file_size = EXCLUDED.file_size, width = EXCLUDED.width, height = EXCLUDED.height, tags = EXCLUDED.tags, file_data = COALESCE(EXCLUDED.file_data, media_items.file_data)', cleaned, flags=re.IGNORECASE)
         elif 'INSERT OR REPLACE INTO PRODUCT_AI_CACHE' in cleaned.upper():
             cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+product_ai_cache\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
                              r'INSERT INTO product_ai_cache (\1) VALUES (\2) ON CONFLICT (product_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload_json = EXCLUDED.payload_json, updated_at = EXCLUDED.updated_at', cleaned, flags=re.IGNORECASE)
