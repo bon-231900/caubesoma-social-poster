@@ -508,42 +508,151 @@
                   <span :class="(postForm.threads_caption || '').length > 500 ? 'text-rose-600 font-bold' : 'text-slate-600 font-medium'">{{ (postForm.threads_caption || '').length }} / 500 ký tự</span>
                 </div>
 
-                <!-- Threads Topic Tag Input -->
-                <div class="pt-2 border-t border-slate-200/80">
+                <!-- Threads Community & Topic Tag Autocomplete Input -->
+                <div class="pt-2 border-t border-slate-200/80 relative">
                   <div class="flex items-center justify-between mb-1.5">
                     <label class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                      <i class="fa-solid fa-tag text-slate-700"></i>
-                      <span>Gắn thẻ Chủ đề Threads (Topic Tag):</span>
+                      <!-- 3-dot community icon -->
+                      <svg class="w-3.5 h-3.5 text-sky-500" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="6" cy="12" r="2.5"/>
+                        <circle cx="17" cy="6" r="2.5"/>
+                        <circle cx="17" cy="18" r="2.5"/>
+                        <line x1="8" y1="11" x2="15" y2="7" stroke="currentColor" stroke-width="2"/>
+                        <line x1="8" y1="13" x2="15" y2="17" stroke="currentColor" stroke-width="2"/>
+                      </svg>
+                      <span>Cộng đồng hoặc chủ đề Threads:</span>
                     </label>
-                    <span class="text-[10px] text-slate-500">Hiển thị: <b class="text-slate-800">roots.vn &gt; {{ postForm.threads_topic_tag || 'Chủ đề' }}</b></span>
+                    <span class="text-[10px] text-slate-500">
+                      Hiển thị: <b class="text-slate-900">roots.vn &gt; <span class="text-sky-600 font-bold">{{ postForm.threads_topic_tag || 'Chủ đề' }}</span></b>
+                    </span>
                   </div>
+
                   <div class="relative">
+                    <div class="absolute left-3 top-2.5 text-sky-500 pointer-events-none">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="6" cy="12" r="2.5"/>
+                        <circle cx="17" cy="6" r="2.5"/>
+                        <circle cx="17" cy="18" r="2.5"/>
+                        <line x1="8" y1="11" x2="15" y2="7" stroke="currentColor" stroke-width="2"/>
+                        <line x1="8" y1="13" x2="15" y2="17" stroke="currentColor" stroke-width="2"/>
+                      </svg>
+                    </div>
                     <input 
                       type="text" 
                       v-model="postForm.threads_topic_tag" 
+                      @focus="showThreadsTopicDropdown = true"
+                      @blur="setTimeout(() => { showThreadsTopicDropdown = false }, 250)"
+                      @input="showThreadsTopicDropdown = true"
                       maxlength="50"
-                      placeholder="VD: Thực Phẩm Hữu Cơ, Eat Clean Sài Gòn, Nước Ép & Detox..." 
-                      class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent pr-8"
+                      placeholder="Cộng đồng hoặc chủ đề (Gõ tìm kiếm hoặc chọn bên dưới...)" 
+                      class="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-14 py-2.5 text-xs text-slate-800 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition shadow-xs"
                     >
-                    <button 
-                      v-if="postForm.threads_topic_tag" 
-                      @click="postForm.threads_topic_tag = ''" 
-                      type="button" 
-                      class="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer">
-                      <i class="fa-solid fa-xmark"></i>
-                    </button>
+                    <div class="absolute right-2.5 top-2.5 flex items-center space-x-1.5">
+                      <button 
+                        v-if="postForm.threads_topic_tag" 
+                        @click="clearThreadsTopic" 
+                        type="button" 
+                        class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer p-0.5">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                      <button 
+                        @click="showThreadsTopicDropdown = !showThreadsTopicDropdown" 
+                        type="button" 
+                        class="text-xs text-slate-400 hover:text-slate-600 cursor-pointer p-0.5">
+                        <i class="fa-solid" :class="showThreadsTopicDropdown ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                      </button>
+                    </div>
+
+                    <!-- DROPDOWN AUTOCOMPLETE LIST (MATCHING THREADS EXACTLY) -->
+                    <div 
+                      v-show="showThreadsTopicDropdown" 
+                      class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-100">
+                      
+                      <!-- Header of Dropdown -->
+                      <div class="px-3.5 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                        <span class="flex items-center space-x-1">
+                          <i class="fa-solid fa-magnifying-glass text-slate-400 text-[10px]"></i>
+                          <span>Chủ đề & Cộng đồng Threads thực tế</span>
+                        </span>
+                        <span class="text-[10px] text-sky-600 font-bold">{{ getFilteredThreadsTopics().length }} kết quả</span>
+                      </div>
+
+                      <!-- Scrollable List -->
+                      <div class="max-h-72 overflow-y-auto divide-y divide-slate-100 custom-scrollbar text-left">
+                        
+                        <!-- Option to create custom topic if typed query doesn't match -->
+                        <div 
+                          v-if="postForm.threads_topic_tag && !hasExactTopicMatch()" 
+                          @mousedown.prevent="createAndSelectNewTopic(postForm.threads_topic_tag)"
+                          class="p-3 bg-sky-50/50 hover:bg-sky-100/70 cursor-pointer transition flex items-center space-x-3 text-left">
+                          <div class="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0 text-sm font-bold shadow-xs">
+                            <i class="fa-solid fa-plus"></i>
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold text-sky-700 truncate">
+                              Dùng chủ đề mới: "<span class="underline">{{ postForm.threads_topic_tag }}</span>"
+                            </div>
+                            <div class="text-[10px] text-slate-400">Bấm để gắn thẻ bài viết và lưu vào danh mục</div>
+                          </div>
+                        </div>
+
+                        <!-- Real Threads Topics & Communities -->
+                        <div 
+                          v-for="topic in getFilteredThreadsTopics()" 
+                          :key="topic.name"
+                          @mousedown.prevent="selectThreadsTopic(topic.name)"
+                          class="p-3 hover:bg-slate-50 cursor-pointer transition flex items-center space-x-3 text-left group"
+                          :class="postForm.threads_topic_tag === topic.name ? 'bg-sky-50/40' : ''">
+                          
+                          <!-- Community 3-dots connected icon in blue -->
+                          <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center shrink-0 group-hover:bg-sky-500 group-hover:text-white transition">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="6" cy="12" r="2.5"/>
+                              <circle cx="17" cy="6" r="2.5"/>
+                              <circle cx="17" cy="18" r="2.5"/>
+                              <line x1="8" y1="11" x2="15" y2="7" stroke="currentColor" stroke-width="2"/>
+                              <line x1="8" y1="13" x2="15" y2="17" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                          </div>
+
+                          <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold text-sky-600 group-hover:text-sky-700 truncate flex items-center space-x-1.5">
+                              <span>{{ topic.name }}</span>
+                              <span v-if="topic.category && topic.category !== 'Chung'" class="text-[9px] font-normal px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{{ topic.category }}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 flex items-center space-x-1.5 truncate mt-0.5">
+                              <span class="font-medium text-slate-600">{{ topic.members_display || 'Cộng đồng' }}</span>
+                              <span class="text-slate-300">·</span>
+                              <span>{{ topic.posts_display || 'Thảo luận mới đây' }}</span>
+                            </div>
+                          </div>
+
+                          <span v-if="postForm.threads_topic_tag === topic.name" class="text-sky-600 text-sm font-bold shrink-0">
+                            <i class="fa-solid fa-circle-check"></i>
+                          </span>
+                        </div>
+
+                        <!-- Empty state if search returned 0 items and no input -->
+                        <div v-if="getFilteredThreadsTopics().length === 0 && (!postForm.threads_topic_tag || hasExactTopicMatch())" class="p-4 text-center text-xs text-slate-400">
+                          Không tìm thấy chủ đề phù hợp. Bạn có thể gõ tên bất kỳ để tự do tạo chủ đề mới.
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
-                  <!-- Quick Topic Suggestions -->
+
+                  <!-- Quick Chips for Instant 1-Click Selection -->
                   <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                    <span class="text-[10px] text-slate-500 font-medium">Gợi ý chủ đề:</span>
-                    <button type="button" @click="postForm.threads_topic_tag = 'Thực Phẩm Hữu Cơ'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🌿 Thực Phẩm Hữu Cơ</button>
-                    <button type="button" @click="postForm.threads_topic_tag = 'Eat Clean Sài Gòn'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🥗 Eat Clean Sài Gòn</button>
-                    <button type="button" @click="postForm.threads_topic_tag = 'Nước Ép & Detox'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🍹 Nước Ép & Detox</button>
-                    <button type="button" @click="postForm.threads_topic_tag = 'Sống Khỏe Mỗi Ngày'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">✨ Sống Khỏe Mỗi Ngày</button>
-                    <button type="button" @click="postForm.threads_topic_tag = 'Ưu Đãi ROOTS'" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🔥 Ưu Đãi ROOTS</button>
+                    <span class="text-[10px] text-slate-500 font-medium">Gợi ý nhanh:</span>
+                    <button type="button" @click="selectThreadsTopic('Thực Phẩm Hữu Cơ')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🌿 Thực Phẩm Hữu Cơ</button>
+                    <button type="button" @click="selectThreadsTopic('Eat Clean Sài Gòn')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🥗 Eat Clean Sài Gòn</button>
+                    <button type="button" @click="selectThreadsTopic('Nước Ép & Detox')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🍹 Nước Ép & Detox</button>
+                    <button type="button" @click="selectThreadsTopic('Sống Xanh')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">✨ Sống Xanh</button>
+                    <button type="button" @click="selectThreadsTopic('Kpop')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">🎵 Kpop</button>
+                    <button type="button" @click="selectThreadsTopic('Travel Threads')" class="px-2 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-full text-[10px] transition cursor-pointer font-medium">✈️ Travel Threads</button>
                   </div>
                   <p class="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                    * Threads chỉ cho phép <b>1 chủ đề duy nhất</b> mỗi bài. Không cần gõ dấu #, tối đa 50 ký tự. Bài đăng sẽ được đưa vào Topic Feed giúp thu hút nhiều người xem quan tâm chủ đề đó!
+                    * Threads hiển thị bài viết dưới dạng <b>roots.vn &gt; [Cộng đồng / Chủ đề]</b> và gom vào Topic Feed giúp tăng lượt xem và tương tác tự nhiên!
                   </p>
                 </div>
               </div>

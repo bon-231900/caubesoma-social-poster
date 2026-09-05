@@ -56,7 +56,7 @@ class PGCursor:
         # 4. Auto-append RETURNING id for inserts into tables with id column
         has_returning_id = False
         is_insert = cleaned.strip().upper().startswith("INSERT INTO")
-        if is_insert and any(t in cleaned.upper() for t in ["POSTS", "HASHTAG_GROUPS", "CAPTION_TEMPLATES", "MEDIA_ITEMS"]):
+        if is_insert and any(t in cleaned.upper() for t in ["POSTS", "HASHTAG_GROUPS", "CAPTION_TEMPLATES", "MEDIA_ITEMS", "THREADS_TOPICS"]):
             if "RETURNING" not in cleaned.upper():
                 cleaned = cleaned.rstrip(" ;") + " RETURNING id"
                 has_returning_id = True
@@ -317,6 +317,19 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_media_hash ON media_items(file_hash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON background_jobs(status)")
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS threads_topics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                members_display TEXT DEFAULT '',
+                posts_display TEXT DEFAULT '',
+                category TEXT DEFAULT 'Chung',
+                use_count INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_threads_topics_name ON threads_topics(name)")
+
         # Seed default hashtag groups if empty
         cursor.execute("SELECT count(*) FROM hashtag_groups")
         if cursor.fetchone()[0] == 0:
@@ -366,6 +379,47 @@ def init_db():
                     "INSERT INTO caption_templates (name, content, category, brand_voice, created_at) VALUES (?, ?, ?, ?, ?)",
                     (name, content, cat, voice, utc_now_iso())
                 )
+
+        # Seed default Threads Communities / Topics if empty
+        cursor.execute("SELECT count(*) FROM threads_topics")
+        if cursor.fetchone()[0] == 0:
+            default_topics = [
+                # Trending communities from Threads
+                ("Kpop", "218K thành viên", "10,8K bài viết mới đây", "Âm nhạc & Thần tượng"),
+                ("Travel Threads", "651K thành viên", "61 bài viết mới đây", "Du lịch"),
+                ("Content Creators", "483K thành viên", "86 bài viết mới đây", "Sáng tạo nội dung"),
+                ("Dating Threads", "2,8 triệu thành viên", "319 bài viết mới đây", "Hẹn hò & Đời sống"),
+                ("AI Threads", "1,2 triệu thành viên", "469 bài viết mới đây", "Công nghệ"),
+                ("Gen Z", "215K thành viên", "23,6K bài viết mới đây", "Giới trẻ"),
+                ("Tech Threads", "820K thành viên", "1,4K bài viết mới đây", "Công nghệ"),
+                ("Book Threads", "340K thành viên", "512 bài viết mới đây", "Sách & Tri thức"),
+                ("DEAL 1K SHOPEE", "145K thành viên", "4,2K bài viết mới đây", "Săn Sale"),
+                
+                # Healthy Food, Organic & Beverage (ROOTS core)
+                ("Thực Phẩm Hữu Cơ", "185K thành viên", "1,2K bài viết mới đây", "Hữu cơ & Sống khỏe"),
+                ("Eat Clean Sài Gòn", "310K thành viên", "2,8K bài viết mới đây", "Ăn sạch"),
+                ("Nước Ép & Detox", "160K thành viên", "950 bài viết mới đây", "Đồ uống"),
+                ("Sống Xanh", "240K thành viên", "1,8K bài viết mới đây", "Phong cách sống"),
+                ("Review Ăn Uống", "1,5 triệu thành viên", "28,4K bài viết mới đây", "Ẩm thực"),
+                ("Món Ngon Sài Gòn", "890K thành viên", "15,2K bài viết mới đây", "Ẩm thực"),
+                ("Healthy Lifestyle", "420K thành viên", "3,1K bài viết mới đây", "Sức khỏe"),
+                ("Ăn Chay - Vegan", "175K thành viên", "890 bài viết mới đây", "Ăn chay"),
+                ("Trái Cây Nhập Khẩu", "115K thành viên", "620 bài viết mới đây", "Hoa quả"),
+                ("Bếp Yêu Thương", "520K thành viên", "4,6K bài viết mới đây", "Nấu ăn"),
+                ("Cà Phê & Trà Sài Gòn", "670K thành viên", "8,9K bài viết mới đây", "Đồ uống"),
+                ("Dinh Dưỡng Mỗi Ngày", "290K thành viên", "1,5K bài viết mới đây", "Dinh dưỡng"),
+                ("Ưu Đãi & Khuyến Mãi", "730K thành viên", "12,1K bài viết mới đây", "Khuyến mãi"),
+                ("Tập Gym & Thể Thao", "610K thành viên", "7,4K bài viết mới đây", "Thể hình"),
+                ("Làm Đẹp Tự Nhiên", "380K thành viên", "2,1K bài viết mới đây", "Làm đẹp")
+            ]
+            for name, mem, post_cnt, cat in default_topics:
+                try:
+                    cursor.execute(
+                        "INSERT INTO threads_topics (name, members_display, posts_display, category, use_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                        (name, mem, post_cnt, cat, 0, utc_now_iso())
+                    )
+                except Exception:
+                    pass
 
         # Migrate historical local-time strings to timezone-aware UTC values once.
         for row in cursor.execute("SELECT id, scheduled_time FROM posts WHERE scheduled_time IS NOT NULL").fetchall():
@@ -421,7 +475,13 @@ def create_post(
             status, scheduled_time, created_at
         ))
         conn.commit()
-        return cursor.lastrowid
+        pid = cursor.lastrowid
+        if threads_topic_tag:
+            try:
+                save_or_touch_threads_topic(threads_topic_tag)
+            except Exception:
+                pass
+        return pid
 
 def get_posts(status: str = None, limit: int = 100) -> list:
     with get_db() as conn:
@@ -754,3 +814,46 @@ def get_job_record(job_id: str) -> dict:
                 d["result"] = {}
             return d
     return None
+
+# ─────────────────────────────────────────────────────────────
+# THREADS TOPICS & COMMUNITIES CRUD
+# ─────────────────────────────────────────────────────────────
+def get_threads_topics(query: str = None, limit: int = 50) -> list:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if query and query.strip():
+            term = f"%{query.strip().lower()}%"
+            cursor.execute("""
+                SELECT id, name, members_display, posts_display, category, use_count
+                FROM threads_topics
+                WHERE LOWER(name) LIKE ? OR LOWER(category) LIKE ?
+                ORDER BY use_count DESC, id ASC
+                LIMIT ?
+            """, (term, term, limit))
+        else:
+            cursor.execute("""
+                SELECT id, name, members_display, posts_display, category, use_count
+                FROM threads_topics
+                ORDER BY use_count DESC, id ASC
+                LIMIT ?
+            """, (limit,))
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+def save_or_touch_threads_topic(name: str, category: str = "Chung"):
+    clean_name = str(name).strip().lstrip("#").replace(".", "").replace("&", "").strip()
+    if not clean_name:
+        return
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, use_count FROM threads_topics WHERE LOWER(name) = LOWER(?)", (clean_name,))
+        row = cursor.fetchone()
+        if row:
+            cursor.execute("UPDATE threads_topics SET use_count = use_count + 1 WHERE id = ?", (row["id"],))
+        else:
+            cursor.execute("""
+                INSERT INTO threads_topics (name, members_display, posts_display, category, use_count, created_at)
+                VALUES (?, ?, ?, ?, 1, ?)
+            """, (clean_name, "Cộng đồng mới", "Đang cập nhật", category, utc_now_iso()))
+        conn.commit()
+

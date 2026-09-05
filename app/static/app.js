@@ -62,6 +62,8 @@ createApp({
         biography: '',
         error: null
       },
+      threadsTopicsList: [],
+      showThreadsTopicDropdown: false,
       bulkPreviewPosts: [],
       scheduledPosts: [],
       historyPosts: [],
@@ -201,6 +203,7 @@ createApp({
             }
             this.loadMetaStatus();
             this.loadThreadsStatus();
+            this.fetchThreadsTopics();
             this.loadScheduledPosts();
             this.loadPendingPosts();
             this.loadRootsCategories();
@@ -510,6 +513,64 @@ createApp({
         NONE: 'Không nút'
       };
       return map[type] || 'Tìm hiểu thêm';
+    },
+
+    // ── THREADS TOPICS & COMMUNITIES AUTOCOMPLETE ──
+    async fetchThreadsTopics(query = '') {
+      try {
+        const url = query ? `/api/threads/topics?q=${encodeURIComponent(query)}` : '/api/threads/topics';
+        const res = await this.authFetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          this.threadsTopicsList = data.topics || [];
+        }
+      } catch (e) {
+        console.error('Error fetching Threads topics:', e);
+      }
+    },
+
+    getFilteredThreadsTopics() {
+      const q = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
+      if (!q) {
+        return this.threadsTopicsList.slice(0, 30);
+      }
+      return this.threadsTopicsList.filter(t => 
+        (t.name || '').toLowerCase().includes(q) || 
+        (t.category || '').toLowerCase().includes(q)
+      ).slice(0, 30);
+    },
+
+    hasExactTopicMatch() {
+      const q = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
+      if (!q) return true;
+      return this.threadsTopicsList.some(t => (t.name || '').toLowerCase() === q);
+    },
+
+    selectThreadsTopic(name) {
+      this.postForm.threads_topic_tag = name;
+      this.showThreadsTopicDropdown = false;
+    },
+
+    clearThreadsTopic() {
+      this.postForm.threads_topic_tag = '';
+      this.showThreadsTopicDropdown = false;
+    },
+
+    async createAndSelectNewTopic(name) {
+      const cleanName = (name || '').trim().replace(/^#+/, '').replace(/[.&]/g, '');
+      if (!cleanName) return;
+      this.postForm.threads_topic_tag = cleanName;
+      this.showThreadsTopicDropdown = false;
+      try {
+        await this.authFetch('/api/threads/topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: cleanName, category: 'Tùy chỉnh' })
+        });
+        await this.fetchThreadsTopics();
+      } catch (e) {
+        console.error('Error saving new Threads topic:', e);
+      }
     },
 
     // ── BULK UPLOAD EXCEL METHODS ──

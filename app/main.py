@@ -23,7 +23,8 @@ from app.database import (init_db, create_post, get_posts, get_post_by_id, updat
                           approve_post, reject_post, save_oauth_state,
                           consume_oauth_state, create_media_item, get_media_items, update_media_tags,
                           delete_media_item, get_hashtag_groups, create_hashtag_group, delete_hashtag_group,
-                          get_caption_templates, create_caption_template, delete_caption_template)
+                          get_caption_templates, create_caption_template, delete_caption_template,
+                          get_threads_topics, save_or_touch_threads_topic)
 from app.scheduler import start_scheduler, shutdown_scheduler, publish_single_post
 from app.meta_service import test_meta_connection, exchange_for_permanent_page_token
 from app.ai_service import generate_social_captions, generate_combo_campaign_and_prompts
@@ -706,6 +707,20 @@ def api_threads_callback(code: str, request: Request):
 def api_threads_test_connection():
     from app.threads_service import get_threads_profile
     return get_threads_profile()
+
+class ThreadsTopicCreateRequest(BaseModel):
+    name: str
+    category: Optional[str] = "Chung"
+
+@app.get("/api/threads/topics")
+def api_get_threads_topics(q: Optional[str] = None):
+    topics = get_threads_topics(query=q, limit=50)
+    return {"success": True, "topics": topics, "count": len(topics)}
+
+@app.post("/api/threads/topics", dependencies=[Depends(verify_auth)])
+def api_create_threads_topic(req: ThreadsTopicCreateRequest):
+    save_or_touch_threads_topic(req.name, category=req.category or "Chung")
+    return {"success": True, "message": f"Đã lưu chủ đề '{req.name}'"}
 
 # ─────────────────────────────────────────────────────────────
 # ROOTS.VN PRODUCT CATALOG & QUICK GENERATE
