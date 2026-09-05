@@ -144,6 +144,13 @@ createApp({
 
       calendarEvents: [],
       selectedCalendarPost: null,
+      showCalendarModal: false,
+      calendarModalCaptionTab: 'fb',
+      calendarFilterPlatform: 'all',
+      calendarFilterStatus: 'all',
+      calendarViewMode: 'month',
+      calendarCurrentYear: new Date().getFullYear(),
+      calendarCurrentMonth: new Date().getMonth(),
 
       toast: {
         show: false,
@@ -971,6 +978,171 @@ createApp({
         const data = await res.json();
         this.calendarEvents = data.events || [];
       } catch (e) {}
+    },
+
+    getFilteredCalendarEvents() {
+      return (this.calendarEvents || []).filter(ev => {
+        if (this.calendarFilterPlatform === 'fb' && !ev.target_fb) return false;
+        if (this.calendarFilterPlatform === 'ig' && !ev.target_ig) return false;
+        if (this.calendarFilterPlatform === 'threads' && !ev.target_threads) return false;
+        if (this.calendarFilterPlatform === 'google' && !ev.target_google) return false;
+        if (this.calendarFilterPlatform === 'story' && !ev.target_story) return false;
+
+        if (this.calendarFilterStatus === 'scheduled' && ev.status !== 'scheduled') return false;
+        if (this.calendarFilterStatus === 'published' && ev.status !== 'success' && ev.status !== 'published') return false;
+        if (this.calendarFilterStatus === 'pending' && ev.status !== 'pending') return false;
+        if (this.calendarFilterStatus === 'failed' && ev.status !== 'failed' && ev.status !== 'partial_failed') return false;
+
+        return true;
+      });
+    },
+
+    getCalendarMonthLabel() {
+      const monthNames = [
+        'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+        'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+      ];
+      return `${monthNames[this.calendarCurrentMonth]}, ${this.calendarCurrentYear}`;
+    },
+
+    prevCalendarMonth() {
+      if (this.calendarCurrentMonth === 0) {
+        this.calendarCurrentMonth = 11;
+        this.calendarCurrentYear--;
+      } else {
+        this.calendarCurrentMonth--;
+      }
+    },
+
+    nextCalendarMonth() {
+      if (this.calendarCurrentMonth === 11) {
+        this.calendarCurrentMonth = 0;
+        this.calendarCurrentYear++;
+      } else {
+        this.calendarCurrentMonth++;
+      }
+    },
+
+    todayCalendarMonth() {
+      const now = new Date();
+      this.calendarCurrentYear = now.getFullYear();
+      this.calendarCurrentMonth = now.getMonth();
+    },
+
+    getCalendarGridDays() {
+      const year = this.calendarCurrentYear;
+      const month = this.calendarCurrentMonth;
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      
+      let startDayOfWeek = firstDay.getDay() - 1;
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+      
+      const days = [];
+      const prevMonthLastDay = new Date(year, month, 0).getDate();
+      
+      for (let i = startDayOfWeek - 1; i >= 0; i--) {
+        const d = prevMonthLastDay - i;
+        const prevMonth = month === 0 ? 11 : month - 1;
+        const prevYear = month === 0 ? year - 1 : year;
+        const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        days.push({
+          dayNumber: d,
+          dateStr: dateStr,
+          isCurrentMonth: false,
+          isToday: false,
+          events: this.getEventsForDate(dateStr)
+        });
+      }
+      
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        days.push({
+          dayNumber: d,
+          dateStr: dateStr,
+          isCurrentMonth: true,
+          isToday: dateStr === todayStr,
+          events: this.getEventsForDate(dateStr)
+        });
+      }
+      
+      const remaining = (7 - (days.length % 7)) % 7;
+      for (let d = 1; d <= remaining; d++) {
+        const nextMonth = month === 11 ? 0 : month + 1;
+        const nextYear = month === 11 ? year + 1 : year;
+        const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        days.push({
+          dayNumber: d,
+          dateStr: dateStr,
+          isCurrentMonth: false,
+          isToday: false,
+          events: this.getEventsForDate(dateStr)
+        });
+      }
+      
+      return days;
+    },
+
+    getEventsForDate(dateStr) {
+      const filtered = this.getFilteredCalendarEvents();
+      return filtered.filter(ev => {
+        if (!ev.time) return false;
+        return ev.time.startsWith(dateStr);
+      });
+    },
+
+    formatTimeDisplay(timeStr) {
+      if (!timeStr) return '';
+      try {
+        const d = new Date(timeStr);
+        if (isNaN(d.getTime())) return timeStr.slice(11, 16) || timeStr;
+        return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return timeStr.slice(11, 16) || timeStr;
+      }
+    },
+
+    formatFullDateDisplay(timeStr) {
+      if (!timeStr) return 'Chưa có thời gian';
+      try {
+        const d = new Date(timeStr);
+        if (isNaN(d.getTime())) return timeStr;
+        return d.toLocaleString('vi-VN', {
+          weekday: 'short',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        return timeStr;
+      }
+    },
+
+    openCalendarPostModal(post) {
+      this.selectedCalendarPost = post;
+      this.calendarModalCaptionTab = post.target_fb ? 'fb' : (post.target_ig ? 'ig' : (post.target_threads ? 'threads' : 'google'));
+      this.showCalendarModal = true;
+    },
+
+    closeCalendarPostModal() {
+      this.showCalendarModal = false;
+      this.selectedCalendarPost = null;
+    },
+
+    getPlatformList(post) {
+      const list = [];
+      if (post.target_fb) list.push({ name: 'Facebook', short: 'FB', icon: 'fa-brands fa-facebook-f', color: 'bg-blue-600 text-white', badgeBg: 'bg-blue-50 text-blue-700 border-blue-200' });
+      if (post.target_ig) list.push({ name: 'Instagram', short: 'IG', icon: 'fa-brands fa-instagram', color: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white', badgeBg: 'bg-pink-50 text-pink-700 border-pink-200' });
+      if (post.target_threads) list.push({ name: 'Threads', short: 'Threads', icon: 'fa-brands fa-threads', color: 'bg-slate-900 text-white', badgeBg: 'bg-slate-100 text-slate-800 border-slate-300' });
+      if (post.target_google) list.push({ name: 'Google Maps', short: 'Google', icon: 'fa-brands fa-google', color: 'bg-emerald-600 text-white', badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200' });
+      if (post.target_story) list.push({ name: 'Story 9:16', short: 'Story', icon: 'fa-solid fa-mobile-screen-button', color: 'bg-purple-600 text-white', badgeBg: 'bg-purple-50 text-purple-700 border-purple-200' });
+      return list;
     },
     async loadTemplatesAndHashtags() {
       try {

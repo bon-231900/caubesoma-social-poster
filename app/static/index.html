@@ -883,24 +883,362 @@
       </div>
 
       <!-- TAB 4: CALENDAR -->
-      <div v-show="activeTab === 'calendar'" class="space-y-4">
-        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-          <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
-            <i class="fa-solid fa-calendar-days text-emerald-600"></i>
-            <span>Lịch Đăng Bài Tự Động</span>
-          </h3>
-          <span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">{{ calendarEvents.length }} bài viết</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div v-for="ev in calendarEvents" :key="ev.id" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-bold text-emerald-700 flex items-center space-x-1">
-                <i class="fa-solid fa-clock"></i>
-                <span>{{ ev.time }}</span>
-              </span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold" :class="ev.status === 'scheduled' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'">{{ ev.status }}</span>
+      <div v-show="activeTab === 'calendar'" class="space-y-6">
+        <!-- Top Summary & Quick Actions -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-12 h-12 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-500/20">
+                <i class="fa-solid fa-calendar-days"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h3 class="font-extrabold text-slate-900 text-lg tracking-tight">Lịch Đăng Bài Đa Kênh</h3>
+                  <span class="text-xs font-extrabold bg-emerald-100 text-emerald-800 px-3 py-0.5 rounded-full">
+                    {{ getFilteredCalendarEvents().length }} / {{ calendarEvents.length }} bài
+                  </span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">Theo dõi lịch phát sóng tự động trên Facebook, Instagram, Threads & Google Maps</p>
+              </div>
             </div>
-            <p class="text-xs text-slate-700 line-clamp-3 leading-relaxed">{{ ev.title }}</p>
+
+            <!-- Action buttons -->
+            <div class="flex items-center space-x-2 shrink-0">
+              <button @click="loadCalendarEvents" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer" title="Cập nhật dữ liệu mới nhất">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span class="hidden sm:inline">Làm mới</span>
+              </button>
+              <button @click="activeTab = 'composer'" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i>
+                <span>Lên lịch bài mới</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter & View Controls -->
+          <div class="pt-4 border-t border-slate-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <!-- Platform Filters -->
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Nền tảng:</span>
+              <button @click="calendarFilterPlatform = 'all'" :class="calendarFilterPlatform === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer">
+                Tất cả
+              </button>
+              <button @click="calendarFilterPlatform = 'fb'" :class="calendarFilterPlatform === 'fb' ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-brands fa-facebook-f"></i>
+                <span>Facebook</span>
+              </button>
+              <button @click="calendarFilterPlatform = 'ig'" :class="calendarFilterPlatform === 'ig' ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-sm' : 'bg-pink-50 text-pink-700 hover:bg-pink-100'" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-brands fa-instagram"></i>
+                <span>Instagram</span>
+              </button>
+              <button @click="calendarFilterPlatform = 'threads'" :class="calendarFilterPlatform === 'threads' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300'" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-brands fa-threads"></i>
+                <span>Threads</span>
+              </button>
+              <button @click="calendarFilterPlatform = 'google'" :class="calendarFilterPlatform === 'google' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-brands fa-google"></i>
+                <span>Google</span>
+              </button>
+              <button @click="calendarFilterPlatform = 'story'" :class="calendarFilterPlatform === 'story' ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'" class="px-3 py-1 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-solid fa-mobile-screen"></i>
+                <span>Story 9:16</span>
+              </button>
+            </div>
+
+            <!-- View Switcher & Status Filter -->
+            <div class="flex items-center space-x-3 w-full lg:w-auto justify-between lg:justify-end">
+              <!-- Status Select -->
+              <select v-model="calendarFilterStatus" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+                <option value="all">Trạng thái: Tất cả</option>
+                <option value="scheduled">⏳ Đã lên lịch hẹn giờ</option>
+                <option value="published">✅ Đã xuất bản thành công</option>
+                <option value="pending">⏸️ Hàng đợi chờ duyệt</option>
+                <option value="failed">⚠️ Lỗi xuất bản</option>
+              </select>
+
+              <!-- View Mode Switcher -->
+              <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 shrink-0">
+                <button @click="calendarViewMode = 'month'" :class="calendarViewMode === 'month' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 cursor-pointer">
+                  <i class="fa-solid fa-calendar-days"></i>
+                  <span>Lịch tháng</span>
+                </button>
+                <button @click="calendarViewMode = 'cards'" :class="calendarViewMode === 'cards' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 cursor-pointer">
+                  <i class="fa-solid fa-list-ul"></i>
+                  <span>Danh sách thẻ</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 1: MONTH CALENDAR GRID -->
+        <div v-if="calendarViewMode === 'month'" class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+          <!-- Month Navigation Bar -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <button @click="prevCalendarMonth" class="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition cursor-pointer">
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+              </button>
+              <h4 class="text-base font-black text-slate-900 min-w-[140px] text-center">{{ getCalendarMonthLabel() }}</h4>
+              <button @click="nextCalendarMonth" class="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition cursor-pointer">
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+              </button>
+            </div>
+            <button @click="todayCalendarMonth" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+              Hôm nay
+            </button>
+          </div>
+
+          <!-- Calendar Table Grid -->
+          <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
+            <!-- Day of Week Headers -->
+            <div class="grid grid-cols-7 bg-slate-100/80 border-b border-slate-200 text-center py-2.5 text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+              <span>Thứ 2</span>
+              <span>Thứ 3</span>
+              <span>Thứ 4</span>
+              <span>Thứ 5</span>
+              <span>Thứ 6</span>
+              <span class="text-emerald-700">Thứ 7</span>
+              <span class="text-rose-600">Chủ Nhật</span>
+            </div>
+
+            <!-- Days Grid -->
+            <div class="grid grid-cols-7 divide-x divide-y divide-slate-200 bg-slate-50/30">
+              <div v-for="(d, idx) in getCalendarGridDays()" :key="idx" 
+                   class="min-h-[110px] sm:min-h-[125px] p-2 flex flex-col justify-between transition-colors relative"
+                   :class="[
+                     d.isCurrentMonth ? 'bg-white' : 'bg-slate-50/60 opacity-40',
+                     d.isToday ? 'ring-2 ring-emerald-500 ring-inset bg-emerald-50/20' : 'hover:bg-slate-50/80'
+                   ]">
+                <!-- Day Number Header -->
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-bold" 
+                        :class="d.isToday ? 'w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm' : (d.isCurrentMonth ? 'text-slate-800' : 'text-slate-400')">
+                    {{ d.dayNumber }}
+                  </span>
+                  <span v-if="d.events.length > 0" class="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
+                    {{ d.events.length }}
+                  </span>
+                </div>
+
+                <!-- Events in Day -->
+                <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[85px] custom-scrollbar">
+                  <div v-for="ev in d.events" :key="ev.id" 
+                       @click="openCalendarPostModal(ev)"
+                       class="p-1.5 rounded-xl border text-[11px] cursor-pointer transition-all hover:scale-[1.02] shadow-xs"
+                       :class="ev.status === 'scheduled' ? 'bg-amber-50/90 border-amber-200 text-amber-900 hover:bg-amber-100' : (ev.status === 'pending' ? 'bg-purple-50/90 border-purple-200 text-purple-900' : 'bg-emerald-50/90 border-emerald-200 text-emerald-900 hover:bg-emerald-100')">
+                    <div class="flex items-center justify-between gap-1 leading-none mb-1">
+                      <span class="font-extrabold text-[10px] text-slate-700 flex items-center space-x-1">
+                        <i class="fa-regular fa-clock text-[9px]"></i>
+                        <span>{{ formatTimeDisplay(ev.time) }}</span>
+                      </span>
+                      <!-- Platform Mini Icons Row -->
+                      <div class="flex items-center space-x-0.5">
+                        <span v-if="ev.target_fb" class="w-3.5 h-3.5 rounded bg-blue-600 text-white flex items-center justify-center text-[7px]" title="Facebook"><i class="fa-brands fa-facebook-f"></i></span>
+                        <span v-if="ev.target_ig" class="w-3.5 h-3.5 rounded bg-pink-600 text-white flex items-center justify-center text-[7px]" title="Instagram"><i class="fa-brands fa-instagram"></i></span>
+                        <span v-if="ev.target_threads" class="w-3.5 h-3.5 rounded bg-black text-white flex items-center justify-center text-[7px]" title="Threads"><i class="fa-brands fa-threads"></i></span>
+                        <span v-if="ev.target_google" class="w-3.5 h-3.5 rounded bg-emerald-600 text-white flex items-center justify-center text-[7px]" title="Google Maps"><i class="fa-brands fa-google"></i></span>
+                        <span v-if="ev.target_story" class="w-3.5 h-3.5 rounded bg-purple-600 text-white flex items-center justify-center text-[7px]" title="Story 9:16"><i class="fa-solid fa-mobile-screen"></i></span>
+                      </div>
+                    </div>
+                    <p class="truncate text-[10px] text-slate-800 font-medium leading-tight">
+                      {{ ev.title || 'Bài viết không tiêu đề' }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: CARDS LIST VIEW -->
+        <div v-if="calendarViewMode === 'cards'" class="space-y-4">
+          <div v-if="getFilteredCalendarEvents().length === 0" class="bg-white rounded-3xl p-12 border border-slate-200 text-center space-y-4">
+            <div class="w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center text-slate-400 text-2xl mx-auto shadow-inner">
+              <i class="fa-regular fa-calendar-xmark"></i>
+            </div>
+            <div>
+              <h4 class="text-base font-bold text-slate-800">Không có bài viết nào phù hợp bộ lọc</h4>
+              <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">Hãy thử chọn lại bộ lọc nền tảng hoặc bấm vào nút bên dưới để tạo bài viết mới.</p>
+            </div>
+            <div class="flex items-center justify-center space-x-3 pt-2">
+              <button @click="activeTab = 'composer'" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer">
+                <i class="fa-solid fa-plus mr-1"></i> Tạo bài viết mới
+              </button>
+              <button @click="activeTab = 'bulk'" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                <i class="fa-solid fa-file-excel mr-1"></i> Nhập từ Excel
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div v-for="ev in getFilteredCalendarEvents()" :key="ev.id" 
+                 class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between group">
+              <div class="space-y-3">
+                <!-- Top Row: Time & Status -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                      <i class="fa-solid fa-clock"></i>
+                    </span>
+                    <div>
+                      <span class="text-xs font-black text-slate-900 block leading-tight">{{ formatFullDateDisplay(ev.time) }}</span>
+                      <span class="text-[10px] text-slate-400 leading-none">{{ ev.scheduled_time ? 'Lên lịch tự động' : 'Đăng trực tiếp' }}</span>
+                    </div>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider" 
+                        :class="ev.status === 'scheduled' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (ev.status === 'pending' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800 border border-emerald-200')">
+                    {{ ev.status === 'scheduled' ? '⏳ Đã lên lịch' : (ev.status === 'pending' ? '⏸️ Chờ duyệt' : '✅ Đã xuất bản') }}
+                  </span>
+                </div>
+
+                <!-- Platform Badges Row -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span v-for="plat in getPlatformList(ev)" :key="plat.name" 
+                        class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold border flex items-center space-x-1"
+                        :class="plat.badgeBg">
+                    <i :class="plat.icon"></i>
+                    <span>{{ plat.name }}</span>
+                  </span>
+                </div>
+
+                <!-- Thumbnail & Content Snippet -->
+                <div class="flex items-start space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div v-if="ev.images && ev.images.length > 0" class="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-white">
+                    <img :src="getMediaUrl(ev.images[0])" class="w-full h-full object-cover">
+                  </div>
+                  <div v-else-if="ev.story_image" class="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-white">
+                    <img :src="getMediaUrl(ev.story_image)" class="w-full h-full object-cover">
+                  </div>
+                  <div v-else class="w-14 h-14 rounded-lg bg-slate-200 text-slate-400 flex items-center justify-center shrink-0 text-lg">
+                    <i class="fa-solid fa-align-left"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs text-slate-800 line-clamp-2 font-medium leading-relaxed">
+                      {{ ev.fb_caption || ev.ig_caption || ev.threads_caption || ev.google_caption || ev.title || 'Bài viết không có nội dung văn bản' }}
+                    </p>
+                    <span v-if="ev.images && ev.images.length > 1" class="text-[10px] text-slate-400 mt-1 block">
+                      <i class="fa-solid fa-images mr-1"></i>+{{ ev.images.length - 1 }} ảnh khác
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <button @click="openCalendarPostModal(ev)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                  <i class="fa-solid fa-eye"></i>
+                  <span>Xem chi tiết</span>
+                </button>
+                <div class="flex items-center space-x-1.5">
+                  <button v-if="currentUserRole === 'admin' && ev.status === 'scheduled'" @click="publishNow(ev.id)" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer">
+                    Đăng ngay
+                  </button>
+                  <button @click="duplicatePost(ev.id)" class="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition cursor-pointer" title="Nhân bản bài này">
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                  <button @click="deleteScheduledPost(ev.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition cursor-pointer" title="Xóa bài viết">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- POST DETAIL MODAL -->
+        <div v-if="showCalendarModal && selectedCalendarPost" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div class="flex items-center space-x-2.5">
+                <span class="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center text-sm font-bold">
+                  <i class="fa-solid fa-calendar-check"></i>
+                </span>
+                <div>
+                  <h4 class="font-extrabold text-slate-900 text-sm">Chi Tiết Bài Đăng #{{ selectedCalendarPost.id }}</h4>
+                  <span class="text-[11px] text-slate-500">{{ formatFullDateDisplay(selectedCalendarPost.time) }}</span>
+                </div>
+              </div>
+              <button @click="closeCalendarPostModal" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer">
+                <i class="fa-solid fa-xmark text-sm"></i>
+              </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto custom-scrollbar space-y-5 flex-1">
+              <!-- Target Platforms -->
+              <div class="space-y-1.5">
+                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nền tảng xuất bản:</label>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span v-for="plat in getPlatformList(selectedCalendarPost)" :key="plat.name" 
+                        class="px-3 py-1 rounded-xl text-xs font-bold border flex items-center space-x-1.5"
+                        :class="plat.badgeBg">
+                    <i :class="plat.icon"></i>
+                    <span>{{ plat.name }}</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Media Thumbnails Preview -->
+              <div v-if="selectedCalendarPost.images && selectedCalendarPost.images.length > 0" class="space-y-2">
+                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Hình ảnh bài viết ({{ selectedCalendarPost.images.length }} ảnh):</label>
+                <div class="flex items-center space-x-2 overflow-x-auto pb-2 custom-scrollbar">
+                  <div v-for="(img, idx) in selectedCalendarPost.images" :key="idx" class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-50">
+                    <img :src="getMediaUrl(img)" class="w-full h-full object-cover">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Story Image Preview -->
+              <div v-if="selectedCalendarPost.story_image" class="space-y-2">
+                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ảnh Story 9:16:</label>
+                <div class="w-28 aspect-[9/16] rounded-xl overflow-hidden border border-purple-300 shadow-sm bg-slate-900">
+                  <img :src="getMediaUrl(selectedCalendarPost.story_image)" class="w-full h-full object-cover">
+                </div>
+              </div>
+
+              <!-- Captions Tab per Platform -->
+              <div class="space-y-2">
+                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nội dung theo từng kênh:</label>
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1">
+                  <button @click="calendarModalCaptionTab = 'fb'" :class="calendarModalCaptionTab === 'fb' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600'" class="flex-1 py-1.5 rounded-lg text-xs transition cursor-pointer">Facebook</button>
+                  <button @click="calendarModalCaptionTab = 'ig'" :class="calendarModalCaptionTab === 'ig' ? 'bg-white text-pink-700 font-bold shadow-xs' : 'text-slate-600'" class="flex-1 py-1.5 rounded-lg text-xs transition cursor-pointer">Instagram</button>
+                  <button @click="calendarModalCaptionTab = 'threads'" :class="calendarModalCaptionTab === 'threads' ? 'bg-white text-slate-900 font-bold shadow-xs' : 'text-slate-600'" class="flex-1 py-1.5 rounded-lg text-xs transition cursor-pointer">Threads</button>
+                  <button @click="calendarModalCaptionTab = 'google'" :class="calendarModalCaptionTab === 'google' ? 'bg-white text-emerald-700 font-bold shadow-xs' : 'text-slate-600'" class="flex-1 py-1.5 rounded-lg text-xs transition cursor-pointer">Google</button>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-800 font-normal leading-relaxed whitespace-pre-wrap min-h-[100px]">
+                  <span v-if="calendarModalCaptionTab === 'fb'">{{ selectedCalendarPost.fb_caption || 'Chưa có caption Facebook' }}</span>
+                  <span v-else-if="calendarModalCaptionTab === 'ig'">{{ selectedCalendarPost.ig_caption || 'Chưa có caption Instagram' }}</span>
+                  <span v-else-if="calendarModalCaptionTab === 'threads'">{{ selectedCalendarPost.threads_caption || 'Chưa có caption Threads' }}</span>
+                  <div v-else class="space-y-2">
+                    <p>{{ selectedCalendarPost.google_caption || 'Chưa có caption Google Maps' }}</p>
+                    <div v-if="selectedCalendarPost.google_action_url" class="pt-2 border-t border-slate-200 flex items-center space-x-2 text-slate-500">
+                      <span class="font-bold text-amber-700">Nút CTA:</span>
+                      <span>{{ selectedCalendarPost.google_action_type || 'TÌM HIỂU THÊM' }} ➜ {{ selectedCalendarPost.google_action_url }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+              <button @click="deleteScheduledPost(selectedCalendarPost.id); closeCalendarPostModal()" class="px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition cursor-pointer">
+                <i class="fa-solid fa-trash mr-1"></i> Xóa bài
+              </button>
+              <div class="flex items-center space-x-2">
+                <button @click="duplicatePost(selectedCalendarPost.id); closeCalendarPostModal()" class="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition cursor-pointer">
+                  <i class="fa-solid fa-copy mr-1"></i> Nhân bản
+                </button>
+                <button v-if="currentUserRole === 'admin' && selectedCalendarPost.status === 'scheduled'" @click="publishNow(selectedCalendarPost.id); closeCalendarPostModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                  <i class="fa-solid fa-paper-plane mr-1"></i> Đăng ngay
+                </button>
+                <button @click="closeCalendarPostModal" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                  Đóng
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
