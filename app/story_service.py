@@ -638,4 +638,9 @@ def create_story_image(
     out_path = UPLOAD_DIR / out_filename
     story_rgb = story.convert("RGB")
     story_rgb.save(out_path, format="JPEG", quality=95, optimize=True)
+    try:
+        from app.media_service import register_media_file
+        register_media_file(out_filename, original_name="Story Image", tags=["Story", "Tự động"])
+    except Exception:
+        pass
     return out_filename

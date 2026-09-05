@@ -42,7 +42,7 @@ class PGCursor:
                              r'INSERT INTO oauth_states (\1) VALUES (\2) ON CONFLICT (state_hash) DO UPDATE SET expires_at = EXCLUDED.expires_at', cleaned, flags=re.IGNORECASE)
         elif 'INSERT OR REPLACE INTO MEDIA_ITEMS' in cleaned.upper():
             cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+media_items\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
-                             r'INSERT INTO media_items (\1) VALUES (\2) ON CONFLICT (filename) DO UPDATE SET original_name = EXCLUDED.original_name, file_hash = EXCLUDED.file_hash, mime_type = EXCLUDED.mime_type, file_size = EXCLUDED.file_size, width = EXCLUDED.width, height = EXCLUDED.height, tags = EXCLUDED.tags', cleaned, flags=re.IGNORECASE)
+                             r'INSERT INTO media_items (\1) VALUES (\2) ON CONFLICT (filename) DO UPDATE SET original_name = EXCLUDED.original_name, file_hash = EXCLUDED.file_hash, mime_type = EXCLUDED.mime_type, file_size = EXCLUDED.file_size, width = EXCLUDED.width, height = EXCLUDED.height, tags = EXCLUDED.tags, file_data = CASE WHEN EXCLUDED.file_data IS NOT NULL AND EXCLUDED.file_data != \'\' THEN EXCLUDED.file_data ELSE media_items.file_data END', cleaned, flags=re.IGNORECASE)
         elif 'INSERT OR REPLACE INTO PRODUCT_AI_CACHE' in cleaned.upper():
             cleaned = re.sub(r'INSERT\s+OR\s+REPLACE\s+INTO\s+product_ai_cache\s*\((.*?)\)\s*VALUES\s*\((.*?)\)',
                              r'INSERT INTO product_ai_cache (\1) VALUES (\2) ON CONFLICT (product_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload_json = EXCLUDED.payload_json, updated_at = EXCLUDED.updated_at', cleaned, flags=re.IGNORECASE)
@@ -284,9 +284,20 @@ def init_db():
                 width INTEGER DEFAULT 0,
                 height INTEGER DEFAULT 0,
                 tags TEXT DEFAULT '[]',
+                file_data TEXT,
                 created_at TEXT NOT NULL
             )
         """)
+        if not is_postgres_active():
+            cursor.execute("PRAGMA table_info(media_items)")
+            m_cols = [r["name"] for r in cursor.fetchall()]
+            if "file_data" not in m_cols:
+                cursor.execute("ALTER TABLE media_items ADD COLUMN file_data TEXT")
+        else:
+            try:
+                cursor.execute("ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_data TEXT;")
+            except Exception:
+                pass
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hashtag_groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -665,13 +676,39 @@ def consume_oauth_state(state: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 # MEDIA LIBRARY CRUD
 # ─────────────────────────────────────────────────────────────
-def create_media_item(filename: str, original_name: str = "", file_hash: str = "", mime_type: str = "image/jpeg", file_size: int = 0, width: int = 0, height: int = 0, tags: list = None):
+def create_media_item(filename: str, original_name: str = "", file_hash: str = "", mime_type: str = "image/jpeg", file_size: int = 0, width: int = 0, height: int = 0, tags: list = None, file_data: str = None):
     with get_db() as conn:
         conn.execute("""
-            INSERT OR REPLACE INTO media_items (filename, original_name, file_hash, mime_type, file_size, width, height, tags, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (filename, original_name, file_hash, mime_type, file_size, width, height, json.dumps(tags or []), utc_now_iso()))
+            INSERT OR REPLACE INTO media_items (filename, original_name, file_hash, mime_type, file_size, width, height, tags, file_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (filename, original_name, file_hash, mime_type, file_size, width, height, json.dumps(tags or []), file_data or "", utc_now_iso()))
         conn.commit()
+
+def restore_media_file_if_missing(filename: str) -> bool:
+    if not filename:
+        return False
+    from app.config import UPLOAD_DIR
+    target = UPLOAD_DIR / filename
+    if target.exists() and target.stat().st_size > 0:
+        return True
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT file_data FROM media_items WHERE filename = ? LIMIT 1", (filename,))
+            row = cursor.fetchone()
+            if row:
+                d = dict(row)
+                b64 = d.get("file_data")
+                if b64 and len(b64) > 10:
+                    import base64
+                    data = base64.b64decode(b64)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with open(target, "wb") as f:
+                        f.write(data)
+                    return True
+    except Exception as e:
+        print(f"Error restoring media file {filename}: {e}")
+    return False
 
 def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: int = 0) -> list:
     with get_db() as conn:

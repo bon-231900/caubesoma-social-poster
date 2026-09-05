@@ -1,10 +1,14 @@
+import os
 import requests
 import json
 import base64
 import time
+import logging
 from pathlib import Path
 from urllib.parse import urlparse
 from app.config import UPLOAD_DIR
+
+logger = logging.getLogger(__name__)
 
 GRAPH_API_BASE = "https://graph.facebook.com/v20.0"
 
@@ -142,12 +146,56 @@ def test_meta_connection(page_id: str, page_token: str, ig_account_id: str = Non
         
     return result
 
+def get_server_public_url() -> str:
+    """Return public base URL of the application if hosted publicly (e.g. on Render)."""
+    # 1. Check RENDER_EXTERNAL_URL (Render always injects this)
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url and render_url.strip().startswith("https://"):
+        return render_url.strip().rstrip("/")
+    
+    # 2. Check settings / env variables
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        for k in ("public_base_url", "app_url", "PUBLIC_BASE_URL", "APP_URL"):
+            val = os.environ.get(k) or settings.get(k)
+            if val and str(val).strip().startswith("https://"):
+                return str(val).strip().rstrip("/")
+    except Exception:
+        pass
+        
+    # 3. If running on Render (RENDER env var set) or Postgres active, default to known production domain
+    if os.environ.get("RENDER") or os.environ.get("DATABASE_URL"):
+        return "https://caubesoma-poster.onrender.com"
+        
+    return ""
+
+def ensure_clean_jpeg(image_path: Path) -> Path:
+    """
+    Ensures an image file is a clean RGB JPEG for 100% compliance with Instagram Graph API,
+    Threads API, and Google Business API (avoids format and alpha channel errors).
+    """
+    try:
+        from PIL import Image
+        with Image.open(image_path) as im:
+            if im.format == "JPEG" and im.mode == "RGB":
+                return image_path
+            
+            rgb_im = im.convert("RGB")
+            clean_name = f"clean_{image_path.stem}.jpg"
+            clean_path = image_path.parent / clean_name
+            rgb_im.save(clean_path, format="JPEG", quality=92, optimize=True)
+            return clean_path
+    except Exception as e:
+        logger.warning(f"Failed to normalize image to clean JPEG {image_path}: {e}")
+        return image_path
+
 def upload_to_imgbb(image_path: Path, api_key: str) -> str:
     """Upload local image to ImgBB and return public URL.
     Converts to clean RGB JPEG to guarantee 100% compliance with Instagram Graph API.
     """
     if not api_key:
-        raise ValueError("Chưa cấu hình ImgBB API Key để tự động lấy URL công khai cho Instagram.")
+        raise ValueError("Chưa cấu hình ImgBB API Key để tự động lấy URL công khai.")
     
     from PIL import Image
     import io
@@ -171,16 +219,21 @@ def upload_to_imgbb(image_path: Path, api_key: str) -> str:
         "name": Path(image_path).stem
     }
     response = requests.post(url, data=payload, timeout=35)
-    data = response.json()
+    try:
+        data = response.json()
+    except Exception:
+        data = {}
     
     if response.status_code == 200 and data.get("success"):
         return data["data"]["url"]
     else:
-        err = data.get("error", {}).get("message", "Lỗi upload ảnh lên ImgBB")
+        err = data.get("error", {}).get("message") or response.text or "Lỗi upload ảnh lên ImgBB"
+        if "forbidden" in str(err).lower():
+            err = "ImgBB chặn IP máy chủ đám mây (Cloudflare 403 Forbidden). Hệ thống tự động chuyển sang dùng Direct Public URL."
         raise RuntimeError(f"Lỗi ImgBB: {err}")
 
 def resolve_public_image_url(image_item: str, imgbb_api_key: str = None) -> str:
-    """If image_item is an HTTP URL, return as is. If local file, upload to ImgBB or host."""
+    """If image_item is an HTTP URL, return as is. If local file, return direct public server URL or upload to ImgBB."""
     if image_item.startswith("http://") or image_item.startswith("https://"):
         parsed = urlparse(image_item)
         if parsed.scheme != "https" or not parsed.hostname or parsed.hostname.lower() in {"localhost", "127.0.0.1", "::1"}:
@@ -192,9 +245,28 @@ def resolve_public_image_url(image_item: str, imgbb_api_key: str = None) -> str:
         raise ValueError("Tên file ảnh không hợp lệ.")
     local_file = UPLOAD_DIR / image_item
     if not local_file.exists():
+        try:
+            from app.database import restore_media_file_if_missing
+            restore_media_file_if_missing(image_item)
+        except Exception:
+            pass
+
+    if not local_file.exists():
         raise FileNotFoundError(f"Không tìm thấy file ảnh: {image_item}")
         
-    return upload_to_imgbb(local_file, imgbb_api_key)
+    clean_file = ensure_clean_jpeg(local_file)
+    clean_name = clean_file.name
+
+    # Priority 1: Direct public URL on Render or custom domain (100% reliable, zero 3rd party rate limits)
+    server_public_url = get_server_public_url()
+    if server_public_url:
+        return f"{server_public_url}/uploads/{clean_name}"
+
+    # Priority 2: ImgBB upload for local development
+    if imgbb_api_key:
+        return upload_to_imgbb(clean_file, imgbb_api_key)
+
+    raise ValueError("Hệ thống chưa cấu hình Public Base URL và chưa có ImgBB API Key để xuất URL công khai.")
 
 def publish_to_facebook(page_id: str, page_token: str, caption: str, images: list) -> dict:
     """
@@ -290,17 +362,15 @@ def publish_facebook_story(page_id: str, page_token: str, story_image_name: str,
     photo_url = f"{GRAPH_API_BASE}/{page_id}/photos"
     session = get_meta_session()
     
-    # 1. If public URL or can convert to public URL via ImgBB, use URL method (avoids SSL drops)
+    # 1. If public URL or can convert to public URL, use URL method (avoids SSL drops)
     public_url = None
     if story_image_name.startswith("http://") or story_image_name.startswith("https://"):
         public_url = story_image_name
-    elif imgbb_api_key:
+    else:
         try:
-            local_path = UPLOAD_DIR / story_image_name
-            if local_path.exists():
-                public_url = upload_to_imgbb(local_path, imgbb_api_key)
+            public_url = resolve_public_image_url(story_image_name, imgbb_api_key)
         except Exception:
-            pass
+            public_url = None
 
     if public_url:
         payload = {

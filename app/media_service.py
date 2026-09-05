@@ -63,6 +63,15 @@ def register_media_file(filename: str, original_name: str = "", tags: List[str] 
     # Auto generate thumbnail
     create_thumbnail(file_path, thumb_size=250)
 
+    file_data_b64 = None
+    if file_size < 12 * 1024 * 1024:
+        try:
+            import base64
+            with open(file_path, "rb") as bf:
+                file_data_b64 = base64.b64encode(bf.read()).decode("ascii")
+        except Exception:
+            pass
+
     create_media_item(
         filename=filename,
         original_name=original_name or filename,
@@ -71,7 +80,8 @@ def register_media_file(filename: str, original_name: str = "", tags: List[str] 
         file_size=file_size,
         width=width,
         height=height,
-        tags=tags or ["Tất cả"]
+        tags=tags or ["Tất cả"],
+        file_data=file_data_b64
     )
     return {
         "filename": filename,

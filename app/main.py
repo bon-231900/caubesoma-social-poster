@@ -341,7 +341,19 @@ def api_get_media_thumbnail(filename: str):
     if thumb_path.is_file():
         return FileResponse(thumb_path)
     orig_path = UPLOAD_DIR / safe_name
+    if not orig_path.is_file():
+        try:
+            from app.database import restore_media_file_if_missing
+            restore_media_file_if_missing(safe_name)
+        except Exception:
+            pass
     if orig_path.is_file():
+        try:
+            create_thumbnail(orig_path)
+            if thumb_path.is_file():
+                return FileResponse(thumb_path)
+        except Exception:
+            pass
         return FileResponse(orig_path)
     raise HTTPException(status_code=404, detail="Không tìm thấy thumbnail.")
 
@@ -389,7 +401,28 @@ def api_delete_media(filename: str):
 
 @app.get("/api/media/{filename}")
 def get_media(filename: str):
-    path = UPLOAD_DIR / _safe_media_name(filename)
+    clean_name = _safe_media_name(filename)
+    path = UPLOAD_DIR / clean_name
+    if not path.is_file():
+        try:
+            from app.database import restore_media_file_if_missing
+            restore_media_file_if_missing(clean_name)
+        except Exception:
+            pass
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Không tìm thấy file media.")
+    return FileResponse(path)
+
+@app.get("/uploads/{filename}")
+def get_upload_media(filename: str):
+    clean_name = _safe_media_name(filename)
+    path = UPLOAD_DIR / clean_name
+    if not path.is_file():
+        try:
+            from app.database import restore_media_file_if_missing
+            restore_media_file_if_missing(clean_name)
+        except Exception:
+            pass
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Không tìm thấy file media.")
     return FileResponse(path)
