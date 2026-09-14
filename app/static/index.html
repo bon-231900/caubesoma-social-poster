@@ -1180,7 +1180,7 @@
                   <div v-for="ev in d.events" :key="ev.id" 
                        @click="openCalendarPostModal(ev)"
                        class="p-1.5 rounded-xl border text-[11px] cursor-pointer transition-all hover:scale-[1.02] shadow-xs"
-                       :class="ev.status === 'scheduled' ? 'bg-amber-50/90 border-amber-200 text-amber-900 hover:bg-amber-100' : (ev.status === 'pending' ? 'bg-purple-50/90 border-purple-200 text-purple-900' : 'bg-emerald-50/90 border-emerald-200 text-emerald-900 hover:bg-emerald-100')">
+                       :class="ev.status === 'scheduled' ? 'bg-amber-50/90 border-amber-200 text-amber-900 hover:bg-amber-100' : (ev.status === 'pending' || ev.status === 'pending_approval' ? 'bg-purple-50/90 border-purple-200 text-purple-900 hover:bg-purple-100' : (ev.status === 'failed' ? 'bg-rose-50/90 border-rose-200 text-rose-900 hover:bg-rose-100' : (ev.status === 'partial_failed' ? 'bg-amber-50/90 border-amber-300 text-amber-900 hover:bg-amber-100' : 'bg-emerald-50/90 border-emerald-200 text-emerald-900 hover:bg-emerald-100')))">
                     <div class="flex items-center justify-between gap-1 leading-none mb-1">
                       <span class="font-extrabold text-[10px] text-slate-700 flex items-center space-x-1">
                         <i class="fa-regular fa-clock text-[9px]"></i>
@@ -1241,8 +1241,8 @@
                     </div>
                   </div>
                   <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider" 
-                        :class="ev.status === 'scheduled' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (ev.status === 'pending' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800 border border-emerald-200')">
-                    {{ ev.status === 'scheduled' ? '⏳ Đã lên lịch' : (ev.status === 'pending' ? '⏸️ Chờ duyệt' : '✅ Đã xuất bản') }}
+                        :class="getStatusBadgeClass(ev.status)">
+                    {{ getStatusBadgeText(ev.status) }}
                   </span>
                 </div>
 
@@ -1259,10 +1259,10 @@
                 <!-- Thumbnail & Content Snippet -->
                 <div class="flex items-start space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <div v-if="ev.images && ev.images.length > 0" class="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-white">
-                    <img :src="getMediaUrl(ev.images[0])" class="w-full h-full object-cover">
+                    <img :src="getMediaUrl(ev.images[0])" @error="handleImgError($event)" class="w-full h-full object-cover">
                   </div>
                   <div v-else-if="ev.story_image" class="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-white">
-                    <img :src="getMediaUrl(ev.story_image)" class="w-full h-full object-cover">
+                    <img :src="getMediaUrl(ev.story_image)" @error="handleImgError($event)" class="w-full h-full object-cover">
                   </div>
                   <div v-else class="w-14 h-14 rounded-lg bg-slate-200 text-slate-400 flex items-center justify-center shrink-0 text-lg">
                     <i class="fa-solid fa-align-left"></i>
@@ -1276,6 +1276,15 @@
                     </span>
                   </div>
                 </div>
+
+                <!-- Error Banner if failed or partial -->
+                <div v-if="(ev.status === 'failed' || ev.status === 'partial_failed') && ev.error_log" class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-800 space-y-1">
+                  <div class="flex items-center space-x-1.5 font-bold text-rose-700 text-[10px]">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Chi tiết lỗi xuất bản:</span>
+                  </div>
+                  <p class="line-clamp-2 text-[10px] font-mono leading-tight text-rose-900">{{ ev.error_log }}</p>
+                </div>
               </div>
 
               <!-- Action Buttons -->
@@ -1285,8 +1294,12 @@
                   <span>Xem chi tiết</span>
                 </button>
                 <div class="flex items-center space-x-1.5">
-                  <button v-if="currentUserRole === 'admin' && ev.status === 'scheduled'" @click="publishNow(ev.id)" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer">
-                    Đăng ngay
+                  <button v-if="currentUserRole === 'admin' && (ev.status === 'scheduled' || ev.status === 'failed' || ev.status === 'partial_failed')" 
+                          @click="publishNow(ev.id)" 
+                          :class="ev.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-600 hover:bg-amber-700'"
+                          class="px-3 py-1.5 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center space-x-1">
+                    <i :class="ev.status === 'scheduled' ? 'fa-solid fa-paper-plane' : 'fa-solid fa-rotate-right'"></i>
+                    <span>{{ ev.status === 'scheduled' ? 'Đăng ngay' : 'Thử lại' }}</span>
                   </button>
                   <button @click="duplicatePost(ev.id)" class="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition cursor-pointer" title="Nhân bản bài này">
                     <i class="fa-solid fa-copy"></i>
@@ -1339,7 +1352,7 @@
                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Hình ảnh bài viết ({{ selectedCalendarPost.images.length }} ảnh):</label>
                 <div class="flex items-center space-x-2 overflow-x-auto pb-2 custom-scrollbar">
                   <div v-for="(img, idx) in selectedCalendarPost.images" :key="idx" class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-50">
-                    <img :src="getMediaUrl(img)" class="w-full h-full object-cover">
+                    <img :src="getMediaUrl(img)" @error="handleImgError($event)" class="w-full h-full object-cover">
                   </div>
                 </div>
               </div>
@@ -1348,7 +1361,7 @@
               <div v-if="selectedCalendarPost.story_image" class="space-y-2">
                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ảnh Story 9:16:</label>
                 <div class="w-28 aspect-[9/16] rounded-xl overflow-hidden border border-purple-300 shadow-sm bg-slate-900">
-                  <img :src="getMediaUrl(selectedCalendarPost.story_image)" class="w-full h-full object-cover">
+                  <img :src="getMediaUrl(selectedCalendarPost.story_image)" @error="handleImgError($event)" class="w-full h-full object-cover">
                 </div>
               </div>
 
@@ -1382,6 +1395,15 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Error Log Section if error exists -->
+              <div v-if="selectedCalendarPost.error_log" class="space-y-1.5 p-4 rounded-2xl bg-rose-50 border border-rose-200">
+                <label class="block text-[11px] font-bold text-rose-700 uppercase tracking-wider flex items-center space-x-1.5">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>Nhật ký lỗi chi tiết:</span>
+                </label>
+                <p class="text-xs font-mono text-rose-900 leading-relaxed whitespace-pre-wrap select-all">{{ selectedCalendarPost.error_log }}</p>
+              </div>
             </div>
 
             <!-- Modal Footer -->
@@ -1393,8 +1415,12 @@
                 <button @click="duplicatePost(selectedCalendarPost.id); closeCalendarPostModal()" class="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition cursor-pointer">
                   <i class="fa-solid fa-copy mr-1"></i> Nhân bản
                 </button>
-                <button v-if="currentUserRole === 'admin' && selectedCalendarPost.status === 'scheduled'" @click="publishNow(selectedCalendarPost.id); closeCalendarPostModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
-                  <i class="fa-solid fa-paper-plane mr-1"></i> Đăng ngay
+                <button v-if="currentUserRole === 'admin' && (selectedCalendarPost.status === 'scheduled' || selectedCalendarPost.status === 'failed' || selectedCalendarPost.status === 'partial_failed')" 
+                        @click="publishNow(selectedCalendarPost.id); closeCalendarPostModal()" 
+                        :class="selectedCalendarPost.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-600 hover:bg-amber-700'"
+                        class="px-4 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center space-x-1.5">
+                  <i :class="selectedCalendarPost.status === 'scheduled' ? 'fa-solid fa-paper-plane' : 'fa-solid fa-rotate-right'"></i>
+                  <span>{{ selectedCalendarPost.status === 'scheduled' ? 'Đăng ngay' : 'Thử lại bài này' }}</span>
                 </button>
                 <button @click="closeCalendarPostModal" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
                   Đóng
@@ -1418,7 +1444,7 @@
         </div>
         <div class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-3">
           <div v-for="item in mediaLibrary" :key="item.filename" class="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
-            <img :src="getMediaUrl(item.filename)" class="w-full h-full object-cover">
+            <img :src="getMediaUrl(item.filename)" @error="handleImgError($event)" class="w-full h-full object-cover">
             <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-1.5 p-1">
               <button @click="useMediaInComposer(item.filename)" class="w-7 h-7 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-xs shadow hover:bg-emerald-700 cursor-pointer" title="Chèn vào bài viết Feed">
                 <i class="fa-solid fa-plus"></i>

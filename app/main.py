@@ -22,7 +22,7 @@ from app.database import (init_db, create_post, get_posts, get_post_by_id, updat
                           create_session, session_is_valid, delete_session, get_session_role,
                           approve_post, reject_post, save_oauth_state,
                           consume_oauth_state, create_media_item, get_media_items, update_media_tags,
-                          delete_media_item, get_hashtag_groups, create_hashtag_group, delete_hashtag_group,
+                          delete_media_item, cleanup_dead_media_records, get_hashtag_groups, create_hashtag_group, delete_hashtag_group,
                           get_caption_templates, create_caption_template, delete_caption_template,
                           get_threads_topics, save_or_touch_threads_topic)
 from app.scheduler import start_scheduler, shutdown_scheduler, publish_single_post
@@ -331,6 +331,10 @@ def _validate_media_references(images: List[str]):
 # ─────────────────────────────────────────────────────────────
 @app.get("/api/media/library", dependencies=[Depends(verify_auth)])
 def api_get_media_library(search: Optional[str] = None, tag: Optional[str] = None, limit: int = 50, offset: int = 0):
+    try:
+        cleanup_dead_media_records()
+    except Exception:
+        pass
     items = get_media_items(search=search or "", tag=tag or "", limit=limit, offset=offset)
     return {"success": True, "media": items}
 
@@ -887,20 +891,7 @@ def api_cancel_job(job_id: str):
     job_manager.cancel_job(job_id)
     return {"success": True, "message": "Đã gửi yêu cầu hủy tác vụ"}
 
-# ─────────────────────────────────────────────────────────────
-# MEDIA LIBRARY DELETE (MIXPOST PATTERN)
-# ─────────────────────────────────────────────────────────────
 
-@app.delete("/api/media/{filename}", dependencies=[Depends(verify_auth)])
-def api_delete_media_file(filename: str):
-    delete_media_item(filename)
-    orig_path = UPLOAD_DIR / filename
-    if orig_path.is_file():
-        orig_path.unlink(missing_ok=True)
-    thumb_path = THUMB_DIR / f"thumb_{filename}"
-    if thumb_path.is_file():
-        thumb_path.unlink(missing_ok=True)
-    return {"success": True, "message": "Đã xóa ảnh khỏi thư viện"}
 
 # ─────────────────────────────────────────────────────────────
 # HASHTAG GROUPS & CAPTION TEMPLATES (MIXPOST PATTERN)

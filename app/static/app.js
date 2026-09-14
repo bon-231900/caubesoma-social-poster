@@ -1251,11 +1251,24 @@ createApp({
     async publishNow(id) {
       try {
         const res = await this.authFetch(`/api/posts/${id}/publish-now`, { method: 'POST' });
+        const data = await res.json();
         if (res.ok) {
-          this.showToast('🚀 Đã xuất bản bài viết!', 'success');
+          const r = data.result || {};
+          if (r.status === 'failed') {
+            this.showToast('❌ Đăng bài thất bại: ' + (r.error_log || 'Có lỗi xảy ra'), 'error');
+          } else if (r.status === 'partial_failed') {
+            this.showToast('⚠️ Đăng bài thành công 1 phần. Kiểm tra thẻ bài để xem chi tiết.', 'error');
+          } else {
+            this.showToast('🚀 Đã xuất bản bài viết thành công!', 'success');
+          }
           this.loadScheduledPosts();
+          this.loadCalendarEvents();
+        } else {
+          this.showToast(data.detail || 'Lỗi khi gửi yêu cầu đăng bài', 'error');
         }
-      } catch (e) {}
+      } catch (e) {
+        this.showToast('Lỗi máy chủ khi đăng bài: ' + e.message, 'error');
+      }
     },
     async duplicatePost(id) {
       try {
@@ -1314,6 +1327,25 @@ createApp({
           if (data.instagram) this.metaStatus.instagram = data.instagram;
         }
       } catch (e) {}
+    },
+    getStatusBadgeClass(status) {
+      if (status === 'scheduled') return 'bg-amber-100 text-amber-800 border border-amber-200';
+      if (status === 'pending' || status === 'pending_approval') return 'bg-purple-100 text-purple-800 border border-purple-200';
+      if (status === 'failed') return 'bg-rose-100 text-rose-800 border border-rose-200';
+      if (status === 'partial_failed') return 'bg-amber-100 text-amber-800 border border-amber-200';
+      return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    },
+    getStatusBadgeText(status) {
+      if (status === 'scheduled') return '⏳ Đã lên lịch';
+      if (status === 'pending' || status === 'pending_approval') return '⏸️ Chờ duyệt';
+      if (status === 'failed') return '❌ Thất bại';
+      if (status === 'partial_failed') return '⚠️ Một phần lỗi';
+      return '✅ Đã xuất bản';
+    },
+    handleImgError(e) {
+      e.target.onerror = null;
+      e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+      e.target.classList.add('opacity-40', 'p-2');
     }
   }
 }).mount('#app');

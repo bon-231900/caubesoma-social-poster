@@ -456,6 +456,10 @@ def init_db():
             if normalized != row["scheduled_time"]:
                 cursor.execute("UPDATE posts SET scheduled_time = ? WHERE id = ?", (normalized, row["id"]))
         conn.commit()
+    try:
+        cleanup_dead_media_records()
+    except Exception:
+        pass
 
 def create_post(
     fb_caption: str = "",
@@ -710,9 +714,37 @@ def restore_media_file_if_missing(filename: str) -> bool:
         print(f"Error restoring media file {filename}: {e}")
     return False
 
+def cleanup_dead_media_records() -> int:
+    """Purges unrecoverable media records (missing from disk AND no base64 backup)."""
+    from app.config import UPLOAD_DIR
+    deleted_count = 0
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT filename, file_data FROM media_items")
+            rows = cursor.fetchall()
+            dead = []
+            for r in rows:
+                d = dict(r)
+                fn = d.get("filename")
+                b64 = d.get("file_data")
+                has_b64 = bool(b64 and len(str(b64).strip()) > 10)
+                file_exists = bool(fn and (UPLOAD_DIR / fn).is_file())
+                if not has_b64 and not file_exists and fn:
+                    dead.append(fn)
+            for fn in dead:
+                conn.execute("DELETE FROM media_items WHERE filename = ?", (fn,))
+            if dead:
+                conn.commit()
+                deleted_count = len(dead)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error in cleanup_dead_media_records: {e}")
+    return deleted_count
+
 def get_media_items(search: str = "", tag: str = "", limit: int = 50, offset: int = 0) -> list:
     with get_db() as conn:
-        query = "SELECT * FROM media_items WHERE 1=1"
+        query = "SELECT id, filename, original_name, file_hash, mime_type, file_size, width, height, tags, created_at FROM media_items WHERE 1=1"
         params = []
         if search:
             query += " AND (original_name LIKE ? OR filename LIKE ?)"
@@ -734,7 +766,7 @@ def get_media_by_hash(file_hash: str) -> dict:
     if not file_hash:
         return None
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM media_items WHERE file_hash = ? LIMIT 1", (file_hash,)).fetchone()
+        row = conn.execute("SELECT id, filename, original_name, file_hash, mime_type, file_size, width, height, tags, created_at FROM media_items WHERE file_hash = ? LIMIT 1", (file_hash,)).fetchone()
         if row:
             d = dict(row)
             d["tags"] = json.loads(d.get("tags") or "[]")

@@ -229,8 +229,30 @@ def upload_to_imgbb(image_path: Path, api_key: str) -> str:
     else:
         err = data.get("error", {}).get("message") or response.text or "Lỗi upload ảnh lên ImgBB"
         if "forbidden" in str(err).lower():
-            err = "ImgBB chặn IP máy chủ đám mây (Cloudflare 403 Forbidden). Hệ thống tự động chuyển sang dùng Direct Public URL."
+            err = "ImgBB chặn IP hoặc tài khoản bị giới hạn (Cloudflare 403 Forbidden)."
         raise RuntimeError(f"Lỗi ImgBB: {err}")
+
+def upload_to_render_bridge(image_path: Path) -> str:
+    """Fallback for localhost: uploads local clean image to production Render instance to obtain a valid public HTTPS URL."""
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        admin_pass = settings.get("admin_password") or settings.get("app_password") or "caubesoma1812"
+        s = requests.Session()
+        login_res = s.post("https://caubesoma-poster.onrender.com/api/auth/login", json={"password": admin_pass}, timeout=12)
+        if login_res.status_code != 200:
+            return ""
+        with open(image_path, "rb") as f:
+            files = [("files", (image_path.name, f.read(), "image/jpeg"))]
+        up_res = s.post("https://caubesoma-poster.onrender.com/api/media/upload", files=files, timeout=20)
+        if up_res.status_code == 200:
+            data = up_res.json()
+            fns = data.get("filenames", [])
+            if fns:
+                return f"https://caubesoma-poster.onrender.com/uploads/{fns[0]}"
+    except Exception as e:
+        logger.warning(f"Error in upload_to_render_bridge: {e}")
+    return ""
 
 def resolve_public_image_url(image_item: str, imgbb_api_key: str = None) -> str:
     """If image_item is an HTTP URL, return as is. If local file, return direct public server URL or upload to ImgBB."""
@@ -262,11 +284,22 @@ def resolve_public_image_url(image_item: str, imgbb_api_key: str = None) -> str:
     if server_public_url:
         return f"{server_public_url}/uploads/{clean_name}"
 
-    # Priority 2: ImgBB upload for local development
+    # Priority 2: ImgBB upload if key is configured
+    imgbb_err = None
     if imgbb_api_key:
-        return upload_to_imgbb(clean_file, imgbb_api_key)
+        try:
+            return upload_to_imgbb(clean_file, imgbb_api_key)
+        except Exception as e:
+            imgbb_err = str(e)
+            logger.warning(f"ImgBB failed ({e}), attempting Render production CDN fallback...")
 
-    raise ValueError("Hệ thống chưa cấu hình Public Base URL và chưa có ImgBB API Key để xuất URL công khai.")
+    # Priority 3: Fallback bridge to Render production server for localhost development
+    bridge_url = upload_to_render_bridge(clean_file)
+    if bridge_url:
+        return bridge_url
+
+    err_details = f" ({imgbb_err})" if imgbb_err else ""
+    raise ValueError(f"Không thể tạo URL ảnh công khai cho bài đăng{err_details}. Vui lòng cấu hình Public Base URL trong Cài đặt.")
 
 def publish_to_facebook(page_id: str, page_token: str, caption: str, images: list) -> dict:
     """

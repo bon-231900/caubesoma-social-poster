@@ -184,6 +184,12 @@ def create_story_image(
     if Path(source_image_name).name != source_image_name:
         raise ValueError("Tên file ảnh không hợp lệ.")
     if not source_path.exists():
+        try:
+            from app.database import restore_media_file_if_missing
+            restore_media_file_if_missing(source_image_name)
+        except Exception:
+            pass
+    if not source_path.exists():
         raise FileNotFoundError(f"Không tìm thấy ảnh gốc: {source_image_name}")
 
     orig = Image.open(source_path).convert("RGBA")
