@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from app.config import DB_PATH, DATABASE_URL
@@ -406,46 +407,116 @@ def init_db():
                     (name, content, cat, voice, utc_now_iso())
                 )
 
-        # Seed default Threads Communities / Topics if empty
-        cursor.execute("SELECT count(*) FROM threads_topics")
-        if cursor.fetchone()[0] == 0:
-            default_topics = [
-                # Trending communities from Threads
-                ("Kpop", "218K thành viên", "10,8K bài viết mới đây", "Âm nhạc & Thần tượng"),
-                ("Travel Threads", "651K thành viên", "61 bài viết mới đây", "Du lịch"),
-                ("Content Creators", "483K thành viên", "86 bài viết mới đây", "Sáng tạo nội dung"),
-                ("Dating Threads", "2,8 triệu thành viên", "319 bài viết mới đây", "Hẹn hò & Đời sống"),
-                ("AI Threads", "1,2 triệu thành viên", "469 bài viết mới đây", "Công nghệ"),
-                ("Gen Z", "215K thành viên", "23,6K bài viết mới đây", "Giới trẻ"),
-                ("Tech Threads", "820K thành viên", "1,4K bài viết mới đây", "Công nghệ"),
-                ("Book Threads", "340K thành viên", "512 bài viết mới đây", "Sách & Tri thức"),
-                ("DEAL 1K SHOPEE", "145K thành viên", "4,2K bài viết mới đây", "Săn Sale"),
-                
-                # Healthy Food, Organic & Beverage (ROOTS core)
-                ("Thực Phẩm Hữu Cơ", "185K thành viên", "1,2K bài viết mới đây", "Hữu cơ & Sống khỏe"),
-                ("Eat Clean Sài Gòn", "310K thành viên", "2,8K bài viết mới đây", "Ăn sạch"),
-                ("Nước Ép & Detox", "160K thành viên", "950 bài viết mới đây", "Đồ uống"),
-                ("Sống Xanh", "240K thành viên", "1,8K bài viết mới đây", "Phong cách sống"),
-                ("Review Ăn Uống", "1,5 triệu thành viên", "28,4K bài viết mới đây", "Ẩm thực"),
-                ("Món Ngon Sài Gòn", "890K thành viên", "15,2K bài viết mới đây", "Ẩm thực"),
-                ("Healthy Lifestyle", "420K thành viên", "3,1K bài viết mới đây", "Sức khỏe"),
-                ("Ăn Chay - Vegan", "175K thành viên", "890 bài viết mới đây", "Ăn chay"),
-                ("Trái Cây Nhập Khẩu", "115K thành viên", "620 bài viết mới đây", "Hoa quả"),
-                ("Bếp Yêu Thương", "520K thành viên", "4,6K bài viết mới đây", "Nấu ăn"),
-                ("Cà Phê & Trà Sài Gòn", "670K thành viên", "8,9K bài viết mới đây", "Đồ uống"),
-                ("Dinh Dưỡng Mỗi Ngày", "290K thành viên", "1,5K bài viết mới đây", "Dinh dưỡng"),
-                ("Ưu Đãi & Khuyến Mãi", "730K thành viên", "12,1K bài viết mới đây", "Khuyến mãi"),
-                ("Tập Gym & Thể Thao", "610K thành viên", "7,4K bài viết mới đây", "Thể hình"),
-                ("Làm Đẹp Tự Nhiên", "380K thành viên", "2,1K bài viết mới đây", "Làm đẹp")
-            ]
-            for name, mem, post_cnt, cat in default_topics:
-                try:
+        # Seed and ensure default Threads Communities / Topics are present (Upsert)
+        default_topics = [
+            # 🌟 Top Trending & Showbiz Việt (Đặc biệt có ATVNCG & Anh Trai Say Hi)
+            ("ATVNCG", "1,8 triệu thành viên", "48,2K bài viết mới đây", "Âm nhạc & Show"),
+            ("ATVNCG 2024", "1,4 triệu thành viên", "35,1K bài viết mới đây", "Âm nhạc & Show"),
+            ("ATVNCG 2026", "890K thành viên", "18,4K bài viết mới đây", "Âm nhạc & Show"),
+            ("Anh Trai Vượt Ngàn Chông Gai", "2,1 triệu thành viên", "56,9K bài viết mới đây", "Âm nhạc & Show"),
+            ("Anh Trai Say Hi", "2,4 triệu thành viên", "62,5K bài viết mới đây", "Âm nhạc & Show"),
+            ("Say Hi", "980K thành viên", "21,4K bài viết mới đây", "Âm nhạc & Show"),
+            ("ATSH", "750K thành viên", "16,2K bài viết mới đây", "Âm nhạc & Show"),
+            ("Gai Con", "420K thành viên", "14,8K bài viết mới đây", "Fandom & Show"),
+            ("Say Hi Con", "380K thành viên", "12,1K bài viết mới đây", "Fandom & Show"),
+            ("Showbiz Việt", "1,9 triệu thành viên", "45,2K bài viết mới đây", "Giải trí"),
+            ("Rap Việt", "1,5 triệu thành viên", "32,8K bài viết mới đây", "Âm nhạc"),
+            ("Kpop", "2,2 triệu thành viên", "42,8K bài viết mới đây", "Âm nhạc & Thần tượng"),
+            ("Vpop", "1,3 triệu thành viên", "28,5K bài viết mới đây", "Âm nhạc"),
+            ("US-UK Music", "890K thành viên", "15,6K bài viết mới đây", "Âm nhạc"),
+            ("Phim Ảnh & Cinema", "1,1 triệu thành viên", "19,2K bài viết mới đây", "Điện ảnh"),
+            ("Hóng Biến Showbiz", "2,3 triệu thành viên", "52,4K bài viết mới đây", "Tin tức & Giải trí"),
+            ("Concert ATVNCG", "650K thành viên", "22,1K bài viết mới đây", "Sự kiện âm nhạc"),
+            ("Concert Say Hi", "710K thành viên", "24,5K bài viết mới đây", "Sự kiện âm nhạc"),
+
+            # 🥗 Thực Phẩm Hữu Cơ, Ăn Sạch & ROOTS (Cốt lõi thương hiệu)
+            ("Thực Phẩm Hữu Cơ", "580K thành viên", "11,8K bài viết mới đây", "Hữu cơ & Sống khỏe"),
+            ("Eat Clean Sài Gòn", "820K thành viên", "18,5K bài viết mới đây", "Ăn sạch"),
+            ("Eat Clean Việt Nam", "1,2 triệu thành viên", "25,4K bài viết mới đây", "Sống khỏe"),
+            ("Nước Ép & Detox", "650K thành viên", "14,2K bài viết mới đây", "Đồ uống"),
+            ("Sống Xanh", "740K thành viên", "15,3K bài viết mới đây", "Phong cách sống"),
+            ("Review Ăn Uống", "2,5 triệu thành viên", "48,4K bài viết mới đây", "Ẩm thực"),
+            ("Món Ngon Sài Gòn", "1,8 triệu thành viên", "32,1K bài viết mới đây", "Ẩm thực"),
+            ("Món Ngon Hà Nội", "1,4 triệu thành viên", "26,5K bài viết mới đây", "Ẩm thực"),
+            ("Healthy Lifestyle", "920K thành viên", "19,1K bài viết mới đây", "Sức khỏe"),
+            ("Ăn Chay - Vegan", "620K thành viên", "12,9K bài viết mới đây", "Ăn chay"),
+            ("Trái Cây Nhập Khẩu", "480K thành viên", "8,2K bài viết mới đây", "Hoa quả"),
+            ("Bếp Yêu Thương", "860K thành viên", "16,4K bài viết mới đây", "Nấu ăn"),
+            ("Cà Phê & Trà Sài Gòn", "1,1 triệu thành viên", "21,9K bài viết mới đây", "Đồ uống"),
+            ("Dinh Dưỡng Mỗi Ngày", "520K thành viên", "9,5K bài viết mới đây", "Dinh dưỡng"),
+            ("Sữa Hạt Dinh Dưỡng", "390K thành viên", "7,1K bài viết mới đây", "Đồ uống healthy"),
+            ("Detox Giảm Cân", "610K thành viên", "11,4K bài viết mới đây", "Sức khỏe"),
+            ("Ăn Sạch Sống Khỏe", "950K thành viên", "20,1K bài viết mới đây", "Sống khỏe"),
+            ("Góc Yêu Bếp", "1,3 triệu thành viên", "28,2K bài viết mới đây", "Nấu ăn"),
+            ("Quán Cafe Đẹp", "1,5 triệu thành viên", "31,8K bài viết mới đây", "Đồ uống"),
+            ("Trái Cây Tươi", "350K thành viên", "6,4K bài viết mới đây", "Hoa quả"),
+
+            # 💬 Gen Z, Đời Sống, Tâm Sự & Văn Phòng
+            ("Gen Z", "2,4 triệu thành viên", "48,6K bài viết mới đây", "Giới trẻ"),
+            ("Tâm Sự Gen Z", "1,9 triệu thành viên", "42,1K bài viết mới đây", "Giới trẻ"),
+            ("Chữa Lành", "2,2 triệu thành viên", "39,5K bài viết mới đây", "Tâm lý & Đời sống"),
+            ("Chuyện Công Sở", "1,7 triệu thành viên", "34,6K bài viết mới đây", "Công sở"),
+            ("Gen Z Đi Làm", "1,1 triệu thành viên", "26,3K bài viết mới đây", "Công sở"),
+            ("Đi Làm Vui Vẻ", "820K thành viên", "15,4K bài viết mới đây", "Công sở"),
+            ("Dating Threads", "3,4 triệu thành viên", "68,9K bài viết mới đây", "Hẹn hò & Đời sống"),
+            ("Tình Yêu & Hẹn Hò", "1,8 triệu thành viên", "35,2K bài viết mới đây", "Tình cảm"),
+            ("Tâm Sự Đêm Khuya", "1,6 triệu thành viên", "29,4K bài viết mới đây", "Tâm sự"),
+            ("Người Hướng Nội (Introvert)", "1,2 triệu thành viên", "22,5K bài viết mới đây", "Tính cách"),
+            ("Người Hướng Ngoại (Extrovert)", "650K thành viên", "11,8K bài viết mới đây", "Tính cách"),
+            ("Bình Luận Dạo", "1,3 triệu thành viên", "24,8K bài viết mới đây", "Đời sống"),
+            ("Flop Hay Không Flop", "720K thành viên", "14,2K bài viết mới đây", "Trào lưu"),
+            ("Góc Chill", "1,5 triệu thành viên", "28,6K bài viết mới đây", "Đời sống"),
+            ("Sống Tối Giản (Minimalism)", "540K thành viên", "9,8K bài viết mới đây", "Phong cách sống"),
+            ("Sống Tích Cực", "890K thành viên", "16,4K bài viết mới đây", "Động lực"),
+            ("Mẹo Vặt Cuộc Sống", "780K thành viên", "13,9K bài viết mới đây", "Kỹ năng sống"),
+
+            # 🛍️ Săn Sale, Mua Sắm & Thời Trang
+            ("DEAL 1K SHOPEE", "1,2 triệu thành viên", "32,5K bài viết mới đây", "Săn Sale"),
+            ("Săn Sale Shopee Lazada", "1,6 triệu thành viên", "39,8K bài viết mới đây", "Mua sắm"),
+            ("Ưu Đãi & Khuyến Mãi", "1,1 triệu thành viên", "21,4K bài viết mới đây", "Khuyến mãi"),
+            ("Thời Trang & Outfit", "1,4 triệu thành viên", "27,3K bài viết mới đây", "Làm đẹp"),
+            ("Làm Đẹp Tự Nhiên", "780K thành viên", "14,2K bài viết mới đây", "Skincare & Beauty"),
+            ("Skincare & Chăm Sóc Da", "1,2 triệu thành viên", "23,9K bài viết mới đây", "Làm đẹp"),
+            ("Góc Nghiện Shopee", "980K thành viên", "19,5K bài viết mới đây", "Mua sắm"),
+
+            # 🏃 Thể Thao, Gym & Du Lịch
+            ("Tập Gym & Thể Thao", "1,3 triệu thành viên", "24,8K bài viết mới đây", "Thể hình"),
+            ("Yoga & Pilates", "680K thành viên", "12,6K bài viết mới đây", "Sức khỏe"),
+            ("Chạy Bộ (Running)", "750K thành viên", "14,9K bài viết mới đây", "Thể thao"),
+            ("Travel Threads", "1,8 triệu thành viên", "35,1K bài viết mới đây", "Du lịch"),
+            ("Du Lịch Bụi", "1,2 triệu thành viên", "22,4K bài viết mới đây", "Du lịch"),
+            ("Đà Lạt Chill", "1,4 triệu thành viên", "28,7K bài viết mới đây", "Địa điểm"),
+            ("Check In Sài Gòn", "1,6 triệu thành viên", "31,2K bài viết mới đây", "Địa điểm"),
+            ("Hà Nội Phố", "1,3 triệu thành viên", "24,5K bài viết mới đây", "Địa điểm"),
+
+            # 💡 Công Nghệ, Tri Thức, Sách & Sự Nghiệp
+            ("AI Threads", "2,1 triệu thành viên", "45,9K bài viết mới đây", "Công nghệ"),
+            ("Tech Threads", "1,5 triệu thành viên", "28,4K bài viết mới đây", "Công nghệ"),
+            ("Content Creators", "1,2 triệu thành viên", "21,8K bài viết mới đây", "Sáng tạo nội dung"),
+            ("Book Threads", "890K thành viên", "16,4K bài viết mới đây", "Sách & Tri thức"),
+            ("Sách Hay Mỗi Ngày", "1,1 triệu thành viên", "19,8K bài viết mới đây", "Sách"),
+            ("Học Tiếng Anh Mỗi Ngày", "1,4 triệu thành viên", "26,1K bài viết mới đây", "Học tập"),
+            ("Tài Chính Cá Nhân", "1,3 triệu thành viên", "25,4K bài viết mới đây", "Kinh tế"),
+            ("Đầu Tư & Tiền Bạc", "950K thành viên", "18,2K bài viết mới đây", "Tài chính"),
+            ("Khởi Nghiệp (Startup)", "840K thành viên", "15,6K bài viết mới đây", "Kinh doanh"),
+            ("Freelancer Việt Nam", "760K thành viên", "13,8K bài viết mới đây", "Nghề nghiệp")
+        ]
+        for name, mem, post_cnt, cat in default_topics:
+            try:
+                cursor.execute("SELECT id FROM threads_topics WHERE LOWER(name) = LOWER(?)", (name,))
+                existing = cursor.fetchone()
+                if not existing:
                     cursor.execute(
-                        "INSERT INTO threads_topics (name, members_display, posts_display, category, use_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                        (name, mem, post_cnt, cat, 0, utc_now_iso())
+                        "INSERT INTO threads_topics (name, members_display, posts_display, category, use_count, created_at) VALUES (?, ?, ?, ?, 0, ?)",
+                        (name, mem, post_cnt, cat, utc_now_iso())
                     )
-                except Exception:
-                    pass
+                else:
+                    cursor.execute(
+                        "UPDATE threads_topics SET members_display = ?, posts_display = ?, category = ? WHERE id = ?",
+                        (mem, post_cnt, cat, existing["id"])
+                    )
+            except Exception:
+                pass
 
         # Migrate historical local-time strings to timezone-aware UTC values once.
         for row in cursor.execute("SELECT id, scheduled_time FROM posts WHERE scheduled_time IS NOT NULL").fetchall():
@@ -902,27 +973,56 @@ def get_job_record(job_id: str) -> dict:
 # ─────────────────────────────────────────────────────────────
 # THREADS TOPICS & COMMUNITIES CRUD
 # ─────────────────────────────────────────────────────────────
-def get_threads_topics(query: str = None, limit: int = 50) -> list:
+def _normalize_vn_text(text: str) -> str:
+    if not text:
+        return ""
+    norm = unicodedata.normalize('NFD', str(text))
+    clean = "".join(c for c in norm if unicodedata.category(c) != 'Mn')
+    return clean.replace('đ', 'd').replace('Đ', 'D').lower().strip()
+
+def get_threads_topics(query: str = None, limit: int = 100) -> list:
     with get_db() as conn:
         cursor = conn.cursor()
-        if query and query.strip():
-            term = f"%{query.strip().lower()}%"
-            cursor.execute("""
-                SELECT id, name, members_display, posts_display, category, use_count
-                FROM threads_topics
-                WHERE LOWER(name) LIKE ? OR LOWER(category) LIKE ?
-                ORDER BY use_count DESC, id ASC
-                LIMIT ?
-            """, (term, term, limit))
-        else:
-            cursor.execute("""
-                SELECT id, name, members_display, posts_display, category, use_count
-                FROM threads_topics
-                ORDER BY use_count DESC, id ASC
-                LIMIT ?
-            """, (limit,))
-        rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        cursor.execute("""
+            SELECT id, name, members_display, posts_display, category, use_count
+            FROM threads_topics
+            ORDER BY use_count DESC, id ASC
+        """)
+        all_rows = [dict(r) for r in cursor.fetchall()]
+
+        if not query or not query.strip():
+            return all_rows[:limit]
+
+        q_raw = query.strip().lower()
+        q_norm = _normalize_vn_text(query)
+
+        exact_matches = []
+        starts_matches = []
+        contains_raw_matches = []
+        contains_norm_matches = []
+        seen_ids = set()
+
+        for r in all_rows:
+            name_raw = r["name"].lower()
+            name_norm = _normalize_vn_text(r["name"])
+            cat_raw = (r.get("category") or "").lower()
+            cat_norm = _normalize_vn_text(r.get("category") or "")
+
+            if name_raw == q_raw or name_norm == q_norm:
+                exact_matches.append(r)
+                seen_ids.add(r["id"])
+            elif name_raw.startswith(q_raw) or name_norm.startswith(q_norm):
+                starts_matches.append(r)
+                seen_ids.add(r["id"])
+            elif (q_raw in name_raw or q_raw in cat_raw) and r["id"] not in seen_ids:
+                contains_raw_matches.append(r)
+                seen_ids.add(r["id"])
+            elif (q_norm in name_norm or q_norm in cat_norm) and r["id"] not in seen_ids:
+                contains_norm_matches.append(r)
+                seen_ids.add(r["id"])
+
+        results = exact_matches + starts_matches + contains_raw_matches + contains_norm_matches
+        return results[:limit]
 
 def save_or_touch_threads_topic(name: str, category: str = "Chung"):
     clean_name = str(name).strip().lstrip("#").replace(".", "").replace("&", "").strip()

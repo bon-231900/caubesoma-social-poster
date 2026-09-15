@@ -540,11 +540,12 @@
                     <input 
                       type="text" 
                       v-model="postForm.threads_topic_tag" 
-                      @focus="showThreadsTopicDropdown = true"
+                      @focus="showThreadsTopicDropdown = true; if (!threadsTopicsList.length) fetchThreadsTopics();"
                       @blur="setTimeout(() => { showThreadsTopicDropdown = false }, 250)"
-                      @input="showThreadsTopicDropdown = true"
+                      @input="onThreadsTopicInput"
+                      @keydown.enter.prevent="selectFirstOrNewTopic"
                       maxlength="50"
-                      placeholder="Cộng đồng hoặc chủ đề (Gõ tìm kiếm hoặc chọn bên dưới...)" 
+                      placeholder="Cộng đồng hoặc chủ đề (Gõ tìm kiếm ví dụ: ATVNCG 2026, Anh Trai, Ăn sạch, Gen Z...)" 
                       class="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-14 py-2.5 text-xs text-slate-800 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition shadow-xs"
                     >
                     <div class="absolute right-2.5 top-2.5 flex items-center space-x-1.5">

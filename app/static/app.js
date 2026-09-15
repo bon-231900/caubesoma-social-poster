@@ -517,6 +517,11 @@ createApp({
     },
 
     // ── THREADS TOPICS & COMMUNITIES AUTOCOMPLETE ──
+    removeAccents(str) {
+      if (!str) return '';
+      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    },
+
     async fetchThreadsTopics(query = '') {
       try {
         const url = query ? `/api/threads/topics?q=${encodeURIComponent(query)}` : '/api/threads/topics';
@@ -530,31 +535,60 @@ createApp({
       }
     },
 
+    onThreadsTopicInput() {
+      this.showThreadsTopicDropdown = true;
+      clearTimeout(this._topicSearchTimer);
+      const q = (this.postForm.threads_topic_tag || '').trim();
+      this._topicSearchTimer = setTimeout(() => {
+        this.fetchThreadsTopics(q);
+      }, 200);
+    },
+
     getFilteredThreadsTopics() {
-      const q = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
-      if (!q) {
-        return this.threadsTopicsList.slice(0, 30);
+      const qRaw = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
+      if (!qRaw) {
+        return this.threadsTopicsList.slice(0, 35);
       }
-      return this.threadsTopicsList.filter(t => 
-        (t.name || '').toLowerCase().includes(q) || 
-        (t.category || '').toLowerCase().includes(q)
-      ).slice(0, 30);
+      const qNorm = this.removeAccents(qRaw);
+      return this.threadsTopicsList.filter(t => {
+        const nameRaw = (t.name || '').toLowerCase();
+        const nameNorm = this.removeAccents(t.name || '');
+        const catRaw = (t.category || '').toLowerCase();
+        const catNorm = this.removeAccents(t.category || '');
+        return nameRaw.includes(qRaw) || nameNorm.includes(qNorm) || catRaw.includes(qRaw) || catNorm.includes(qNorm);
+      }).slice(0, 35);
     },
 
     hasExactTopicMatch() {
-      const q = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
-      if (!q) return true;
-      return this.threadsTopicsList.some(t => (t.name || '').toLowerCase() === q);
+      const qRaw = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
+      if (!qRaw) return true;
+      const qNorm = this.removeAccents(qRaw);
+      return this.threadsTopicsList.some(t => {
+        const nameRaw = (t.name || '').toLowerCase();
+        const nameNorm = this.removeAccents(t.name || '');
+        return nameRaw === qRaw || nameNorm === qNorm;
+      });
     },
 
     selectThreadsTopic(name) {
       this.postForm.threads_topic_tag = name;
       this.showThreadsTopicDropdown = false;
+      this.showToast(`Đã chọn chủ đề: "${name}"`, 'info');
+    },
+
+    selectFirstOrNewTopic() {
+      const filtered = this.getFilteredThreadsTopics();
+      if (filtered.length > 0) {
+        this.selectThreadsTopic(filtered[0].name);
+      } else if (this.postForm.threads_topic_tag) {
+        this.createAndSelectNewTopic(this.postForm.threads_topic_tag);
+      }
     },
 
     clearThreadsTopic() {
       this.postForm.threads_topic_tag = '';
       this.showThreadsTopicDropdown = false;
+      this.fetchThreadsTopics();
     },
 
     async createAndSelectNewTopic(name) {
@@ -562,6 +596,7 @@ createApp({
       if (!cleanName) return;
       this.postForm.threads_topic_tag = cleanName;
       this.showThreadsTopicDropdown = false;
+      this.showToast(`Đã tạo và áp dụng chủ đề mới: "${cleanName}"`, 'success');
       try {
         await this.authFetch('/api/threads/topics', {
           method: 'POST',

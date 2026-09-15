@@ -92,5 +92,22 @@ class AuditAndOptimizationTests(unittest.TestCase):
         pid_partial = create_post(status='partial_failed')
         self.assertTrue(claim_post_for_publish(pid_partial))
 
+    def test_threads_topics_search_and_seed(self):
+        from app.database import get_threads_topics
+        all_topics = get_threads_topics()
+        self.assertGreaterEqual(len(all_topics), 50)
+        
+        # Test exact & unaccented search for ATVNCG 2026
+        atv_results = get_threads_topics("atvncg 2026")
+        self.assertTrue(any(t['name'] == 'ATVNCG 2026' for t in atv_results))
+        
+        # Test unaccented search for "anh trai"
+        anh_trai_results = get_threads_topics("anh trai")
+        self.assertTrue(any("Anh Trai" in t['name'] for t in anh_trai_results))
+        
+        # Test ROOTS core topic
+        organic_results = get_threads_topics("thuc pham huu co")
+        self.assertTrue(any(t['name'] == 'Thực Phẩm Hữu Cơ' for t in organic_results))
+
 if __name__ == '__main__':
     unittest.main()

@@ -772,7 +772,7 @@ class ThreadsTopicCreateRequest(BaseModel):
 
 @app.get("/api/threads/topics")
 def api_get_threads_topics(q: Optional[str] = None):
-    topics = get_threads_topics(query=q, limit=50)
+    topics = get_threads_topics(query=q, limit=100)
     return {"success": True, "topics": topics, "count": len(topics)}
 
 @app.post("/api/threads/topics", dependencies=[Depends(verify_auth)])
