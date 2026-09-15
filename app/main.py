@@ -772,8 +772,36 @@ class ThreadsTopicCreateRequest(BaseModel):
 
 @app.get("/api/threads/topics")
 def api_get_threads_topics(q: Optional[str] = None):
-    topics = get_threads_topics(query=q, limit=100)
-    return {"success": True, "topics": topics, "count": len(topics)}
+    from app.threads_service import search_threads_live_topics
+
+    live_topics = []
+    if q and str(q).strip():
+        live_topics = search_threads_live_topics(str(q).strip())
+
+    local_topics = get_threads_topics(query=q, limit=60)
+
+    merged = []
+    seen = set()
+
+    # 1. Add live topics from Threads directly
+    for t in live_topics:
+        norm = t["name"].strip().lower()
+        if norm not in seen:
+            seen.add(norm)
+            merged.append(t)
+            try:
+                save_or_touch_threads_topic(t["name"], category="Threads Realtime")
+            except Exception:
+                pass
+
+    # 2. Add local curated topics (ROOTS & Vietnamese accented topics)
+    for t in local_topics:
+        norm = t["name"].strip().lower()
+        if norm not in seen:
+            seen.add(norm)
+            merged.append(t)
+
+    return {"success": True, "topics": merged, "count": len(merged), "is_live": len(live_topics) > 0}
 
 @app.post("/api/threads/topics", dependencies=[Depends(verify_auth)])
 def api_create_threads_topic(req: ThreadsTopicCreateRequest):

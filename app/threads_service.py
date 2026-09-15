@@ -316,3 +316,55 @@ def publish_to_threads(
         "thread_id": thread_id,
         "url": f"https://www.threads.net/@roots.vn/post/{thread_id}"
     }
+
+def search_threads_live_topics(query: str) -> list:
+    """
+    Search topics/tags live in real-time from Meta Threads public search endpoint.
+    Returns list of dicts with name, posts_display, members_display, is_live=True.
+    """
+    if not query or not str(query).strip():
+        return []
+    clean_q = str(query).strip().lstrip("#").replace(".", "").replace("&", "").strip()
+    if not clean_q:
+        return []
+
+    url = f"https://www.threads.net/api/v1/tags/search/?q={requests.utils.quote(clean_q)}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "X-IG-App-ID": "238260118697367",
+        "Accept": "application/json",
+        "Referer": "https://www.threads.net/",
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            items = []
+            for item in data.get("results", []):
+                tag_name = item.get("name", "").strip()
+                if not tag_name:
+                    continue
+                subtitle = item.get("search_result_subtitle") or item.get("formatted_media_count") or ""
+                if subtitle:
+                    sub_str = str(subtitle).lower()
+                    if "posts" in sub_str:
+                        subtitle = sub_str.replace("posts", "bài viết").replace("fewer than", "Dưới")
+                    elif not "bài" in sub_str:
+                        subtitle = f"{subtitle} bài viết"
+                else:
+                    count = item.get("media_count", 0)
+                    subtitle = f"{count} bài viết" if count else "Chủ đề Threads"
+
+                items.append({
+                    "id": item.get("id") or tag_name,
+                    "name": tag_name,
+                    "members_display": "Cộng đồng Threads",
+                    "posts_display": subtitle,
+                    "category": "Threads Realtime",
+                    "is_live": True,
+                    "media_count": item.get("media_count", 0)
+                })
+            return items
+    except Exception as e:
+        logger.warning(f"Error querying live Threads topics for '{query}': {e}")
+    return []

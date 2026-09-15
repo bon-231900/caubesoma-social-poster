@@ -571,11 +571,15 @@
                       
                       <!-- Header of Dropdown -->
                       <div class="px-3.5 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                        <span class="flex items-center space-x-1">
-                          <i class="fa-solid fa-magnifying-glass text-slate-400 text-[10px]"></i>
-                          <span>Chủ đề & Cộng đồng Threads thực tế</span>
+                        <span class="flex items-center space-x-1.5">
+                          <i v-if="!isSearchingTopics" class="fa-solid fa-magnifying-glass text-slate-400 text-[10px]"></i>
+                          <i v-else class="fa-solid fa-circle-notch fa-spin text-sky-500 text-[10px]"></i>
+                          <span>{{ isSearchingTopics ? 'Đang tìm trực tiếp trên Meta Threads...' : 'Chủ đề & Cộng đồng Threads Real-time' }}</span>
                         </span>
-                        <span class="text-[10px] text-sky-600 font-bold">{{ getFilteredThreadsTopics().length }} kết quả</span>
+                        <span class="text-[10px] text-sky-600 font-bold flex items-center space-x-1">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span>{{ getFilteredThreadsTopics().length }} kết quả</span>
+                        </span>
                       </div>
 
                       <!-- Scrollable List -->
@@ -619,7 +623,11 @@
                           <div class="flex-1 min-w-0">
                             <div class="text-xs font-bold text-sky-600 group-hover:text-sky-700 truncate flex items-center space-x-1.5">
                               <span>{{ topic.name }}</span>
-                              <span v-if="topic.category && topic.category !== 'Chung'" class="text-[9px] font-normal px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{{ topic.category }}</span>
+                              <span v-if="topic.is_live" class="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md flex items-center space-x-1">
+                                <i class="fa-brands fa-threads text-[9px]"></i>
+                                <span>Live</span>
+                              </span>
+                              <span v-else-if="topic.category && topic.category !== 'Chung'" class="text-[9px] font-normal px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{{ topic.category }}</span>
                             </div>
                             <div class="text-[11px] text-slate-400 flex items-center space-x-1.5 truncate mt-0.5">
                               <span class="font-medium text-slate-600">{{ topic.members_display || 'Cộng đồng' }}</span>
@@ -640,6 +648,27 @@
                       </div>
 
                     </div>
+                  </div>
+
+                  <!-- Active Selected Topic Tag Pill (Exactly like Threads app) -->
+                  <div v-if="postForm.threads_topic_tag" class="mt-2.5 flex items-center space-x-2 flex-wrap">
+                    <div class="inline-flex items-center space-x-1.5 px-3 py-1 bg-sky-50 border border-sky-300 rounded-full text-xs font-bold text-sky-800 shadow-2xs">
+                      <svg class="w-3.5 h-3.5 text-sky-600 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="6" cy="12" r="2.5"/>
+                        <circle cx="17" cy="6" r="2.5"/>
+                        <circle cx="17" cy="18" r="2.5"/>
+                        <line x1="8" y1="11" x2="15" y2="7" stroke="currentColor" stroke-width="2"/>
+                        <line x1="8" y1="13" x2="15" y2="17" stroke="currentColor" stroke-width="2"/>
+                      </svg>
+                      <span># {{ postForm.threads_topic_tag }}</span>
+                      <button type="button" @click="clearThreadsTopic" title="Gỡ bỏ chủ đề này" class="w-4 h-4 rounded-full bg-sky-200 hover:bg-sky-300 text-sky-800 flex items-center justify-center text-[10px] cursor-pointer ml-1">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                    <span class="text-[11px] text-emerald-600 font-semibold flex items-center space-x-1">
+                      <i class="fa-solid fa-circle-check text-[11px]"></i>
+                      <span>Đã gắn chủ đề vào bài đăng</span>
+                    </span>
                   </div>
 
                   <!-- Quick Chips for Instant 1-Click Selection -->

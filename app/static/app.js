@@ -64,6 +64,7 @@ createApp({
       },
       threadsTopicsList: [],
       showThreadsTopicDropdown: false,
+      isSearchingTopics: false,
       bulkPreviewPosts: [],
       scheduledPosts: [],
       historyPosts: [],
@@ -537,11 +538,16 @@ createApp({
 
     onThreadsTopicInput() {
       this.showThreadsTopicDropdown = true;
+      this.isSearchingTopics = true;
       clearTimeout(this._topicSearchTimer);
       const q = (this.postForm.threads_topic_tag || '').trim();
-      this._topicSearchTimer = setTimeout(() => {
-        this.fetchThreadsTopics(q);
-      }, 200);
+      this._topicSearchTimer = setTimeout(async () => {
+        try {
+          await this.fetchThreadsTopics(q);
+        } finally {
+          this.isSearchingTopics = false;
+        }
+      }, 160);
     },
 
     getFilteredThreadsTopics() {
@@ -550,23 +556,28 @@ createApp({
         return this.threadsTopicsList.slice(0, 35);
       }
       const qNorm = this.removeAccents(qRaw);
-      return this.threadsTopicsList.filter(t => {
+      const qNoSpace = qNorm.replace(/\s+/g, '');
+      const filtered = this.threadsTopicsList.filter(t => {
         const nameRaw = (t.name || '').toLowerCase();
         const nameNorm = this.removeAccents(t.name || '');
+        const nameNoSpace = nameNorm.replace(/\s+/g, '');
         const catRaw = (t.category || '').toLowerCase();
         const catNorm = this.removeAccents(t.category || '');
-        return nameRaw.includes(qRaw) || nameNorm.includes(qNorm) || catRaw.includes(qRaw) || catNorm.includes(qNorm);
-      }).slice(0, 35);
+        return nameRaw.includes(qRaw) || nameNorm.includes(qNorm) || nameNoSpace.includes(qNoSpace) || qNoSpace.includes(nameNoSpace) || catRaw.includes(qRaw) || catNorm.includes(qNorm);
+      });
+      return (filtered.length > 0 ? filtered : this.threadsTopicsList).slice(0, 35);
     },
 
     hasExactTopicMatch() {
       const qRaw = (this.postForm.threads_topic_tag || '').trim().toLowerCase();
       if (!qRaw) return true;
       const qNorm = this.removeAccents(qRaw);
+      const qNoSpace = qNorm.replace(/\s+/g, '');
       return this.threadsTopicsList.some(t => {
         const nameRaw = (t.name || '').toLowerCase();
         const nameNorm = this.removeAccents(t.name || '');
-        return nameRaw === qRaw || nameNorm === qNorm;
+        const nameNoSpace = nameNorm.replace(/\s+/g, '');
+        return nameRaw === qRaw || nameNorm === qNorm || nameNoSpace === qNoSpace;
       });
     },
 
