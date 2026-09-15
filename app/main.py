@@ -98,6 +98,16 @@ def api_health():
     """Unauthenticated, non-sensitive status endpoint for local monitoring."""
     return {"status": "ok", "service": "social-auto-poster"}
 
+@app.get("/api/cron/check-due")
+def api_cron_check_due():
+    """Unauthenticated keep-alive & trigger endpoint for external cron/ping services (e.g. UptimeRobot, cron-job.org)."""
+    try:
+        from app.scheduler import check_scheduled_posts
+        check_scheduled_posts()
+        return {"status": "ok", "message": "Triggered due scheduled posts check successfully."}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 # --- MODELS ---
 class LoginRequest(BaseModel):
     password: str

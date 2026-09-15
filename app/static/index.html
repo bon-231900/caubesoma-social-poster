@@ -1597,6 +1597,27 @@
             </button>
           </div>
 
+          <!-- Anti-Sleep & Always-On Cron Helper Box -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-xs space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2 font-black text-emerald-900 text-xs">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>GIỮ HỆ THỐNG LUÔN THỨC 24/7 (ĐẢM BẢO ĐĂNG ĐÚNG GIỜ 100%)</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-200 text-emerald-800 text-[10px] font-bold">Khuyên Dùng</span>
+            </div>
+            <p class="text-slate-600 text-[11px] leading-relaxed">
+              Nếu sử dụng gói Render Miễn phí, máy chủ sẽ tự động <b>ngủ đông sau 15 phút</b> khi không có người mở web, khiến bài đăng hẹn giờ có thể bị trễ. Bạn chỉ cần cài đặt dịch vụ ping miễn phí như <b>UptimeRobot</b> hoặc <b>cron-job.org</b> gọi đường link này mỗi <b>5 phút</b> để server luôn thức và xuất bản đúng giờ từng giây:
+            </p>
+            <div class="flex items-center space-x-2">
+              <input type="text" readonly value="https://caubesoma-poster.onrender.com/api/cron/check-due" class="flex-1 bg-white border border-emerald-300 rounded-xl px-3 py-2 font-mono text-[11px] text-slate-800 select-all outline-none">
+              <button type="button" @click="copyToClipboard('https://caubesoma-poster.onrender.com/api/cron/check-due')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shrink-0 cursor-pointer shadow-xs transition flex items-center space-x-1">
+                <i class="fa-regular fa-copy"></i>
+                <span>Sao chép</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Meta Facebook Settings -->
           <div class="space-y-3">
             <label class="block text-xs font-bold text-slate-700 uppercase">Facebook Page ID:</label>
