@@ -157,10 +157,14 @@ def get_server_public_url() -> str:
     try:
         from app.config import get_settings
         settings = get_settings()
-        for k in ("public_base_url", "app_url", "PUBLIC_BASE_URL", "APP_URL"):
+        for k in ("public_base_url", "app_url", "custom_domain", "PUBLIC_BASE_URL", "APP_URL", "CUSTOM_DOMAIN"):
             val = os.environ.get(k) or settings.get(k)
             if val and str(val).strip().startswith("https://"):
                 return str(val).strip().rstrip("/")
+            elif val and str(val).strip():
+                clean_host = str(val).strip().lstrip("http://").lstrip("https://").rstrip("/")
+                if clean_host:
+                    return f"https://{clean_host}"
     except Exception:
         pass
         
@@ -237,19 +241,20 @@ def upload_to_render_bridge(image_path: Path) -> str:
     try:
         from app.config import get_settings
         settings = get_settings()
+        base_url = get_public_base_url() or "https://caubesoma-poster.onrender.com"
         admin_pass = settings.get("admin_password") or settings.get("app_password") or "caubesoma1812"
         s = requests.Session()
-        login_res = s.post("https://caubesoma-poster.onrender.com/api/auth/login", json={"password": admin_pass}, timeout=12)
+        login_res = s.post(f"{base_url}/api/auth/login", json={"password": admin_pass}, timeout=12)
         if login_res.status_code != 200:
             return ""
         with open(image_path, "rb") as f:
             files = [("files", (image_path.name, f.read(), "image/jpeg"))]
-        up_res = s.post("https://caubesoma-poster.onrender.com/api/media/upload", files=files, timeout=20)
+        up_res = s.post(f"{base_url}/api/media/upload", files=files, timeout=20)
         if up_res.status_code == 200:
             data = up_res.json()
             fns = data.get("filenames", [])
             if fns:
-                return f"https://caubesoma-poster.onrender.com/uploads/{fns[0]}"
+                return f"{base_url}/uploads/{fns[0]}"
     except Exception as e:
         logger.warning(f"Error in upload_to_render_bridge: {e}")
     return ""

@@ -159,7 +159,8 @@ createApp({
         show: false,
         message: '',
         type: 'success'
-      }
+      },
+      cronEndpointUrl: (typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://caubesoma-poster.onrender.com') + '/api/cron/check-due'
     };
   },
 
