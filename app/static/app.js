@@ -979,7 +979,12 @@ createApp({
     },
 
     async connectGoogle() {
+      if (!this.settingsForm.google_client_id || !this.settingsForm.google_client_id.trim()) {
+        this.showToast('Vui lòng nhập Google OAuth Client ID trước khi kết nối.', 'error');
+        return;
+      }
       try {
+        await this.saveSettings();
         const res = await this.authFetch('/api/google/auth-url');
         const data = await res.json();
         if (res.ok && data.auth_url) {

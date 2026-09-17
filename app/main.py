@@ -217,6 +217,13 @@ def api_logout(authorization: Optional[str] = Header(None), request: Request = N
 
 # --- GOOGLE BUSINESS ROUTES ---
 
+def get_google_redirect_uri(request: Request) -> str:
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc or "localhost:8000"
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
+    if "onrender.com" in str(host):
+        proto = "https"
+    return f"{proto}://{host}/api/google/callback"
+
 @app.get("/api/google/auth-url", dependencies=[Depends(verify_auth)])
 def api_google_auth_url(request: Request):
     settings = get_settings()
@@ -224,11 +231,11 @@ def api_google_auth_url(request: Request):
     if not client_id:
         raise HTTPException(status_code=400, detail="Vui lòng nhập Google Client ID trong Cài đặt trước.")
     
-    redirect_uri = "http://localhost:8000/api/google/callback"
+    redirect_uri = get_google_redirect_uri(request)
     state = secrets.token_urlsafe(32)
     save_oauth_state(state, (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat())
     url = get_google_auth_url(client_id, redirect_uri, state)
-    return {"auth_url": url}
+    return {"auth_url": url, "redirect_uri": redirect_uri}
 
 @app.get("/api/google/callback")
 def api_google_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
@@ -242,7 +249,7 @@ def api_google_callback(request: Request, code: Optional[str] = None, state: Opt
     settings = get_settings()
     client_id = settings.get("google_client_id")
     client_secret = settings.get("google_client_secret")
-    redirect_uri = "http://localhost:8000/api/google/callback"
+    redirect_uri = get_google_redirect_uri(request)
 
     try:
         exchange_google_code(code, client_id, client_secret, redirect_uri)
