@@ -1004,6 +1004,9 @@ createApp({
     async syncGoogleProfile() {
       this.isSyncingGoogle = true;
       try {
+        if (this.settingsForm.google_client_secret && this.settingsForm.google_client_secret.trim()) {
+          await this.saveSettings();
+        }
         const res = await this.authFetch('/api/google/sync-profile', { method: 'POST' });
         const data = await res.json();
         if (res.ok && data.success) {
@@ -1014,7 +1017,11 @@ createApp({
           if (d.google_review_count) this.settingsForm.google_review_count = d.google_review_count;
           this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.9'}⭐ (${d.google_review_count || '150+'} đánh giá)!`, 'success');
         } else {
-          this.showToast(data.detail || 'Không thể đồng bộ hồ sơ Google Maps. Vui lòng thử lại.', 'error');
+          let msg = data.detail || 'Không thể đồng bộ hồ sơ Google Maps.';
+          if (msg.includes('client secret is invalid') || msg.includes('invalid_client')) {
+            msg = 'Client Secret mới chưa được đồng bộ với phiên đăng nhập. Vui lòng bấm nút màu cam "Liên kết lại tài khoản" để kích hoạt!';
+          }
+          this.showToast('⚠️ ' + msg, 'error');
         }
       } catch (e) {
         this.showToast('Lỗi khi đồng bộ Google: ' + e.message, 'error');

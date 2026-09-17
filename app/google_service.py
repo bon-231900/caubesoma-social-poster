@@ -52,6 +52,8 @@ def exchange_google_code(code: str, client_id: str, client_secret: str, redirect
     
     # Save refresh token and initial access token to settings
     updates = {
+        "google_client_id": client_id,
+        "google_client_secret": client_secret,
         "google_refresh_token": refresh_token,
         "google_access_token": access_token,
         "google_token_expiry": str(time.time() + expires_in)
