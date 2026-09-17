@@ -225,9 +225,20 @@ def check_scheduled_posts():
         except Exception as e:
             logger.error(f"Error executing scheduled post {p['id']}: {e}")
 
+def auto_sync_google_profile():
+    settings = get_settings()
+    if settings.get("google_refresh_token") and settings.get("google_client_id") and settings.get("google_client_secret"):
+        try:
+            from app.google_service import sync_google_business_profile
+            sync_google_business_profile()
+            logger.info("Auto-synced Google Business profile rating and reviews.")
+        except Exception as e:
+            logger.debug(f"Auto-sync Google profile skipped: {e}")
+
 def start_scheduler():
     if not scheduler.running:
         scheduler.add_job(check_scheduled_posts, 'interval', seconds=15, id='check_scheduled_posts', replace_existing=True)
+        scheduler.add_job(auto_sync_google_profile, 'interval', minutes=30, id='auto_sync_google_profile', replace_existing=True)
         scheduler.add_job(backup_database, 'cron', hour=2, id='backup_database', replace_existing=True)
         scheduler.add_job(cleanup_orphaned_media, 'cron', hour=3, id='cleanup_orphaned_media', replace_existing=True)
         scheduler.start()

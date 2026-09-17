@@ -941,6 +941,9 @@ createApp({
           if (this.settingsForm.fb_page_id && this.settingsForm.masked_token) {
             this.testSettingsConnection();
           }
+          if (this.settingsForm.google_connected) {
+            this.syncGoogleProfile(true);
+          }
         }
       } catch (e) {
         console.error('Error loading settings:', e);
@@ -1072,10 +1075,10 @@ createApp({
       event.target.value = '';
     },
 
-    async syncGoogleProfile() {
-      this.isSyncingGoogle = true;
+    async syncGoogleProfile(silent = false) {
+      if (!silent) this.isSyncingGoogle = true;
       try {
-        if (this.settingsForm.google_client_secret && this.settingsForm.google_client_secret.trim()) {
+        if (!silent && this.settingsForm.google_client_secret && this.settingsForm.google_client_secret.trim()) {
           await this.saveSettings();
         }
         const res = await this.authFetch('/api/google/sync-profile', { method: 'POST' });
@@ -1086,18 +1089,22 @@ createApp({
           if (d.google_logo_url) this.settingsForm.google_logo_url = d.google_logo_url;
           if (d.google_rating) this.settingsForm.google_rating = d.google_rating;
           if (d.google_review_count) this.settingsForm.google_review_count = d.google_review_count;
-          this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.5'}⭐ (${d.google_review_count || '220'} đánh giá)!`, 'success');
-        } else {
-          let msg = data.detail || 'Không thể đồng bộ hồ sơ Google Maps.';
-          if (msg.includes('client secret is invalid') || msg.includes('invalid_client')) {
-            msg = 'Mã bí mật (Client Secret) không khớp với Google Client ID này. Vui lòng tải file JSON từ Google Cloud Console để lấy đúng cặp ID & Secret!';
+          if (!silent) {
+            this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.5'}⭐ (${d.google_review_count || '220'} đánh giá)!`, 'success');
           }
-          this.showToast('⚠️ ' + msg, 'error');
+        } else {
+          if (!silent) {
+            let msg = data.detail || 'Không thể đồng bộ hồ sơ Google Maps.';
+            if (msg.includes('client secret is invalid') || msg.includes('invalid_client')) {
+              msg = 'Mã bí mật (Client Secret) không khớp với Google Client ID này. Vui lòng tải file JSON từ Google Cloud Console để lấy đúng cặp ID & Secret!';
+            }
+            this.showToast('⚠️ ' + msg, 'error');
+          }
         }
       } catch (e) {
-        this.showToast('Lỗi khi đồng bộ Google: ' + e.message, 'error');
+        if (!silent) this.showToast('Lỗi khi đồng bộ Google: ' + e.message, 'error');
       } finally {
-        this.isSyncingGoogle = false;
+        if (!silent) this.isSyncingGoogle = false;
       }
     },
 
