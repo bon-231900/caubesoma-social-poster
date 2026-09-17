@@ -86,11 +86,11 @@ createApp({
         google_client_id: '',
         google_client_secret: '',
         google_connected: false,
-        google_location_name: '',
+        google_location_name: 'ROOTS - Organic Store and Juice Bar',
         google_location_id: '',
         google_logo_url: 'https://roots.vn/images/favicon-180x180.png',
-        google_rating: '4.9',
-        google_review_count: '150+',
+        google_rating: '4.5',
+        google_review_count: '220',
         isSyncingGoogle: false,
         has_fb_page_access_token: false,
         has_imgbb_api_key: false,
@@ -1086,7 +1086,7 @@ createApp({
           if (d.google_logo_url) this.settingsForm.google_logo_url = d.google_logo_url;
           if (d.google_rating) this.settingsForm.google_rating = d.google_rating;
           if (d.google_review_count) this.settingsForm.google_review_count = d.google_review_count;
-          this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.9'}⭐ (${d.google_review_count || '150+'} đánh giá)!`, 'success');
+          this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.5'}⭐ (${d.google_review_count || '220'} đánh giá)!`, 'success');
         } else {
           let msg = data.detail || 'Không thể đồng bộ hồ sơ Google Maps.';
           if (msg.includes('client secret is invalid') || msg.includes('invalid_client')) {

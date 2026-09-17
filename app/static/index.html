@@ -854,15 +854,21 @@
                 </div>
                 <div>
                   <div class="flex items-center space-x-1.5">
-                    <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS - Organic Store & Juice Bar' }}</h4>
+                    <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS - Organic Store and Juice Bar' }}</h4>
                     <span class="inline-flex items-center text-[9px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-semibold border border-blue-100">
                       <i class="fa-solid fa-circle-check text-[9px] mr-1 text-blue-500"></i> Maps
                     </span>
                   </div>
                   <p class="text-[10px] text-amber-700 mt-0.5 font-medium flex items-center space-x-1">
-                    <span class="text-amber-500 tracking-tight">⭐⭐⭐⭐⭐</span>
-                    <span class="font-bold text-slate-800">{{ settingsForm.google_rating || '4.9' }}</span>
-                    <span class="text-slate-500">({{ settingsForm.google_review_count || '150+' }} đánh giá trên Google Maps)</span>
+                    <span class="flex items-center text-amber-400 text-[11px] space-x-0.5">
+                      <i class="fa-solid fa-star"></i>
+                      <i class="fa-solid fa-star"></i>
+                      <i class="fa-solid fa-star"></i>
+                      <i class="fa-solid fa-star"></i>
+                      <i class="fa-solid fa-star-half-stroke"></i>
+                    </span>
+                    <span class="font-bold text-slate-800 ml-0.5">{{ settingsForm.google_rating || '4.5' }}</span>
+                    <span class="text-slate-500">({{ settingsForm.google_review_count || '220' }} đánh giá trên Google Maps)</span>
                   </p>
                 </div>
               </div>
@@ -1783,7 +1789,7 @@
             </div>
 
             <!-- Profile Details Customization (Logo, Rating, Review Count) -->
-            <div v-if="settingsForm.google_connected" class="pt-2 border-t border-amber-200/60 grid grid-cols-1 md:grid-cols-3 gap-2 text-left">
+            <div v-if="settingsForm.google_connected" class="pt-2 border-t border-amber-200/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-left">
               <div>
                 <label class="block text-[11px] font-bold text-amber-900 mb-1">Ảnh Logo / Đại diện:</label>
                 <div class="flex items-center space-x-2">
@@ -1794,12 +1800,16 @@
                 </div>
               </div>
               <div>
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">Tên địa điểm hiển thị:</label>
+                <input type="text" v-model="settingsForm.google_location_name" placeholder="ROOTS - Organic Store and Juice Bar" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold outline-none">
+              </div>
+              <div>
                 <label class="block text-[11px] font-bold text-amber-900 mb-1">Điểm đánh giá (Sao):</label>
-                <input type="text" v-model="settingsForm.google_rating" placeholder="4.9" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold outline-none">
+                <input type="text" v-model="settingsForm.google_rating" placeholder="4.5" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold outline-none">
               </div>
               <div>
                 <label class="block text-[11px] font-bold text-amber-900 mb-1">Số lượt đánh giá:</label>
-                <input type="text" v-model="settingsForm.google_review_count" placeholder="150+" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] outline-none">
+                <input type="text" v-model="settingsForm.google_review_count" placeholder="220" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] outline-none">
               </div>
             </div>
           </div>

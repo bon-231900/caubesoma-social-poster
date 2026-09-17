@@ -68,15 +68,15 @@ def exchange_google_code(code: str, client_id: str, client_secret: str, redirect
             loc = locations[0]
             acc_name = loc.get("account_name", "")
             loc_id = loc.get("location_id", "")
-            loc_title = loc.get("title", "ROOTS - Organic Store & Juice Bar")
+            loc_title = loc.get("title", "ROOTS - Organic Store and Juice Bar")
             meta = fetch_google_location_metadata(access_token, acc_name, loc_id)
             update_settings({
                 "google_account_id": loc.get("account_id", ""),
                 "google_location_id": loc_id,
                 "google_location_name": loc_title,
                 "google_logo_url": meta.get("logo_url", "https://roots.vn/images/favicon-180x180.png"),
-                "google_rating": meta.get("rating", "4.9"),
-                "google_review_count": meta.get("review_count", "150+")
+                "google_rating": meta.get("rating", "4.5"),
+                "google_review_count": meta.get("review_count", "220")
             })
     except Exception as e:
         print(f"Non-fatal error discovering Google locations: {e}")
@@ -95,8 +95,8 @@ def fetch_google_location_metadata(access_token: str, account_name: str, locatio
     
     details = {
         "logo_url": "https://roots.vn/images/favicon-180x180.png",
-        "rating": "4.9",
-        "review_count": "150+"
+        "rating": "4.5",
+        "review_count": "220"
     }
     
     # 1. Fetch Profile Photo / Media from Google My Business API
@@ -157,10 +157,10 @@ def sync_google_business_profile() -> dict:
     updates = {
         "google_account_id": account_id,
         "google_location_id": location_id,
-        "google_location_name": settings.get("google_location_name", "ROOTS - Organic Store & Juice Bar"),
+        "google_location_name": settings.get("google_location_name", "ROOTS - Organic Store and Juice Bar"),
         "google_logo_url": meta.get("logo_url", "https://roots.vn/images/favicon-180x180.png"),
-        "google_rating": meta.get("rating", "4.9"),
-        "google_review_count": meta.get("review_count", "150+")
+        "google_rating": meta.get("rating", "4.5"),
+        "google_review_count": meta.get("review_count", "220")
     }
     update_settings(updates)
     return updates
