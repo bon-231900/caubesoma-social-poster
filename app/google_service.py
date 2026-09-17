@@ -34,10 +34,10 @@ def get_google_auth_url(client_id: str, redirect_uri: str, state: str) -> str:
 def exchange_google_code(code: str, client_id: str, client_secret: str, redirect_uri: str) -> dict:
     """Exchange authorization code for access and refresh tokens."""
     payload = {
-        "code": code,
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "redirect_uri": redirect_uri,
+        "code": (code or "").strip(),
+        "client_id": (client_id or "").strip(),
+        "client_secret": (client_secret or "").strip(),
+        "redirect_uri": (redirect_uri or "").strip(),
         "grant_type": "authorization_code"
     }
     res = requests.post(GOOGLE_TOKEN_URL, data=payload, timeout=30)
@@ -162,9 +162,9 @@ def sync_google_business_profile() -> dict:
 def get_valid_google_access_token() -> str:
     """Get a valid access token, auto-refreshing if expired."""
     settings = get_settings()
-    client_id = settings.get("google_client_id")
-    client_secret = settings.get("google_client_secret")
-    refresh_token = settings.get("google_refresh_token")
+    client_id = (settings.get("google_client_id") or "").strip()
+    client_secret = (settings.get("google_client_secret") or "").strip()
+    refresh_token = (settings.get("google_refresh_token") or "").strip()
     access_token = settings.get("google_access_token")
     expiry = float(settings.get("google_token_expiry", 0) or 0)
     

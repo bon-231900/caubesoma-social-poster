@@ -230,7 +230,7 @@ def get_google_redirect_uri(request: Request) -> str:
 @app.get("/api/google/auth-url", dependencies=[Depends(verify_auth)])
 def api_google_auth_url(request: Request):
     settings = get_settings()
-    client_id = settings.get("google_client_id")
+    client_id = (settings.get("google_client_id") or "").strip()
     if not client_id:
         raise HTTPException(status_code=400, detail="Vui lòng nhập Google Client ID trong Cài đặt trước.")
     
@@ -250,12 +250,12 @@ def api_google_callback(request: Request, code: Optional[str] = None, state: Opt
         return RedirectResponse(url="/?google_error=invalid_state")
 
     settings = get_settings()
-    client_id = settings.get("google_client_id")
-    client_secret = settings.get("google_client_secret")
+    client_id = (settings.get("google_client_id") or "").strip()
+    client_secret = (settings.get("google_client_secret") or "").strip()
     redirect_uri = get_google_redirect_uri(request)
 
     try:
-        exchange_google_code(code, client_id, client_secret, redirect_uri)
+        exchange_google_code(code.strip(), client_id, client_secret, redirect_uri)
         return RedirectResponse(url="/?google_connected=1")
     except Exception:
         return RedirectResponse(url="/?google_error=connection_failed")
@@ -688,6 +688,9 @@ def api_save_settings(req: SettingsUpdateRequest):
         val = updates.get(field)
         if val is None or not str(val).strip() or "..." in str(val) or "•" in str(val):
             updates.pop(field, None)
+    for k in ["google_client_id", "google_client_secret", "google_account_id", "google_location_id", "google_logo_url", "google_rating", "google_review_count"]:
+        if k in updates and isinstance(updates[k], str):
+            updates[k] = updates[k].strip()
     if "admin_password" in updates and len(updates["admin_password"]) < 4:
         raise HTTPException(status_code=400, detail="Mật khẩu Admin mới cần ít nhất 4 ký tự.")
     if "staff_password" in updates and len(updates["staff_password"]) < 4:
