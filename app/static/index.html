@@ -847,12 +847,23 @@
             <!-- 4. GOOGLE BUSINESS REALISTIC MOCKUP -->
             <div v-show="previewPlatform === 'google'" class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white text-left p-4 space-y-3">
               <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/30 font-black">
-                  <i class="fa-brands fa-google"></i>
+                <div class="w-10 h-10 rounded-xl overflow-hidden shadow-md border border-slate-100 flex items-center justify-center bg-white relative shrink-0">
+                  <img :src="settingsForm.google_logo_url || 'https://roots.vn/images/favicon-180x180.png'"
+                       @error="handleGoogleLogoError"
+                       class="w-full h-full object-cover">
                 </div>
                 <div>
-                  <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS Organic Store & Juice Bar' }}</h4>
-                  <p class="text-[10px] text-amber-700 mt-0.5 font-medium">⭐⭐⭐⭐⭐ 4.9 (1.2k đánh giá trên Google Maps)</p>
+                  <div class="flex items-center space-x-1.5">
+                    <h4 class="text-xs font-bold text-slate-900 leading-tight">{{ settingsForm.google_location_name || 'ROOTS - Organic Store & Juice Bar' }}</h4>
+                    <span class="inline-flex items-center text-[9px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-semibold border border-blue-100">
+                      <i class="fa-solid fa-circle-check text-[9px] mr-1 text-blue-500"></i> Maps
+                    </span>
+                  </div>
+                  <p class="text-[10px] text-amber-700 mt-0.5 font-medium flex items-center space-x-1">
+                    <span class="text-amber-500 tracking-tight">⭐⭐⭐⭐⭐</span>
+                    <span class="font-bold text-slate-800">{{ settingsForm.google_rating || '4.9' }}</span>
+                    <span class="text-slate-500">({{ settingsForm.google_review_count || '150+' }} đánh giá trên Google Maps)</span>
+                  </p>
                 </div>
               </div>
 
@@ -1727,10 +1738,40 @@
             </label>
             <input type="text" v-model="settingsForm.google_client_id" placeholder="Google OAuth Client ID..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
             <input type="password" v-model="settingsForm.google_client_secret" placeholder="Google OAuth Client Secret..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
+            
             <div class="flex items-center justify-between pt-1">
               <span v-if="settingsForm.google_connected" class="text-xs text-emerald-700 font-bold">✅ Đã liên kết Google Business ({{ settingsForm.google_location_name || 'ROOTS' }})</span>
               <span v-else class="text-xs text-amber-800">Chưa liên kết</span>
-              <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer">Liên kết tài khoản Google</button>
+              <div class="flex items-center space-x-2">
+                <button v-if="settingsForm.google_connected" @click="syncGoogleProfile" :disabled="isSyncingGoogle" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                  <i :class="isSyncingGoogle ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-arrows-rotate'"></i>
+                  <span>{{ isSyncingGoogle ? 'Đang đồng bộ...' : 'Đồng bộ Logo & Đánh giá' }}</span>
+                </button>
+                <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer">
+                  {{ settingsForm.google_connected ? 'Liên kết lại tài khoản' : 'Liên kết tài khoản Google' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Profile Details Customization (Logo, Rating, Review Count) -->
+            <div v-if="settingsForm.google_connected" class="pt-2 border-t border-amber-200/60 grid grid-cols-1 md:grid-cols-3 gap-2 text-left">
+              <div>
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">Ảnh Logo / Đại diện:</label>
+                <div class="flex items-center space-x-2">
+                  <img :src="settingsForm.google_logo_url || 'https://roots.vn/images/favicon-180x180.png'" 
+                       @error="handleGoogleLogoError" 
+                       class="w-7 h-7 rounded-lg object-cover border border-amber-300 bg-white shrink-0">
+                  <input type="text" v-model="settingsForm.google_logo_url" placeholder="https://..." class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] outline-none font-mono">
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">Điểm đánh giá (Sao):</label>
+                <input type="text" v-model="settingsForm.google_rating" placeholder="4.9" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] font-bold outline-none">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">Số lượt đánh giá:</label>
+                <input type="text" v-model="settingsForm.google_review_count" placeholder="150+" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-[11px] outline-none">
+              </div>
             </div>
           </div>
 

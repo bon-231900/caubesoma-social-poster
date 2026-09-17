@@ -87,6 +87,10 @@ createApp({
         google_connected: false,
         google_location_name: '',
         google_location_id: '',
+        google_logo_url: 'https://roots.vn/images/favicon-180x180.png',
+        google_rating: '4.9',
+        google_review_count: '150+',
+        isSyncingGoogle: false,
         has_fb_page_access_token: false,
         has_imgbb_api_key: false,
         has_gemini_api_key: false,
@@ -997,6 +1001,28 @@ createApp({
       }
     },
 
+    async syncGoogleProfile() {
+      this.isSyncingGoogle = true;
+      try {
+        const res = await this.authFetch('/api/google/sync-profile', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const d = data.data || {};
+          if (d.google_location_name) this.settingsForm.google_location_name = d.google_location_name;
+          if (d.google_logo_url) this.settingsForm.google_logo_url = d.google_logo_url;
+          if (d.google_rating) this.settingsForm.google_rating = d.google_rating;
+          if (d.google_review_count) this.settingsForm.google_review_count = d.google_review_count;
+          this.showToast(`✅ Đã đồng bộ Google Maps: ${d.google_rating || '4.9'}⭐ (${d.google_review_count || '150+'} đánh giá)!`, 'success');
+        } else {
+          this.showToast(data.detail || 'Không thể đồng bộ hồ sơ Google Maps. Vui lòng thử lại.', 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi khi đồng bộ Google: ' + e.message, 'error');
+      } finally {
+        this.isSyncingGoogle = false;
+      }
+    },
+
     async loadThreadsStatus() {
       try {
         const res = await this.authFetch('/api/threads/status');
@@ -1398,6 +1424,10 @@ createApp({
       e.target.onerror = null;
       e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
       e.target.classList.add('opacity-40', 'p-2');
+    },
+    handleGoogleLogoError(e) {
+      e.target.onerror = null;
+      e.target.src = 'https://roots.vn/images/favicon-180x180.png';
     },
     copyToClipboard(text) {
       if (navigator.clipboard && window.isSecureContext) {

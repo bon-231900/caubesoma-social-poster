@@ -30,7 +30,7 @@ from app.meta_service import test_meta_connection, exchange_for_permanent_page_t
 from app.ai_service import generate_social_captions, generate_combo_campaign_and_prompts
 from app.bulk_service import generate_bulk_excel_template, parse_bulk_file, import_bulk_posts
 from app.story_service import create_story_image
-from app.google_service import get_google_auth_url, exchange_google_code, get_google_locations, publish_to_google_business
+from app.google_service import get_google_auth_url, exchange_google_code, get_google_locations, publish_to_google_business, sync_google_business_profile
 from app.roots_service import fetch_roots_categories, fetch_roots_products, fetch_roots_flash_sale, quick_generate_post_from_product
 from app.job_manager import job_manager, run_1click_studio_job
 from app.media_service import register_media_file, THUMB_DIR, create_thumbnail
@@ -166,6 +166,9 @@ class SettingsUpdateRequest(BaseModel):
     google_account_id: Optional[str] = None
     google_location_id: Optional[str] = None
     google_location_name: Optional[str] = None
+    google_logo_url: Optional[str] = None
+    google_rating: Optional[str] = None
+    google_review_count: Optional[str] = None
     max_upload_mb: Optional[int] = None
     max_upload_batch_mb: Optional[int] = None
     media_retention_days: Optional[int] = None
@@ -262,6 +265,14 @@ def api_google_locations():
     try:
         locs = get_google_locations()
         return {"locations": locs}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/google/sync-profile", dependencies=[Depends(verify_auth)])
+def api_google_sync_profile():
+    try:
+        res = sync_google_business_profile()
+        return {"success": True, "data": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -648,8 +659,11 @@ def api_get_settings():
         "google_client_id": s.get("google_client_id", ""),
         "has_google_client_secret": bool(s.get("google_client_secret")),
         "google_connected": bool(s.get("google_refresh_token")),
-        "google_location_name": s.get("google_location_name", ""),
+        "google_location_name": s.get("google_location_name") or "ROOTS - Organic Store & Juice Bar",
         "google_location_id": s.get("google_location_id", ""),
+        "google_logo_url": s.get("google_logo_url") or "https://roots.vn/images/favicon-180x180.png",
+        "google_rating": s.get("google_rating") or "4.9",
+        "google_review_count": s.get("google_review_count") or "150+",
         "threads_user_id": s.get("threads_user_id", ""),
         "threads_username": s.get("threads_username", "roots.vn"),
         "has_threads_token": bool(s.get("threads_access_token")),
