@@ -1732,22 +1732,51 @@
 
           <!-- Google Business Profile Settings -->
           <div class="pt-4 border-t border-slate-100 space-y-3 bg-amber-50/50 p-4 rounded-2xl border border-amber-200">
-            <label class="block text-xs font-black text-amber-900 uppercase flex items-center space-x-1.5">
-              <i class="fa-brands fa-google text-amber-600"></i>
-              <span>Cấu hình Google Business Profile (ROOTS):</span>
-            </label>
-            <input type="text" v-model="settingsForm.google_client_id" placeholder="Google OAuth Client ID..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
-            <input type="password" v-model="settingsForm.google_client_secret" placeholder="Google OAuth Client Secret..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-black text-amber-900 uppercase flex items-center space-x-1.5">
+                <i class="fa-brands fa-google text-amber-600"></i>
+                <span>Cấu hình Google Business Profile (ROOTS):</span>
+              </label>
+              <!-- 1-Click JSON File Import from Google Cloud -->
+              <label class="px-2.5 py-1 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center space-x-1 shadow-sm">
+                <i class="fa-solid fa-file-import text-amber-600"></i>
+                <span>Nhập file JSON Google Cloud</span>
+                <input type="file" accept=".json" @change="handleGoogleJsonImport" class="hidden">
+              </label>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block text-[11px] font-bold text-slate-700">Google OAuth Client ID:</label>
+              <input type="text" v-model="settingsForm.google_client_id" placeholder="1063172478595-...apps.googleusercontent.com" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="block text-[11px] font-bold text-slate-700">Google OAuth Client Secret:</label>
+                <span v-if="settingsForm.has_google_client_secret" class="text-[10px] text-emerald-700 font-mono font-bold">
+                  Đã lưu: {{ settingsForm.google_client_secret_masked || '••••••••' }}
+                </span>
+              </div>
+              <input type="password" v-model="settingsForm.google_client_secret" :placeholder="settingsForm.has_google_client_secret ? (settingsForm.google_client_secret_masked ? 'Đã lưu: ' + settingsForm.google_client_secret_masked + ' (nhập mới nếu đổi)' : '•••••••• (Đã lưu mã bí mật)') : 'Google OAuth Client Secret (bắt đầu bằng GOCSPX-...)'" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <p class="text-[11px] text-amber-800 bg-amber-100/60 p-2.5 rounded-xl leading-relaxed border border-amber-200/50">
+              💡 <strong>Lưu ý quan trọng:</strong> Client Secret phải là của đúng OAuth Client ID ở trên. Bạn có thể bấm nút <strong>"Nhập file JSON Google Cloud"</strong> ở trên và chọn tệp <code class="font-mono bg-white px-1 py-0.5 rounded text-amber-900">client_secret_....json</code> tải từ <a href="https://console.cloud.google.com/apis/credentials?project=1063172478595" target="_blank" class="underline font-bold hover:text-amber-950">Google Cloud Console</a> để tự động điền chuẩn xác 100%.
+            </p>
             
             <div class="flex items-center justify-between pt-1">
               <span v-if="settingsForm.google_connected" class="text-xs text-emerald-700 font-bold">✅ Đã liên kết Google Business ({{ settingsForm.google_location_name || 'ROOTS' }})</span>
               <span v-else class="text-xs text-amber-800">Chưa liên kết</span>
               <div class="flex items-center space-x-2">
-                <button v-if="settingsForm.google_connected" @click="syncGoogleProfile" :disabled="isSyncingGoogle" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <button type="button" @click="testGoogleCredentials" :disabled="isTestingGoogle" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer">
+                  <i :class="isTestingGoogle ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-arrows-rotate'" class="text-[11px]"></i>
+                  <span>{{ isTestingGoogle ? 'Đang kiểm tra...' : 'Kiểm tra ID & Secret' }}</span>
+                </button>
+                <button v-if="settingsForm.google_connected" type="button" @click="syncGoogleProfile" :disabled="isSyncingGoogle" class="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
                   <i :class="isSyncingGoogle ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-arrows-rotate'"></i>
                   <span>{{ isSyncingGoogle ? 'Đang đồng bộ...' : 'Đồng bộ Logo & Đánh giá' }}</span>
                 </button>
-                <button @click="connectGoogle" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer">
+                <button type="button" @click="connectGoogle" class="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold hover:opacity-90 transition cursor-pointer shadow">
                   {{ settingsForm.google_connected ? 'Liên kết lại tài khoản' : 'Liên kết tài khoản Google' }}
                 </button>
               </div>

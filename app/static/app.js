@@ -20,6 +20,7 @@ createApp({
       isDraggingBulk: false,
       isSubmitting: false,
       isTesting: false,
+      isTestingGoogle: false,
       isSaving: false,
       isImportingBulk: false,
       isGeneratingStory: false,
@@ -95,6 +96,7 @@ createApp({
         has_imgbb_api_key: false,
         has_gemini_api_key: false,
         has_google_client_secret: false,
+        google_client_secret_masked: '',
         has_admin_password: false,
         has_staff_password: false,
         app_password: '',
@@ -178,6 +180,16 @@ createApp({
     } else if (params.get('threads_error')) {
       this.showToast('⚠️ Lỗi liên kết Threads: ' + params.get('threads_error'), 'error');
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get('google_connected')) {
+      this.showToast('🎉 Đã liên kết tài khoản Google Business Profile thành công!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.activeTab = 'settings';
+      await this.loadSettings();
+      setTimeout(() => this.syncGoogleProfile(), 500);
+    } else if (params.get('google_error')) {
+      this.showToast('⚠️ Lỗi liên kết Google: ' + decodeURIComponent(params.get('google_error')), 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.activeTab = 'settings';
     }
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -988,7 +1000,9 @@ createApp({
         return;
       }
       try {
-        await this.saveSettings();
+        if (this.settingsForm.google_client_secret && this.settingsForm.google_client_secret.trim()) {
+          await this.saveSettings();
+        }
         const res = await this.authFetch('/api/google/auth-url');
         const data = await res.json();
         if (res.ok && data.auth_url) {
@@ -999,6 +1013,63 @@ createApp({
       } catch (e) {
         this.showToast('Lỗi kết nối Google: ' + e.message, 'error');
       }
+    },
+
+    async testGoogleCredentials() {
+      this.isTestingGoogle = true;
+      try {
+        if (this.settingsForm.google_client_secret && this.settingsForm.google_client_secret.trim()) {
+          await this.saveSettings();
+        }
+        const res = await this.authFetch('/api/google/test-credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: this.settingsForm.google_client_id,
+            client_secret: this.settingsForm.google_client_secret
+          })
+        });
+        const data = await res.json();
+        if (data.valid) {
+          this.showToast(`✅ ${data.message}`, 'success');
+          if (data.connected) {
+            this.syncGoogleProfile();
+          }
+        } else {
+          this.showToast(`⚠️ ${data.message}`, 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi kiểm tra Google: ' + e.message, 'error');
+      } finally {
+        this.isTestingGoogle = false;
+      }
+    },
+
+    handleGoogleJsonImport(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = JSON.parse(e.target.result);
+          const creds = content.web || content.installed || content;
+          if (!creds.client_id) {
+            this.showToast('⚠️ Tệp JSON không chứa client_id hợp lệ của Google OAuth.', 'error');
+            return;
+          }
+          this.settingsForm.google_client_id = creds.client_id.trim();
+          if (creds.client_secret) {
+            this.settingsForm.google_client_secret = creds.client_secret.trim();
+          }
+          this.showToast('✅ Đã nhận diện Client ID & Secret từ file JSON! Đang lưu và kiểm tra...', 'success');
+          await this.saveSettings();
+          await this.testGoogleCredentials();
+        } catch (err) {
+          this.showToast('⚠️ File JSON không đúng định dạng: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
     },
 
     async syncGoogleProfile() {
@@ -1019,7 +1090,7 @@ createApp({
         } else {
           let msg = data.detail || 'Không thể đồng bộ hồ sơ Google Maps.';
           if (msg.includes('client secret is invalid') || msg.includes('invalid_client')) {
-            msg = 'Client Secret mới chưa được đồng bộ với phiên đăng nhập. Vui lòng bấm nút màu cam "Liên kết lại tài khoản" để kích hoạt!';
+            msg = 'Mã bí mật (Client Secret) không khớp với Google Client ID này. Vui lòng tải file JSON từ Google Cloud Console để lấy đúng cặp ID & Secret!';
           }
           this.showToast('⚠️ ' + msg, 'error');
         }

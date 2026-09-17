@@ -61,21 +61,25 @@ def exchange_google_code(code: str, client_id: str, client_secret: str, redirect
     update_settings(updates)
     
     # Try to auto-discover and select location (e.g. ROOTS)
-    locations = get_google_locations(access_token)
-    if locations:
-        loc = locations[0]
-        acc_name = loc.get("account_name", "")
-        loc_id = loc.get("location_id", "")
-        loc_title = loc.get("title", "ROOTS - Organic Store & Juice Bar")
-        meta = fetch_google_location_metadata(access_token, acc_name, loc_id)
-        update_settings({
-            "google_account_id": loc.get("account_id", ""),
-            "google_location_id": loc_id,
-            "google_location_name": loc_title,
-            "google_logo_url": meta.get("logo_url", "https://roots.vn/images/favicon-180x180.png"),
-            "google_rating": meta.get("rating", "4.9"),
-            "google_review_count": meta.get("review_count", "150+")
-        })
+    locations = []
+    try:
+        locations = get_google_locations(access_token)
+        if locations:
+            loc = locations[0]
+            acc_name = loc.get("account_name", "")
+            loc_id = loc.get("location_id", "")
+            loc_title = loc.get("title", "ROOTS - Organic Store & Juice Bar")
+            meta = fetch_google_location_metadata(access_token, acc_name, loc_id)
+            update_settings({
+                "google_account_id": loc.get("account_id", ""),
+                "google_location_id": loc_id,
+                "google_location_name": loc_title,
+                "google_logo_url": meta.get("logo_url", "https://roots.vn/images/favicon-180x180.png"),
+                "google_rating": meta.get("rating", "4.9"),
+                "google_review_count": meta.get("review_count", "150+")
+            })
+    except Exception as e:
+        print(f"Non-fatal error discovering Google locations: {e}")
         
     return {
         "success": True,
@@ -326,3 +330,65 @@ def publish_to_google_business(
             raise RuntimeError("Google Cloud Project của bạn đang bị giới hạn Quota API = 0 (cần gửi yêu cầu tăng Quota trên Google Cloud Console). Nếu chỉ đăng Facebook & Instagram, vui lòng bỏ tích ô Google Maps.")
         err = data.get("error", {}).get("message", str(data))
         raise RuntimeError(f"Lỗi đăng bài Google Business: {err}")
+
+def test_google_credentials(client_id: str, client_secret: str) -> dict:
+    """Validate client_id and client_secret format and status with Google."""
+    cid = (client_id or "").strip()
+    sec = (client_secret or "").strip()
+    if not cid:
+        return {"valid": False, "message": "Chưa nhập Google Client ID."}
+    if not sec:
+        return {"valid": False, "message": "Chưa nhập Google Client Secret."}
+    
+    if not cid.endswith(".apps.googleusercontent.com"):
+        return {"valid": False, "message": "Google Client ID phải có đuôi .apps.googleusercontent.com"}
+    
+    if not sec.startswith("GOCSPX-"):
+        return {"valid": False, "message": "Google Client Secret phải bắt đầu bằng GOCSPX- (Vui lòng kiểm tra lại trong Google Cloud Console)."}
+    
+    settings = get_settings()
+    refresh_token = (settings.get("google_refresh_token") or "").strip()
+    if refresh_token:
+        try:
+            res = requests.post(GOOGLE_TOKEN_URL, data={
+                "client_id": cid,
+                "client_secret": sec,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token"
+            }, timeout=15)
+            data = res.json()
+            if res.status_code == 200 and "access_token" in data:
+                new_token = data["access_token"]
+                expires_in = data.get("expires_in", 3600)
+                update_settings({
+                    "google_client_id": cid,
+                    "google_client_secret": sec,
+                    "google_access_token": new_token,
+                    "google_token_expiry": str(time.time() + expires_in)
+                })
+                return {
+                    "valid": True,
+                    "connected": True,
+                    "message": "Cặp Client ID & Client Secret hoàn toàn chính xác! Phiên kết nối Google Business đang hoạt động."
+                }
+            elif "invalid_client" in str(data) or "client secret is invalid" in str(data):
+                return {
+                    "valid": False,
+                    "error_code": "invalid_client",
+                    "message": "Google từ chối: Mã bí mật (Client Secret) KHÔNG KHỚP với Client ID này! Hãy tải tệp JSON từ Google Cloud Console để lấy đúng cặp ID & Secret."
+                }
+            else:
+                err = data.get("error_description", data.get("error", str(data)))
+                return {
+                    "valid": False,
+                    "message": f"Google báo lỗi: {err}"
+                }
+        except Exception as e:
+            return {"valid": False, "message": f"Lỗi kết nối kiểm tra Google: {str(e)}"}
+            
+    return {
+        "valid": True,
+        "connected": False,
+        "message": "Định dạng Client ID & Secret hợp lệ! Hãy bấm nút 'Liên kết tài khoản Google' để hoàn tất cấp quyền truy cập."
+    }
+

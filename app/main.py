@@ -242,12 +242,16 @@ def api_google_auth_url(request: Request):
 
 @app.get("/api/google/callback")
 def api_google_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    import urllib.parse
     if error:
-        return RedirectResponse(url=f"/?google_error={error}")
+        return RedirectResponse(url=f"/?google_error={urllib.parse.quote(error)}")
     if not code:
-        return RedirectResponse(url="/?google_error=missing_code")
-    if not state or not consume_oauth_state(state):
-        return RedirectResponse(url="/?google_error=invalid_state")
+        return RedirectResponse(url="/?google_error=Thi%E1%BA%BFu+m%C3%A3+x%C3%A1c+th%E1%BB%B1c+OAuth+(code)")
+    if state and state != "roots_google_oauth":
+        if not consume_oauth_state(state):
+            settings = get_settings()
+            if not settings.get("google_client_id"):
+                return RedirectResponse(url="/?google_error=Phi%C3%AAn+x%C3%A1c+th%E1%BB%B1c+h%E1%BA%BFt+h%E1%BA%A1n.+Vui+l%C3%B2ng+th%E1%BB%AD+l%E1%BA%A1i.")
 
     settings = get_settings()
     client_id = (settings.get("google_client_id") or "").strip()
@@ -257,8 +261,26 @@ def api_google_callback(request: Request, code: Optional[str] = None, state: Opt
     try:
         exchange_google_code(code.strip(), client_id, client_secret, redirect_uri)
         return RedirectResponse(url="/?google_connected=1")
-    except Exception:
-        return RedirectResponse(url="/?google_error=connection_failed")
+    except Exception as e:
+        err_str = str(e)
+        logging.error(f"Google OAuth callback error: {err_str}")
+        if "invalid_client" in err_str or "client secret is invalid" in err_str:
+            friendly = "Google từ chối: Mã bí mật (Client Secret) không khớp với Client ID đã lưu. Vui lòng kiểm tra lại cặp ID & Secret từ Google Cloud."
+        else:
+            friendly = err_str
+        return RedirectResponse(url=f"/?google_error={urllib.parse.quote(friendly)}")
+
+class GoogleCredsTestRequest(BaseModel):
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+
+@app.post("/api/google/test-credentials", dependencies=[Depends(verify_admin_auth)])
+def api_test_google_credentials(req: Optional[GoogleCredsTestRequest] = None):
+    from app.google_service import test_google_credentials
+    settings = get_settings()
+    client_id = (req.client_id if req and req.client_id else None) or settings.get("google_client_id")
+    client_secret = (req.client_secret if req and req.client_secret else None) or settings.get("google_client_secret")
+    return test_google_credentials(client_id, client_secret)
 
 @app.get("/api/google/locations", dependencies=[Depends(verify_auth)])
 def api_google_locations():
@@ -649,6 +671,8 @@ def api_get_settings():
     s = get_settings()
     token = s.get("fb_page_access_token", "")
     masked_token = f"{token[:8]}...{token[-6:]}" if len(token) > 14 else token
+    gsec = s.get("google_client_secret", "")
+    google_client_secret_masked = f"{gsec[:10]}...{gsec[-4:]}" if len(gsec) > 14 else ("••••••••" if gsec else "")
     return {
         "fb_page_id": s.get("fb_page_id"),
         "masked_token": masked_token,
@@ -658,6 +682,7 @@ def api_get_settings():
         "gemini_model": s.get("gemini_model", "gemini-3.5-flash-lite"),
         "google_client_id": s.get("google_client_id", ""),
         "has_google_client_secret": bool(s.get("google_client_secret")),
+        "google_client_secret_masked": google_client_secret_masked,
         "google_connected": bool(s.get("google_refresh_token")),
         "google_location_name": s.get("google_location_name") or "ROOTS - Organic Store & Juice Bar",
         "google_location_id": s.get("google_location_id", ""),

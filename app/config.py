@@ -24,12 +24,12 @@ if not ENV_PATH.exists():
         ENV_PATH.write_text("", encoding="utf-8")
 
 def _value(values: dict, db_vals: dict, key: str, default: str = "") -> str:
-    env_val = os.environ.get(key)
-    if env_val is not None and str(env_val).strip() != "":
-        return str(env_val).strip()
     db_val = db_vals.get(key) or db_vals.get(key.lower()) or db_vals.get(key.upper())
     if db_val is not None and str(db_val).strip() != "":
         return str(db_val).strip()
+    env_val = os.environ.get(key)
+    if env_val is not None and str(env_val).strip() != "":
+        return str(env_val).strip()
     val = values.get(key)
     if val is not None and str(val).strip() != "":
         return str(val).strip()
@@ -154,6 +154,9 @@ def update_settings(updates: dict):
         "google_account_id": "GOOGLE_ACCOUNT_ID",
         "google_location_id": "GOOGLE_LOCATION_ID",
         "google_location_name": "GOOGLE_LOCATION_NAME",
+        "google_logo_url": "GOOGLE_LOGO_URL",
+        "google_rating": "GOOGLE_RATING",
+        "google_review_count": "GOOGLE_REVIEW_COUNT",
         "threads_user_id": "THREADS_USER_ID",
         "threads_username": "THREADS_USERNAME",
         "threads_access_token": "THREADS_ACCESS_TOKEN",
@@ -171,6 +174,7 @@ def update_settings(updates: dict):
             set_key(str(ENV_PATH), env_var, val_str)
             db_updates[env_var] = val_str
             db_updates[key] = val_str
+            os.environ[env_var] = val_str
     if updates.get("app_password"):
         h = hash_password(str(updates["app_password"]))
         set_key(str(ENV_PATH), "APP_PASSWORD_HASH", h)
