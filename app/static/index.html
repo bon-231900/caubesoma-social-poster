@@ -68,45 +68,46 @@
           </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <nav class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
-          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+        <!-- Navigation Tabs (Desktop / Tablet) -->
+        <nav class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-[62vw] lg:max-w-none custom-scrollbar">
+          <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
             <i class="fa-solid fa-feather-pointed"></i>
             <span>Tạo bài</span>
           </button>
-          <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
             <i class="fa-solid fa-store"></i>
             <span>Kho ROOTS</span>
           </button>
-          <button @click="activeTab = 'bulk'" :class="activeTab === 'bulk' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
-            <i class="fa-solid fa-file-excel text-emerald-600"></i>
-            <span>Excel Hàng Loạt</span>
+          <!-- Đánh giá Maps (Vị trí nổi bật) -->
+          <button @click="activeTab = 'google_reviews'" :class="activeTab === 'google_reviews' ? 'bg-amber-500 text-white shadow-sm font-bold' : 'bg-white text-amber-900 border border-amber-300 font-bold hover:bg-amber-50'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer whitespace-nowrap shrink-0 shadow-xs">
+            <i class="fa-solid fa-star" :class="activeTab === 'google_reviews' ? 'text-white' : 'text-amber-500'"></i>
+            <span>Đánh giá Maps</span>
+            <span v-if="reviewsStats && reviewsStats.unreplied_count > 0" :class="activeTab === 'google_reviews' ? 'bg-white text-amber-800' : 'bg-rose-500 text-white'" class="px-1.5 py-0.2 text-[10px] font-black rounded-full leading-tight">
+              {{ reviewsStats.unreplied_count }}
+            </span>
           </button>
-          <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
             <i class="fa-solid fa-calendar-days"></i>
             <span>Lịch đăng</span>
           </button>
-          <button @click="activeTab = 'library'" :class="activeTab === 'library' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
-            <i class="fa-solid fa-images"></i>
-            <span>Thư viện</span>
-          </button>
-          <button @click="activeTab = 'templates'" :class="activeTab === 'templates' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
-            <i class="fa-solid fa-hashtag"></i>
-            <span>Mẫu & Tag</span>
-          </button>
-          <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer">
+          <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer whitespace-nowrap shrink-0">
             <i class="fa-solid fa-clock-rotate-left"></i>
             <span>Hàng đợi & Lịch sử</span>
             <span v-if="pendingPosts.length > 0" class="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1"></span>
           </button>
-          <button @click="activeTab = 'google_reviews'" :class="activeTab === 'google_reviews' ? 'bg-white text-amber-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer">
-            <i class="fa-solid fa-star text-amber-500"></i>
-            <span>Đánh giá Maps</span>
-            <span v-if="reviewsStats && reviewsStats.unreplied_count > 0" class="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white leading-tight">
-              {{ reviewsStats.unreplied_count }}
-            </span>
+          <button @click="activeTab = 'library'" :class="activeTab === 'library' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
+            <i class="fa-solid fa-images"></i>
+            <span>Thư viện</span>
           </button>
-          <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <button @click="activeTab = 'templates'" :class="activeTab === 'templates' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
+            <i class="fa-solid fa-hashtag"></i>
+            <span>Mẫu & Tag</span>
+          </button>
+          <button @click="activeTab = 'bulk'" :class="activeTab === 'bulk' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+            <span>Excel Hàng Loạt</span>
+          </button>
+          <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0">
             <i class="fa-solid fa-sliders"></i>
             <span>Cài đặt</span>
           </button>
@@ -124,6 +125,50 @@
         </div>
       </div>
     </header>
+
+    <!-- MOBILE SUB-NAVBAR FOR SMARTPHONES & TABLETS -->
+    <div class="md:hidden bg-slate-100 border-b border-slate-200 px-3 py-2 overflow-x-auto custom-scrollbar flex items-center space-x-1.5 sticky top-16 z-20 shadow-xs">
+      <button @click="activeTab = 'composer'" :class="activeTab === 'composer' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-feather-pointed"></i>
+        <span>Tạo bài</span>
+      </button>
+      <button @click="activeTab = 'roots_catalog'" :class="activeTab === 'roots_catalog' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-store"></i>
+        <span>Kho ROOTS</span>
+      </button>
+      <!-- Mobile Đánh giá Maps -->
+      <button @click="activeTab = 'google_reviews'" :class="activeTab === 'google_reviews' ? 'bg-amber-500 text-white shadow-sm font-bold' : 'bg-amber-50 text-amber-900 border border-amber-300 font-bold'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-star" :class="activeTab === 'google_reviews' ? 'text-white' : 'text-amber-500'"></i>
+        <span>Đánh giá Maps</span>
+        <span v-if="reviewsStats && reviewsStats.unreplied_count > 0" :class="activeTab === 'google_reviews' ? 'bg-white text-amber-800' : 'bg-rose-500 text-white'" class="px-1.5 py-0.2 text-[9px] font-black rounded-full leading-tight">
+          {{ reviewsStats.unreplied_count }}
+        </span>
+      </button>
+      <button @click="activeTab = 'calendar'" :class="activeTab === 'calendar' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>Lịch đăng</span>
+      </button>
+      <button @click="activeTab = 'scheduled'" :class="activeTab === 'scheduled' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>Hàng đợi</span>
+      </button>
+      <button @click="activeTab = 'library'" :class="activeTab === 'library' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-images"></i>
+        <span>Thư viện</span>
+      </button>
+      <button @click="activeTab = 'templates'" :class="activeTab === 'templates' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-hashtag"></i>
+        <span>Mẫu</span>
+      </button>
+      <button @click="activeTab = 'bulk'" :class="activeTab === 'bulk' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-file-excel text-emerald-600" :class="activeTab === 'bulk' ? 'text-white' : ''"></i>
+        <span>Excel</span>
+      </button>
+      <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'bg-white text-slate-700 border border-slate-200 font-medium'" class="px-3 py-1.5 rounded-lg text-xs transition flex items-center space-x-1 whitespace-nowrap shrink-0">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Cài đặt</span>
+      </button>
+    </div>
 
     <!-- CONTENT WRAPPER -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -2398,6 +2443,6 @@
     </div>
 
   </div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260928_rev225"></script>
 </body>
 </html>
