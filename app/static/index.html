@@ -99,6 +99,13 @@
             <span>Hàng đợi & Lịch sử</span>
             <span v-if="pendingPosts.length > 0" class="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1"></span>
           </button>
+          <button @click="activeTab = 'google_reviews'" :class="activeTab === 'google_reviews' ? 'bg-white text-amber-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 relative cursor-pointer">
+            <i class="fa-solid fa-star text-amber-500"></i>
+            <span>Đánh giá Maps</span>
+            <span v-if="reviewsStats && reviewsStats.unreplied_count > 0" class="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white leading-tight">
+              {{ reviewsStats.unreplied_count }}
+            </span>
+          </button>
           <button v-if="currentUserRole === 'admin'" @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'" class="px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-sliders"></i>
             <span>Cài đặt</span>
@@ -1625,6 +1632,368 @@
                 <button @click="deleteScheduledPost(p.id)" class="px-2.5 py-1.5 bg-rose-50 text-rose-600 rounded-lg font-bold hover:bg-rose-100 cursor-pointer">Xóa</button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 9: GOOGLE MAPS REVIEWS (BÁN TỰ ĐỘNG) -->
+      <div v-show="activeTab === 'google_reviews'" class="space-y-6 max-w-6xl mx-auto">
+        <!-- Top Banner: Store Summary & Live Sync -->
+        <div class="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-emerald-500/10 border border-amber-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-start space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md shadow-amber-500/30 shrink-0">
+                <i class="fa-solid fa-map-location-dot"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h3 class="font-black text-slate-900 text-lg tracking-tight">{{ settingsForm.google_location_name || 'ROOTS - Organic Store & Juice Bar' }}</h3>
+                  <span class="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                    <i class="fa-solid fa-certificate text-amber-600 mr-1"></i>Google Maps
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5 flex items-center space-x-2">
+                  <span>📍 237 Nguyễn Công Trứ, Phường Nguyễn Thái Bình, Quận 1, TP.HCM</span>
+                  <span>•</span>
+                  <span class="text-emerald-700 font-semibold">Chế độ phản hồi: Bán tự động (AI gợi ý & Phê duyệt)</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Sync Button -->
+            <div class="flex items-center space-x-2 self-start md:self-auto">
+              <button 
+                type="button" 
+                @click="loadGoogleReviews(true)" 
+                :disabled="reviewsSyncing"
+                class="px-4 py-2 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer disabled:opacity-60">
+                <i :class="reviewsSyncing ? 'fa-solid fa-circle-notch fa-spin text-amber-600' : 'fa-solid fa-arrows-rotate text-amber-600'"></i>
+                <span>{{ reviewsSyncing ? 'Đang đồng bộ Google Maps...' : 'Đồng bộ từ Google Maps' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-amber-200/60">
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-3 border border-amber-100">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Điểm đánh giá TB</span>
+              <div class="flex items-baseline space-x-1.5 mt-1">
+                <span class="text-2xl font-black text-amber-600">{{ reviewsStats.average_rating || '4.9' }}</span>
+                <div class="flex text-amber-400 text-xs">
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star-half-stroke"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-3 border border-amber-100">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Tổng lượt đánh giá</span>
+              <div class="text-2xl font-black text-slate-800 mt-1">{{ reviewsStats.total }}</div>
+            </div>
+
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-3 border border-rose-200 bg-rose-50/40">
+              <span class="text-[11px] font-bold text-rose-600 uppercase">Chưa phản hồi (Cần rep)</span>
+              <div class="text-2xl font-black text-rose-600 mt-1 flex items-center space-x-1.5">
+                <span>{{ reviewsStats.unreplied_count }}</span>
+                <span v-if="reviewsStats.unreplied_count > 0" class="text-[10px] font-bold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-md">Cần duyệt</span>
+              </div>
+            </div>
+
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-3 border border-emerald-100">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Đã gửi phản hồi</span>
+              <div class="text-2xl font-black text-emerald-700 mt-1">{{ reviewsStats.replied_count }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google API Not Enabled Warning Banner with 1-Click Fix -->
+        <div v-if="reviewsSyncError && reviewsSyncError.includes('mybusiness.googleapis.com')" class="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
+          <div class="flex items-start space-x-3.5">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-sm">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <h4 class="font-black text-amber-950 text-sm">Chỉ còn 1 bước: BẬT Google My Business API trên Google Cloud</h4>
+                <span class="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Bước cuối cùng</span>
+              </div>
+              <p class="text-xs text-amber-900/80 leading-relaxed">
+                Tài khoản Google của ROOTS đã xác thực thành công! Google chỉ yêu cầu bạn bấm <strong>BẬT (Enable)</strong> dịch vụ <em>Google My Business API</em> trong dự án Google Cloud để cấp phép kéo các bài đánh giá về hệ thống.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0">
+            <a href="https://console.developers.google.com/apis/api/mybusiness.googleapis.com/overview?project=1063172478595" target="_blank" class="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-95 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/20 transition flex items-center space-x-1.5 cursor-pointer">
+              <span>Bật API Trên Google Cloud Ngay</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <!-- Status Filter Tabs -->
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl shrink-0 overflow-x-auto">
+            <button 
+              type="button" 
+              @click="reviewsFilter = 'all'" 
+              :class="reviewsFilter === 'all' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+              class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer">
+              Tất cả ({{ reviewsStats.total }})
+            </button>
+            <button 
+              type="button" 
+              @click="reviewsFilter = 'unreplied'" 
+              :class="reviewsFilter === 'unreplied' ? 'bg-amber-500 text-white font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+              class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer flex items-center space-x-1">
+              <span>Chưa rep</span>
+              <span v-if="reviewsStats.unreplied_count > 0" class="px-1.5 py-0.2 rounded-full text-[10px] bg-white text-amber-700 font-black">
+                {{ reviewsStats.unreplied_count }}
+              </span>
+            </button>
+            <button 
+              type="button" 
+              @click="reviewsFilter = 'replied'" 
+              :class="reviewsFilter === 'replied' ? 'bg-white text-emerald-700 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
+              class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer">
+              Đã rep ({{ reviewsStats.replied_count }})
+            </button>
+          </div>
+
+          <!-- Secondary filters: Star Rating, Search, Sort -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Star Filter -->
+            <select v-model="reviewsStarFilter" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-semibold outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer">
+              <option value="all">⭐ Tất cả số sao</option>
+              <option value="5">⭐⭐⭐⭐⭐ (5 sao)</option>
+              <option value="4">⭐⭐⭐⭐ (4 sao)</option>
+              <option value="3">⭐⭐⭐ (3 sao)</option>
+              <option value="2">⭐⭐ (2 sao)</option>
+              <option value="1">⭐ (1 sao)</option>
+            </select>
+
+            <!-- Sort By -->
+            <select v-model="reviewsSort" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-semibold outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer">
+              <option value="newest">🕒 Mới nhất trước</option>
+              <option value="oldest">🕰️ Cũ nhất trước</option>
+              <option value="lowest_stars">⚠️ Sao thấp nhất (Ưu tiên khiếu nại)</option>
+              <option value="highest_stars">✨ Sao cao nhất</option>
+            </select>
+
+            <!-- Search input -->
+            <div class="relative grow sm:grow-0">
+              <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 text-xs"></i>
+              <input 
+                type="text" 
+                v-model="reviewsSearch" 
+                placeholder="Tìm tên hoặc nội dung..."
+                class="w-full sm:w-48 bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Reviews List -->
+        <div v-if="reviewsLoading" class="p-12 text-center text-slate-400 space-y-3">
+          <i class="fa-solid fa-circle-notch fa-spin text-3xl text-amber-500"></i>
+          <p class="text-xs font-semibold">Đang tải danh sách đánh giá từ ROOTS Google Maps...</p>
+        </div>
+
+        <div v-else-if="getFilteredGoogleReviews().length === 0" class="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+          <div class="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto text-2xl">
+            <i class="fa-regular fa-face-smile"></i>
+          </div>
+          <h4 class="font-bold text-slate-800 text-sm">Không tìm thấy đánh giá nào</h4>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto">Không có bài đánh giá nào khớp với bộ lọc hoặc từ khóa bạn đang tìm kiếm.</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div 
+            v-for="rev in getFilteredGoogleReviews()" 
+            :key="rev.review_id"
+            :class="rev.is_replied ? 'border-slate-200 bg-white' : 'border-amber-300 bg-amber-50/20 shadow-amber-500/5'"
+            class="rounded-3xl p-5 sm:p-6 border shadow-sm transition hover:shadow-md space-y-4">
+            
+            <!-- Review Header -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <!-- Avatar -->
+                <img 
+                  v-if="rev.reviewer_photo_url" 
+                  :src="rev.reviewer_photo_url" 
+                  :alt="rev.reviewer_name"
+                  class="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0">
+                <div 
+                  v-else 
+                  class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                  {{ getReviewerInitials(rev.reviewer_name) }}
+                </div>
+
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-slate-900 text-sm">{{ rev.reviewer_name || 'Khách hàng Google' }}</span>
+                    <span class="text-[11px] text-slate-400 font-medium">• {{ formatReviewTime(rev.create_time) }}</span>
+                  </div>
+                  
+                  <!-- Stars -->
+                  <div class="flex items-center space-x-1 mt-0.5">
+                    <div class="flex text-xs">
+                      <i v-for="star in 5" :key="star" 
+                         :class="star <= (rev.star_rating || 5) ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-200'"></i>
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 ml-1">{{ rev.star_rating || 5 }}/5</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Badge -->
+              <span 
+                :class="rev.is_replied ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-900 border-amber-300'"
+                class="px-2.5 py-1 rounded-full text-xs font-bold border flex items-center space-x-1 shrink-0">
+                <i :class="rev.is_replied ? 'fa-solid fa-circle-check text-emerald-600' : 'fa-solid fa-clock text-amber-600'"></i>
+                <span>{{ rev.is_replied ? 'Đã phản hồi' : 'Chưa phản hồi' }}</span>
+              </span>
+            </div>
+
+            <!-- Review Comment Text -->
+            <div class="text-xs text-slate-700 leading-relaxed pl-1">
+              <div v-if="rev.comment" class="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100 text-slate-800 italic">
+                “{{ rev.comment }}”
+              </div>
+              <div v-else class="text-slate-400 italic">
+                (Khách hàng chỉ chấm sao, không để lại bình luận chi tiết)
+              </div>
+            </div>
+
+            <!-- Existing Reply Display (if already replied) -->
+            <div v-if="rev.reply_comment && (!reviewReplyDrafts[rev.review_id] || !reviewReplyDrafts[rev.review_id].isOpen)" 
+                 class="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2 text-emerald-900 font-bold">
+                  <i class="fa-solid fa-reply text-emerald-600"></i>
+                  <span>ROOTS (Chủ sở hữu) đã phản hồi:</span>
+                  <span class="text-[11px] text-slate-400 font-normal">{{ formatReviewTime(rev.reply_update_time) }}</span>
+                </div>
+                <button 
+                  type="button" 
+                  @click="openReviewReply(rev)" 
+                  class="text-xs text-emerald-800 hover:text-emerald-950 font-bold underline cursor-pointer">
+                  Chỉnh sửa
+                </button>
+              </div>
+              <p class="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{{ rev.reply_comment }}</p>
+            </div>
+
+            <!-- Semi-Automatic Reply Action Trigger (when closed) -->
+            <div v-if="!reviewReplyDrafts[rev.review_id] || !reviewReplyDrafts[rev.review_id].isOpen" class="flex items-center space-x-2 pt-1">
+              <button 
+                type="button" 
+                @click="openReviewReply(rev, true)" 
+                class="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-95 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>{{ rev.is_replied ? '✨ AI Gợi Ý Câu Mới' : '✨ AI Soạn Câu Trả Lời' }}</span>
+              </button>
+              <button 
+                type="button" 
+                @click="openReviewReply(rev, false)" 
+                class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                <i class="fa-solid fa-pen-to-square mr-1"></i>
+                <span>{{ rev.is_replied ? 'Chỉnh sửa thủ công' : 'Soạn phản hồi thủ công' }}</span>
+              </button>
+            </div>
+
+            <!-- BÁN TỰ ĐỘNG: INTERACTIVE REPLY EDITOR BOX (when open) -->
+            <div v-if="reviewReplyDrafts[rev.review_id] && reviewReplyDrafts[rev.review_id].isOpen" 
+                 class="bg-amber-50/50 border border-amber-300 rounded-2xl p-4 sm:p-5 space-y-3 shadow-inner">
+              
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                <span class="text-xs font-black text-amber-900 uppercase flex items-center space-x-1.5 flex-wrap gap-1">
+                  <i class="fa-solid fa-feather text-amber-600"></i>
+                  <span>Soạn câu trả lời (Duyệt trước khi gửi):</span>
+                  <span v-if="reviewReplyDrafts[rev.review_id].modelUsed" class="normal-case text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
+                    <i class="fa-solid fa-robot text-emerald-600"></i>
+                    <span>{{ reviewReplyDrafts[rev.review_id].modelUsed }}</span>
+                  </span>
+                </span>
+
+                <!-- Style selector & Regenerate AI Button -->
+                <div class="flex items-center space-x-2">
+                  <div class="flex items-center space-x-1 bg-white p-0.5 rounded-lg border border-amber-200 text-[11px]">
+                    <button 
+                      type="button" 
+                      @click="generateAiReviewReply(rev, 'friendly')" 
+                      :class="reviewReplyDrafts[rev.review_id].style === 'friendly' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600'"
+                      class="px-2 py-1 rounded transition cursor-pointer">
+                      Thân thiện
+                    </button>
+                    <button 
+                      type="button" 
+                      @click="generateAiReviewReply(rev, 'professional')" 
+                      :class="reviewReplyDrafts[rev.review_id].style === 'professional' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600'"
+                      class="px-2 py-1 rounded transition cursor-pointer">
+                      Chuyên nghiệp
+                    </button>
+                    <button 
+                      type="button" 
+                      @click="generateAiReviewReply(rev, 'concise')" 
+                      :class="reviewReplyDrafts[rev.review_id].style === 'concise' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-600'"
+                      class="px-2 py-1 rounded transition cursor-pointer">
+                      Ngắn gọn
+                    </button>
+                  </div>
+
+                  <button 
+                    type="button" 
+                    @click="generateAiReviewReply(rev)" 
+                    :disabled="reviewReplyDrafts[rev.review_id].isGenerating"
+                    class="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-[11px] font-bold transition flex items-center space-x-1 cursor-pointer">
+                    <i :class="reviewReplyDrafts[rev.review_id].isGenerating ? 'fa-solid fa-circle-notch fa-spin text-amber-600' : 'fa-solid fa-arrows-rotate text-amber-600'"></i>
+                    <span>{{ reviewReplyDrafts[rev.review_id].isGenerating ? 'Đang viết...' : 'Sinh lại' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Textarea for editing reply -->
+              <div class="space-y-1">
+                <textarea 
+                  v-model="reviewReplyDrafts[rev.review_id].text" 
+                  rows="4" 
+                  placeholder="Nhập nội dung phản hồi khách hàng (hoặc bấm nút AI ở trên để tự động điền)..."
+                  class="w-full bg-white border border-amber-200 rounded-xl p-3 text-xs text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-amber-500 shadow-sm">
+                </textarea>
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span class="flex items-center space-x-1 text-amber-800">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Bạn có thể tùy ý sửa lời lẽ trước khi gửi. Phản hồi sẽ đăng công khai dưới tên ROOTS.</span>
+                  </span>
+                  <span :class="(reviewReplyDrafts[rev.review_id].text || '').length > 4000 ? 'text-rose-600 font-bold' : 'text-slate-400'">
+                    {{ (reviewReplyDrafts[rev.review_id].text || '').length }} / 4096
+                  </span>
+                </div>
+              </div>
+
+              <!-- Submit & Cancel Actions -->
+              <div class="flex items-center justify-end space-x-2 pt-1">
+                <button 
+                  type="button" 
+                  @click="closeReviewReply(rev.review_id)" 
+                  class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold border border-slate-200 transition cursor-pointer">
+                  Đóng
+                </button>
+                <button 
+                  type="button" 
+                  @click="submitReviewReply(rev)" 
+                  :disabled="reviewReplyDrafts[rev.review_id].isSubmitting || !(reviewReplyDrafts[rev.review_id].text || '').trim()"
+                  class="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
+                  <i :class="reviewReplyDrafts[rev.review_id].isSubmitting ? 'fa-solid fa-circle-notch fa-spin' : 'fa-solid fa-paper-plane'"></i>
+                  <span>{{ reviewReplyDrafts[rev.review_id].isSubmitting ? 'Đang gửi...' : 'Gửi phản hồi lên Google Maps' }}</span>
+                </button>
+              </div>
+
+            </div>
+
           </div>
         </div>
       </div>

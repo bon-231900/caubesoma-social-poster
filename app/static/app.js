@@ -69,6 +69,24 @@ createApp({
       bulkPreviewPosts: [],
       scheduledPosts: [],
       historyPosts: [],
+
+      // Google Maps Reviews State (Bán tự động)
+      googleReviews: [],
+      reviewsLoading: false,
+      reviewsSyncing: false,
+      reviewsFilter: 'all',
+      reviewsStarFilter: 'all',
+      reviewsSearch: '',
+      reviewsSort: 'newest',
+      reviewsStats: {
+        total: 5,
+        average_rating: 4.9,
+        replied_count: 1,
+        unreplied_count: 4,
+        star_counts: { 1: 0, 2: 1, 3: 0, 4: 1, 5: 3 }
+      },
+      reviewsSyncError: '',
+      reviewReplyDrafts: {},
       
       settingsForm: {
         fb_page_id: '',
@@ -229,6 +247,7 @@ createApp({
             this.loadMediaLibrary();
             this.loadTemplatesAndHashtags();
             this.loadCalendarEvents();
+            this.loadGoogleReviews();
             return;
           }
         }
@@ -265,6 +284,7 @@ createApp({
           this.loadMediaLibrary();
           this.loadTemplatesAndHashtags();
           this.loadCalendarEvents();
+          this.loadGoogleReviews();
         } else {
           this.loginError = data.detail || 'Mật khẩu không chính xác';
         }
@@ -1540,6 +1560,220 @@ createApp({
         prompt('Sao chép đường link bên dưới:', text);
       }
       document.body.removeChild(textArea);
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // GOOGLE BUSINESS REVIEWS (BÁN TỰ ĐỘNG) METHODS
+    // ─────────────────────────────────────────────────────────────
+    async loadGoogleReviews(forceSync = false) {
+      if (forceSync) {
+        this.reviewsSyncing = true;
+      } else {
+        this.reviewsLoading = true;
+      }
+      try {
+        const url = forceSync ? '/api/google/reviews/sync' : '/api/google/reviews';
+        const method = forceSync ? 'POST' : 'GET';
+        const res = await this.authFetch(url, { method });
+        if (res.ok) {
+          const data = await res.json();
+          this.googleReviews = data.reviews || [];
+          if (data.stats) {
+            this.reviewsStats = data.stats;
+          }
+          this.reviewsSyncError = data.live_synced ? '' : (data.sync_error || '');
+          if (forceSync) {
+            if (data.live_synced) {
+              this.showToast('🎉 Đã đồng bộ trực tiếp các đánh giá mới nhất từ Google Maps!', 'success');
+            } else if (data.sync_error) {
+              this.showToast('⚠️ Chưa đồng bộ được: ' + data.sync_error, 'error');
+            } else {
+              this.showToast('Đã làm mới danh sách đánh giá', 'info');
+            }
+          }
+        }
+      } catch (err) {
+        if (forceSync) {
+          this.showToast('Lỗi khi đồng bộ đánh giá: ' + err.message, 'error');
+        }
+      } finally {
+        this.reviewsLoading = false;
+        this.reviewsSyncing = false;
+      }
+    },
+
+    getFilteredGoogleReviews() {
+      let list = [...(this.googleReviews || [])];
+      if (this.reviewsFilter === 'unreplied') {
+        list = list.filter(r => !r.is_replied);
+      } else if (this.reviewsFilter === 'replied') {
+        list = list.filter(r => r.is_replied);
+      }
+
+      if (this.reviewsStarFilter !== 'all') {
+        const s = parseInt(this.reviewsStarFilter);
+        list = list.filter(r => r.star_rating === s);
+      }
+
+      if (this.reviewsSearch && this.reviewsSearch.trim()) {
+        const q = this.reviewsSearch.toLowerCase().trim();
+        list = list.filter(r => 
+          (r.reviewer_name && r.reviewer_name.toLowerCase().includes(q)) ||
+          (r.comment && r.comment.toLowerCase().includes(q)) ||
+          (r.reply_comment && r.reply_comment.toLowerCase().includes(q))
+        );
+      }
+
+      if (this.reviewsSort === 'newest') {
+        list.sort((a, b) => new Date(b.create_time || 0) - new Date(a.create_time || 0));
+      } else if (this.reviewsSort === 'oldest') {
+        list.sort((a, b) => new Date(a.create_time || 0) - new Date(b.create_time || 0));
+      } else if (this.reviewsSort === 'lowest_stars') {
+        list.sort((a, b) => (a.star_rating || 5) - (b.star_rating || 5));
+      } else if (this.reviewsSort === 'highest_stars') {
+        list.sort((a, b) => (b.star_rating || 5) - (a.star_rating || 5));
+      }
+
+      return list;
+    },
+
+    openReviewReply(review, autoGenerate = false) {
+      const revId = review.review_id;
+      if (!this.reviewReplyDrafts[revId]) {
+        this.reviewReplyDrafts[revId] = {
+          isOpen: true,
+          text: review.reply_comment || '',
+          style: 'friendly',
+          isGenerating: false,
+          isSubmitting: false
+        };
+      } else {
+        this.reviewReplyDrafts[revId].isOpen = true;
+        if (review.reply_comment && !this.reviewReplyDrafts[revId].text) {
+          this.reviewReplyDrafts[revId].text = review.reply_comment;
+        }
+      }
+
+      if (autoGenerate && !this.reviewReplyDrafts[revId].text) {
+        this.generateAiReviewReply(review);
+      }
+    },
+
+    closeReviewReply(reviewId) {
+      if (this.reviewReplyDrafts[reviewId]) {
+        this.reviewReplyDrafts[reviewId].isOpen = false;
+      }
+    },
+
+    async generateAiReviewReply(review, style = null) {
+      const revId = review.review_id;
+      if (!this.reviewReplyDrafts[revId]) {
+        this.reviewReplyDrafts[revId] = {
+          isOpen: true,
+          text: '',
+          style: style || 'friendly',
+          isGenerating: false,
+          isSubmitting: false
+        };
+      }
+      const draft = this.reviewReplyDrafts[revId];
+      if (style) {
+        draft.style = style;
+      }
+      draft.isGenerating = true;
+      try {
+        const res = await this.authFetch('/api/google/reviews/suggest-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            review_id: revId,
+            reviewer_name: review.reviewer_name || '',
+            star_rating: review.star_rating || 5,
+            comment: review.comment || '',
+            reply_style: draft.style || 'friendly'
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data && data.data.suggested_reply) {
+            draft.text = data.data.suggested_reply;
+            draft.modelUsed = data.data.model_used;
+            this.showToast('✨ Đã tạo câu trả lời với ' + (data.data.model_used || 'Gemini') + '! Bạn hãy kiểm tra lại trước khi gửi.', 'success');
+          }
+        } else {
+          const err = await res.json();
+          this.showToast('Không thể tạo câu trả lời gợi ý: ' + (err.detail || 'Lỗi server'), 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi AI: ' + e.message, 'error');
+      } finally {
+        draft.isGenerating = false;
+      }
+    },
+
+    async submitReviewReply(review) {
+      const revId = review.review_id;
+      const draft = this.reviewReplyDrafts[revId];
+      if (!draft || !draft.text || !draft.text.trim()) {
+        this.showToast('Vui lòng nhập nội dung câu trả lời trước khi gửi!', 'error');
+        return;
+      }
+      draft.isSubmitting = true;
+      try {
+        const res = await this.authFetch('/api/google/reviews/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            review_id: revId,
+            comment: draft.text.trim()
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          review.reply_comment = draft.text.trim();
+          review.is_replied = 1;
+          review.reply_update_time = data.updated_at || new Date().toISOString();
+          draft.isOpen = false;
+          if (this.reviewsStats.unreplied_count > 0) {
+            this.reviewsStats.unreplied_count--;
+            this.reviewsStats.replied_count++;
+          }
+          this.showToast(data.message || '🎉 Đã gửi phản hồi thành công!', 'success');
+        } else {
+          this.showToast('Không thể gửi phản hồi: ' + (data.detail || data.message || 'Lỗi gửi'), 'error');
+        }
+      } catch (e) {
+        this.showToast('Lỗi gửi phản hồi: ' + e.message, 'error');
+      } finally {
+        draft.isSubmitting = false;
+      }
+    },
+
+    formatReviewTime(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 60) return `${diffMins <= 0 ? 1 : diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 30) return `${diffDays} ngày trước`;
+        return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      } catch (e) {
+        return dateStr;
+      }
+    },
+
+    getReviewerInitials(name) {
+      if (!name) return 'KH';
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
   }
 }).mount('#app');

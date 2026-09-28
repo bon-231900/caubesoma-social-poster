@@ -27,10 +27,15 @@ from app.database import (init_db, create_post, get_posts, get_post_by_id, updat
                           get_threads_topics, save_or_touch_threads_topic)
 from app.scheduler import start_scheduler, shutdown_scheduler, publish_single_post
 from app.meta_service import test_meta_connection, exchange_for_permanent_page_token
-from app.ai_service import generate_social_captions, generate_combo_campaign_and_prompts
+from app.ai_service import generate_social_captions, generate_combo_campaign_and_prompts, generate_review_reply
 from app.bulk_service import generate_bulk_excel_template, parse_bulk_file, import_bulk_posts
 from app.story_service import create_story_image
-from app.google_service import get_google_auth_url, exchange_google_code, get_google_locations, publish_to_google_business, sync_google_business_profile
+from app.google_service import (
+    get_google_auth_url, exchange_google_code, get_google_locations,
+    publish_to_google_business, sync_google_business_profile,
+    fetch_google_reviews, reply_to_google_review, delete_google_review_reply
+)
+from app.database import get_cached_google_reviews, get_google_reviews_stats
 from app.roots_service import fetch_roots_categories, fetch_roots_products, fetch_roots_flash_sale, quick_generate_post_from_product
 from app.job_manager import job_manager, run_1click_studio_job
 from app.media_service import register_media_file, THUMB_DIR, create_thumbnail
@@ -297,6 +302,79 @@ def api_google_sync_profile():
         return {"success": True, "data": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+class ReviewSuggestRequest(BaseModel):
+    review_id: str
+    reviewer_name: Optional[str] = ""
+    star_rating: Optional[int] = 5
+    comment: Optional[str] = ""
+    reply_style: Optional[str] = "friendly"
+
+class ReviewReplyRequest(BaseModel):
+    review_id: str
+    comment: str
+
+@app.get("/api/google/reviews", dependencies=[Depends(verify_auth)])
+def api_get_google_reviews(
+    filter_status: str = "all",
+    star: Optional[int] = None,
+    search: Optional[str] = None,
+    force_sync: bool = False
+):
+    if force_sync:
+        try:
+            fetch_google_reviews()
+        except Exception:
+            pass
+    reviews = get_cached_google_reviews(filter_status=filter_status, star=star, search=search)
+    stats = get_google_reviews_stats()
+    settings = get_settings()
+    return {
+        "success": True,
+        "reviews": reviews,
+        "stats": stats,
+        "location_name": settings.get("google_location_name") or "ROOTS - Organic Store & Juice Bar",
+        "google_connected": bool(settings.get("google_refresh_token"))
+    }
+
+@app.post("/api/google/reviews/sync", dependencies=[Depends(verify_auth)])
+def api_sync_google_reviews():
+    try:
+        data = fetch_google_reviews()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/google/reviews/suggest-reply", dependencies=[Depends(verify_auth)])
+def api_suggest_review_reply(req: ReviewSuggestRequest):
+    try:
+        suggestion = generate_review_reply(
+            reviewer_name=req.reviewer_name or "",
+            star_rating=req.star_rating or 5,
+            comment=req.comment or "",
+            reply_style=req.reply_style or "friendly"
+        )
+        return {"success": True, "data": suggestion}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo câu trả lời gợi ý: {str(e)}")
+
+@app.post("/api/google/reviews/reply", dependencies=[Depends(verify_auth)])
+def api_reply_google_review(req: ReviewReplyRequest):
+    try:
+        res = reply_to_google_review(req.review_id, req.comment)
+        return res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi phản hồi đánh giá: {str(e)}")
+
+@app.delete("/api/google/reviews/reply/{review_id}", dependencies=[Depends(verify_auth)])
+def api_delete_google_review_reply(review_id: str):
+    try:
+        res = delete_google_review_reply(review_id)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- AI ROUTES ---
 

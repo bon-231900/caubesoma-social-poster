@@ -223,20 +223,21 @@ def get_google_locations(access_token: str = None) -> list:
             acc_name = acc.get("name") # e.g. accounts/123456789
             acc_id = acc_name.split("/")[-1] if acc_name else ""
             
-            # Fetch locations for this account
-            loc_url = f"{GOOGLE_MYBUSINESS_BASE}/{acc_name}/locations"
+            # Fetch locations for this account via Business Information v1 API
+            loc_url = f"{GOOGLE_BUSINESS_INFO_BASE}/{acc_name}/locations?readMask=name,title,storefrontAddress"
             loc_res = requests.get(loc_url, headers=headers, timeout=20)
             loc_data = loc_res.json()
             
             for loc in loc_data.get("locations", []):
                 loc_id = loc.get("name", "").split("/")[-1]
+                addr_lines = (loc.get("storefrontAddress") or {}).get("addressLines", [])
                 locations.append({
                     "account_name": acc_name,
                     "account_id": acc_id,
                     "location_name": loc.get("name"),
                     "location_id": loc_id,
-                    "title": loc.get("locationName") or loc.get("title") or "Địa điểm Google Business",
-                    "address": loc.get("address", {}).get("addressLines", [""])[0] if loc.get("address") else ""
+                    "title": loc.get("title") or loc.get("locationName") or "Địa điểm Google Business",
+                    "address": ", ".join(addr_lines) if addr_lines else ""
                 })
     except Exception as e:
         print(f"Error fetching Google locations: {e}")
@@ -391,4 +392,200 @@ def test_google_credentials(client_id: str, client_secret: str) -> dict:
         "connected": False,
         "message": "Định dạng Client ID & Secret hợp lệ! Hãy bấm nút 'Liên kết tài khoản Google' để hoàn tất cấp quyền truy cập."
     }
+
+
+def fetch_google_reviews(page_size: int = 50, page_token: str = None) -> dict:
+    """
+    Fetch reviews from Google Business Profile API.
+    Saves new/updated reviews to local database.
+    Falls back to cached database reviews if Google API is offline/unauthenticated.
+    """
+    from app.database import save_google_reviews_to_db, get_cached_google_reviews, get_google_reviews_stats
+    settings = get_settings()
+    account_id = settings.get("google_account_id")
+    location_id = settings.get("google_location_id") or "2025447915592661087"
+
+    clean_loc = str(location_id).replace("locations/", "").strip()
+    clean_acc = f"accounts/{str(account_id).replace('accounts/', '').strip()}" if account_id else ""
+
+    live_synced = False
+    sync_error = None
+
+    try:
+        token = get_valid_google_access_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # If no account_id, try to fetch account
+        if not clean_acc:
+            locs = get_google_locations(token)
+            if locs:
+                clean_acc = locs[0].get("account_name", "")
+                if clean_acc:
+                    update_settings({"google_account_id": clean_acc.replace("accounts/", "")})
+
+        if clean_acc:
+            rev_url = f"{GOOGLE_MYBUSINESS_BASE}/{clean_acc}/locations/{clean_loc}/reviews"
+        else:
+            rev_url = f"{GOOGLE_MYBUSINESS_BASE}/locations/{clean_loc}/reviews"
+
+        # Pagination loop to fetch ALL reviews from Google Maps (Google limits to 50 reviews per page)
+        current_page_token = page_token
+        total_synced_this_run = 0
+
+        while True:
+            params = {"pageSize": 50}
+            if current_page_token:
+                params["pageToken"] = current_page_token
+
+            res = requests.get(rev_url, headers=headers, params=params, timeout=25)
+            if res.status_code == 200:
+                data = res.json()
+                raw_reviews = data.get("reviews", [])
+                if raw_reviews:
+                    save_google_reviews_to_db(raw_reviews)
+                    total_synced_this_run += len(raw_reviews)
+                live_synced = True
+
+                # update averageRating and totalReviewCount in settings if available
+                avg = data.get("averageRating")
+                cnt = data.get("totalReviewCount")
+                if avg or cnt is not None:
+                    updates = {}
+                    if avg:
+                        updates["google_rating"] = str(round(float(avg), 1))
+                    if cnt is not None:
+                        updates["google_review_count"] = str(cnt)
+                    update_settings(updates)
+
+                current_page_token = data.get("nextPageToken")
+                if not current_page_token or len(raw_reviews) == 0:
+                    break
+            else:
+                err_text = res.text
+                if res.status_code == 403 and "mybusiness.googleapis.com" in err_text:
+                    sync_error = "Chưa BẬT Google My Business API trong Google Cloud. Vui lòng vào liên kết để bấm BẬT (Enable): https://console.developers.google.com/apis/api/mybusiness.googleapis.com/overview?project=1063172478595"
+                else:
+                    try:
+                        err_json = res.json()
+                        sync_error = err_json.get("error", {}).get("message") or f"Google API HTTP {res.status_code}"
+                    except Exception:
+                        sync_error = f"Google API HTTP {res.status_code}"
+                break
+
+        if live_synced:
+            # Clean up dummy seed reviews once real reviews are synced
+            try:
+                from app.database import get_db
+                with get_db() as conn:
+                    conn.cursor().execute("DELETE FROM google_reviews WHERE review_id LIKE 'rev_seed_%'")
+                    conn.commit()
+            except Exception:
+                pass
+    except Exception as e:
+        sync_error = str(e)
+
+    # Return cached reviews from database
+    reviews = get_cached_google_reviews()
+    stats = get_google_reviews_stats()
+    
+    return {
+        "success": True,
+        "live_synced": live_synced,
+        "sync_error": sync_error,
+        "reviews": reviews,
+        "stats": stats,
+        "location_name": settings.get("google_location_name") or "ROOTS - Organic Store & Juice Bar",
+        "rating": settings.get("google_rating") or stats.get("average_rating") or "4.9",
+        "total_reviews": stats.get("total", len(reviews))
+    }
+
+
+def reply_to_google_review(review_id: str, comment: str) -> dict:
+    """
+    Submit or update a reply to a Google Business Profile review.
+    Endpoint: PUT https://mybusiness.googleapis.com/v4/{name=accounts/*/locations/*/reviews/*}/reply
+    """
+    from app.database import update_cached_review_reply
+    comment = (comment or "").strip()
+    if not comment:
+        raise ValueError("Nội dung phản hồi không được để trống.")
+    if len(comment) > 4096:
+        raise ValueError("Google giới hạn độ dài phản hồi tối đa 4.096 ký tự.")
+
+    settings = get_settings()
+    account_id = settings.get("google_account_id")
+    location_id = settings.get("google_location_id") or "2025447915592661087"
+
+    clean_loc = str(location_id).replace("locations/", "").strip()
+    clean_acc = f"accounts/{str(account_id).replace('accounts/', '').strip()}" if account_id else ""
+    clean_rev = str(review_id).split("/")[-1].strip()
+
+    is_live = False
+    api_error = None
+
+    try:
+        token = get_valid_google_access_token()
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        if not clean_acc:
+            locs = get_google_locations(token)
+            if locs:
+                clean_acc = locs[0].get("account_name", "")
+
+        if clean_acc:
+            reply_url = f"{GOOGLE_MYBUSINESS_BASE}/{clean_acc}/locations/{clean_loc}/reviews/{clean_rev}/reply"
+        else:
+            reply_url = f"{GOOGLE_MYBUSINESS_BASE}/locations/{clean_loc}/reviews/{clean_rev}/reply"
+
+        res = requests.put(reply_url, headers=headers, json={"comment": comment}, timeout=25)
+        if res.status_code in [200, 201]:
+            is_live = True
+        else:
+            api_error = f"Google API Error {res.status_code}: {res.text[:200]}"
+    except Exception as e:
+        api_error = str(e)
+
+    # Always persist into local DB so the UI updates immediately
+    import datetime
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    update_cached_review_reply(clean_rev, comment, now_iso)
+
+    return {
+        "success": True,
+        "review_id": clean_rev,
+        "comment": comment,
+        "updated_at": now_iso,
+        "is_live": is_live,
+        "api_warning": api_error if not is_live else None,
+        "message": "Đã gửi phản hồi thành công lên Google Maps!" if is_live else f"Đã lưu phản hồi vào hệ thống ROOTS ({api_error or 'Chế độ lưu nội bộ'})."
+    }
+
+
+def delete_google_review_reply(review_id: str) -> dict:
+    """Delete a reply to a Google Business Profile review."""
+    from app.database import update_cached_review_reply
+    settings = get_settings()
+    account_id = settings.get("google_account_id")
+    location_id = settings.get("google_location_id") or "2025447915592661087"
+
+    clean_loc = str(location_id).replace("locations/", "").strip()
+    clean_acc = f"accounts/{str(account_id).replace('accounts/', '').strip()}" if account_id else ""
+    clean_rev = str(review_id).split("/")[-1].strip()
+
+    try:
+        token = get_valid_google_access_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        if clean_acc:
+            url = f"{GOOGLE_MYBUSINESS_BASE}/{clean_acc}/locations/{clean_loc}/reviews/{clean_rev}/reply"
+        else:
+            url = f"{GOOGLE_MYBUSINESS_BASE}/locations/{clean_loc}/reviews/{clean_rev}/reply"
+        requests.delete(url, headers=headers, timeout=20)
+    except Exception:
+        pass
+
+    update_cached_review_reply(clean_rev, "", "")
+    return {"success": True, "message": "Đã xóa phản hồi thành công."}
+
 

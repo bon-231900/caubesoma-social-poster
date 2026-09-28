@@ -93,7 +93,7 @@ Chỉ trả về JSON thuần túy, không có giải thích thêm."""
     }
 
     # Attempt primary model and fallback if necessary
-    candidate_models = [model, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.5-flash-lite"]
+    candidate_models = [model, "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]
     seen = set()
     models_to_try = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
@@ -300,7 +300,7 @@ Lưu ý: Thay thế toàn bộ placeholder trong prompt_en bằng mô tả tiế
         }
     }
 
-    candidate_models = [model, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.5-flash-lite"]
+    candidate_models = [model, "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]
     seen = set()
     models_to_try = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
@@ -344,3 +344,163 @@ Lưu ý: Thay thế toàn bộ placeholder trong prompt_en bằng mô tả tiế
             last_error = str(e)
 
     raise RuntimeError(f"Lỗi gọi Gemini AI cho Combo Campaign ({model}): {last_error}")
+
+
+def get_smart_fallback_reply(reviewer_name: str, star_rating: int, comment: str, reply_style: str = "friendly") -> dict:
+    """Smart brand-aligned fallback response generator adhering strictly to ROOTS guidelines."""
+    name = (reviewer_name or "Quý khách").strip()
+    c_text = (comment or "").strip()
+    c_lower = c_text.lower()
+    vn_chars = "àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ"
+    has_vn = any(c in c_lower for c in vn_chars)
+    is_english = (not has_vn) and any(w in c_lower for w in ["best", "organic", "store", "great", "fresh", "good", "love", "amazing", "service", "clean", "delicious", "healthy", "food", "place", "nice", "staff", "the", "with", "bread"])
+    is_short = len(c_text.split()) <= 15
+
+    if is_english:
+        if not c_text:
+            reply = f"Thank you {name} for your positive rating for ROOTS. We hope to see you again soon."
+        elif star_rating >= 4:
+            if is_short:
+                reply = f"Thank you {name} for your kind feedback and for choosing ROOTS. We look forward to welcoming you back."
+            else:
+                reply = f"Thank you {name} for taking the time to share your experience with our organic selections and atmosphere. The team at ROOTS is glad you enjoyed your visit, and we look forward to seeing you again soon."
+        else:
+            reply = f"Dear {name}, thank you for your feedback. We apologize for the inconvenience during your recent order, and ROOTS is reviewing our delivery coordination to prevent this from recurring. We hope to have the opportunity to serve you better next time."
+        return {
+            "suggested_reply": reply,
+            "tone": "Chuyên nghiệp & tự nhiên (English)",
+            "model_used": "smart_template_guideline",
+            "key_points": ["English response", "Tone chuẩn ROOTS"]
+        }
+
+    # Vietnamese responses strictly following the principles
+    if not c_text:
+        # Star rating only
+        if star_rating >= 5:
+            reply = f"Cảm ơn bạn {name} đã dành tặng đánh giá 5 sao cho ROOTS. Hy vọng sớm được đón tiếp bạn trong những lần ghé thăm tiếp theo."
+        elif star_rating == 4:
+            reply = f"Cảm ơn bạn {name} đã ủng hộ ROOTS. Đội ngũ sẽ tiếp tục nỗ lực để mang lại trải nghiệm trọn vẹn hơn cho bạn."
+        else:
+            reply = f"Chào bạn {name}, ROOTS ghi nhận đánh giá của bạn và sẽ nỗ lực cải thiện chất lượng phục vụ tốt hơn trong thời gian tới."
+    elif star_rating >= 5:
+        if is_short:
+            reply = f"Cảm ơn bạn {name} đã tin tưởng lựa chọn thực phẩm tươi sạch tại ROOTS. Chúc bạn nhiều sức khỏe và hy vọng sớm được gặp lại bạn."
+        else:
+            reply = f"Cảm ơn bạn {name} đã dành thời gian chia sẻ cảm nhận chi tiết về các sản phẩm và dịch vụ của ROOTS. Đội ngũ rất trân trọng khi những nỗ lực chăm chút cho chất lượng và độ tươi sạch được bạn ghi nhận. Rất mong sớm có dịp đón tiếp bạn trong những lần mua sắm tới."
+    elif star_rating == 4:
+        if is_short:
+            reply = f"Cảm ơn bạn {name} đã ghé thăm và gửi đánh giá cho ROOTS. Đội ngũ sẽ tiếp tục nâng cao chất lượng để phục vụ bạn chu đáo hơn."
+        else:
+            reply = f"Cảm ơn bạn {name} đã ghé thăm và để lại nhận xét chân thực cho ROOTS. Chúng tôi xin ghi nhận góp ý về khu vực giữ xe để sắp xếp lại khoa học và thuận tiện hơn. Hy vọng sẽ mang đến cho bạn trải nghiệm thuận tiện hơn trong lần ghé thăm tiếp theo."
+    else: # 1-3 stars
+        if is_short:
+            reply = f"Chào bạn {name}, ROOTS rất tiếc về trải nghiệm chưa tốt của bạn. Chúng tôi đang kiểm tra lại quy trình để khắc phục ngay, và hy vọng sẽ có cơ hội phục vụ bạn tốt hơn."
+        else:
+            reply = f"Chào bạn {name}, ROOTS thành thật xin lỗi vì sự cố giao hàng chậm trễ làm ảnh hưởng đến trải nghiệm của bạn. Đội ngũ cửa hàng đã làm việc trực tiếp với đối tác vận chuyển để chấn chỉnh quy trình giao nhận kịp thời. Rất mong có cơ hội được phục vụ bạn chu đáo hơn trong thời gian tới."
+
+    return {
+        "suggested_reply": reply,
+        "tone": "Chuẩn mực, tự nhiên, đúng quy chuẩn ROOTS",
+        "model_used": "smart_template_guideline",
+        "key_points": ["Tên thương hiệu 1 lần", "Độ dài tương xứng", "Không dùng từ sáo mòn"]
+    }
+
+
+def generate_review_reply(
+    reviewer_name: str,
+    star_rating: int,
+    comment: str,
+    reply_style: str = "friendly"
+) -> dict:
+    """Generate a context-aware, brand-aligned reply to a Google Business review strictly following ROOTS guidelines."""
+    settings = get_settings()
+    api_key = (settings.get("gemini_api_key") or "").strip()
+    model = (settings.get("gemini_model") or "").strip() or "gemini-3.5-flash-lite"
+
+    # If no API key configured, use smart brand templates immediately
+    if not api_key:
+        return get_smart_fallback_reply(reviewer_name, star_rating, comment, reply_style)
+
+    c_text = (comment or "").strip()
+    c_lower = c_text.lower()
+    vn_chars = "àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ"
+    has_vn = any(c in c_lower for c in vn_chars)
+    is_english = (not has_vn) and any(w in c_lower for w in ["best", "organic", "store", "great", "fresh", "good", "love", "amazing", "service", "clean", "delicious", "healthy", "food", "place", "nice", "staff", "the", "with", "bread"])
+
+    lang_rule = (
+        "The customer review is in English. You must write the response strictly in English."
+        if is_english else
+        "The customer review is in Vietnamese. You must write the response strictly in Vietnamese."
+    )
+
+    prompt = f"""You are the person responsible for replying to customer reviews on Google Maps for the store ROOTS. When I give you the content of a customer's review, write a response following these principles:
+
+{lang_rule}
+
+Tone: Professional, natural — as if written by a real person, friendly but not overly casual. Avoid:
+- Overhyped or clichéd language ("the best ever," "100% perfect", "tuyệt vời nhất", "hoàn hảo 100%")
+- Putting phrases in quotation marks for advertising-style emphasis
+- Overusing casual filler words/phrases at the end of sentences (like "nhé ạ", "nha", "đó ạ") — use at most once per response, and only when it genuinely matches the customer's tone
+- Worn-out phrases like "here," "visit us here," "experience here" (e.g. "tại đây", "ghé thăm tại đây", "trải nghiệm tại đây")
+- Excessive emojis or exclamation marks (use at most 1 subtle emoji or none, gentle punctuation)
+
+Mention the brand name: Naturally include "ROOTS" somewhere in the response (don't repeat it twice in the same response, don't force it in awkwardly — just once, in the right place).
+
+Response length should match the review:
+- Short review (one sentence, a few words, or star-only) → reply briefly, 1-2 sentences.
+- Long, detailed review → reply a bit longer, referencing the specific points the customer mentioned (food, service, atmosphere, delivery, packaging, etc.), without listing back everything they said.
+
+Match the customer's tone: If the customer writes formally, reply formally and keep a polite distance; if the customer writes casually, reply a bit more warmly — but always keep a professional baseline, never dropping into overly casual territory regardless of how the customer writes.
+
+For positive reviews: Thank them specifically, focused on exactly what they praised (not a generic thank-you, no forced promotional add-ons).
+
+For negative/neutral reviews: Acknowledge the feedback directly, apologize gently if needed, don't make excuses or over-explain, show genuine willingness to improve with something concrete.
+
+Don't repeat the same phrasing across responses (avoid sounding robotic or formulaic).
+
+Closing: Always end with a short line inviting the customer back or hoping to see them again, phrased differently each time, keeping a polite tone (no casual filler words in this closing line).
+
+Customer Review:
+- Customer Name: {reviewer_name or ('Customer' if is_english else 'Quý khách')}
+- Star Rating: {star_rating}/5 stars
+- Review Content: {comment if comment else ('(Customer gave star rating only, no written text)' if is_english else '(Khách hàng chỉ chấm sao, không để lại bình luận)')}
+
+When I send you a customer review, reply with only the response content itself (no explanation, no markdown quotes, no JSON wrapper), with length matching the original review."""
+
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "topP": 0.95
+        }
+    }
+
+    candidate_models = [model, "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]
+    seen = set()
+    models_to_try = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
+
+    for m in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+        try:
+            res = requests.post(url, json=payload, timeout=20)
+            data = res.json()
+            if res.status_code == 200 and "candidates" in data:
+                text_out = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                # Clean up if enclosed in quotes or markdown code blocks
+                if text_out.startswith("```"):
+                    text_out = text_out.strip("`").replace("json", "").strip()
+                if (text_out.startswith('"') and text_out.endswith('"')) or (text_out.startswith("'") and text_out.endswith("'")):
+                    text_out = text_out[1:-1].strip()
+                return {
+                    "suggested_reply": text_out,
+                    "tone": "Chuẩn mực, tự nhiên, đúng quy chuẩn ROOTS",
+                    "model_used": m
+                }
+        except Exception:
+            pass
+
+    # If all models fail, return smart template fallback seamlessly
+    return get_smart_fallback_reply(reviewer_name, star_rating, comment, reply_style)
+

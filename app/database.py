@@ -357,6 +357,103 @@ def init_db():
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_threads_topics_name ON threads_topics(name)")
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS google_reviews (
+                review_id TEXT PRIMARY KEY,
+                reviewer_name TEXT,
+                reviewer_photo_url TEXT,
+                star_rating INTEGER DEFAULT 5,
+                comment TEXT,
+                create_time TEXT,
+                update_time TEXT,
+                reply_comment TEXT,
+                reply_update_time TEXT,
+                is_replied INTEGER DEFAULT 0,
+                synced_at TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_google_reviews_star ON google_reviews(star_rating)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_google_reviews_replied ON google_reviews(is_replied)")
+
+        # Seed sample reviews if empty
+        cursor.execute("SELECT count(*) FROM google_reviews")
+        if cursor.fetchone()[0] == 0:
+            sample_revs = [
+                (
+                    "rev_seed_001",
+                    "Minh Anh Tran",
+                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
+                    5,
+                    "Nước ép cold-pressed ở ROOTS vị rất tự nhiên, không bị ngọt gắt. Siêu thị ngay trung tâm Nguyễn Công Trứ thuận tiện ghé mua buổi sáng. Nhân viên tư vấn nhiệt tình, đóng gói bằng túi thân thiện môi trường rất ưng bụng!",
+                    "2026-09-26T08:30:00Z",
+                    "2026-09-26T08:30:00Z",
+                    "Dạ ROOTS chân thành cảm ơn bạn Minh Anh Tran đã tin chọn nước ép tươi và ủng hộ lối sống xanh! Những phản hồi tích cực của bạn tiếp thêm rất nhiều động lực cho đội ngũ ROOTS mỗi ngày. Chúc bạn luôn rạng rỡ, tràn đầy năng lượng và hẹn gặp lại bạn tại 237 Nguyễn Công Trứ nhé! 🌿💚",
+                    "2026-09-26T09:15:00Z",
+                    1,
+                    utc_now_iso()
+                ),
+                (
+                    "rev_seed_002",
+                    "Alexandre Dubois",
+                    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+                    5,
+                    "Best organic grocery store in District 1! High quality sourdough bread, fresh organic greens and a very welcoming atmosphere. Highly recommended for expats and healthy eaters.",
+                    "2026-09-25T14:20:00Z",
+                    "2026-09-25T14:20:00Z",
+                    "",
+                    "",
+                    0,
+                    utc_now_iso()
+                ),
+                (
+                    "rev_seed_003",
+                    "Ngọc Lan Vũ",
+                    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100",
+                    4,
+                    "Rau củ chuẩn hữu cơ tươi sạch, tem mác xuất xứ minh bạch rõ ràng. Chỉ có điểm trừ nhỏ là giờ tan tầm khu vực gửi xe hơi chật, mong siêu thị cải thiện thêm.",
+                    "2026-09-24T17:45:00Z",
+                    "2026-09-24T17:45:00Z",
+                    "",
+                    "",
+                    0,
+                    utc_now_iso()
+                ),
+                (
+                    "rev_seed_004",
+                    "Hoàng Bách",
+                    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
+                    2,
+                    "Hôm qua mình đặt giao hàng online 2 chai sữa hạt óc chó và 1 phần salad bơ, nhưng shipper giao trễ 45 phút làm đồ uống không còn lạnh. Mong ROOTS chấn chỉnh lại quy trình giao hàng.",
+                    "2026-09-23T11:10:00Z",
+                    "2026-09-23T11:10:00Z",
+                    "",
+                    "",
+                    0,
+                    utc_now_iso()
+                ),
+                (
+                    "rev_seed_005",
+                    "Phương Thảo Nguyễn",
+                    "",
+                    5,
+                    "",
+                    "2026-09-22T19:00:00Z",
+                    "2026-09-22T19:00:00Z",
+                    "",
+                    "",
+                    0,
+                    utc_now_iso()
+                )
+            ]
+            for r in sample_revs:
+                cursor.execute("""
+                    INSERT INTO google_reviews (
+                        review_id, reviewer_name, reviewer_photo_url, star_rating,
+                        comment, create_time, update_time, reply_comment,
+                        reply_update_time, is_replied, synced_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, r)
+
         # Seed default hashtag groups if empty
         cursor.execute("SELECT count(*) FROM hashtag_groups")
         if cursor.fetchone()[0] == 0:
@@ -1072,4 +1169,139 @@ def update_db_settings(updates: dict):
             conn.commit()
     except Exception as e:
         print("update_db_settings error:", e)
+
+
+# ─────────────────────────────────────────────────────────────
+# GOOGLE BUSINESS REVIEWS MANAGEMENT
+# ─────────────────────────────────────────────────────────────
+def save_google_reviews_to_db(reviews: list):
+    if not reviews:
+        return
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = utc_now_iso()
+        for r in reviews:
+            rev_id = str(r.get("review_id") or r.get("reviewId") or "").strip()
+            if not rev_id:
+                continue
+            reviewer = r.get("reviewer") or {}
+            reviewer_name = str(r.get("reviewer_name") or reviewer.get("displayName") or "Khách hàng Google").strip()
+            reviewer_photo = str(r.get("reviewer_photo_url") or reviewer.get("profilePhotoUrl") or "").strip()
+            
+            raw_star = r.get("star_rating") or r.get("starRating") or 5
+            if isinstance(raw_star, str):
+                star_map = {"FIVE": 5, "FOUR": 4, "THREE": 3, "TWO": 2, "ONE": 1}
+                star_val = star_map.get(raw_star.upper(), 5)
+            else:
+                try:
+                    star_val = int(raw_star)
+                except Exception:
+                    star_val = 5
+
+            comment = str(r.get("comment") or "").strip()
+            create_time = str(r.get("create_time") or r.get("createTime") or now).strip()
+            update_time = str(r.get("update_time") or r.get("updateTime") or create_time).strip()
+
+            reply = r.get("reply") or r.get("reviewReply") or {}
+            reply_comment = str(reply.get("comment") or "").strip()
+            reply_update_time = str(reply.get("updateTime") or reply.get("update_time") or "").strip()
+            is_replied = 1 if bool(reply_comment) else 0
+
+            # Portable Upsert across SQLite and Postgres
+            cursor.execute("SELECT review_id FROM google_reviews WHERE review_id = ?", (rev_id,))
+            exists = cursor.fetchone()
+            if exists:
+                cursor.execute("""
+                    UPDATE google_reviews SET
+                        reviewer_name = ?, reviewer_photo_url = ?, star_rating = ?,
+                        comment = ?, update_time = ?, reply_comment = ?,
+                        reply_update_time = ?, is_replied = ?, synced_at = ?
+                    WHERE review_id = ?
+                """, (
+                    reviewer_name, reviewer_photo, star_val,
+                    comment, update_time, reply_comment,
+                    reply_update_time, is_replied, now, rev_id
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO google_reviews (
+                        review_id, reviewer_name, reviewer_photo_url, star_rating,
+                        comment, create_time, update_time, reply_comment,
+                        reply_update_time, is_replied, synced_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    rev_id, reviewer_name, reviewer_photo, star_val,
+                    comment, create_time, update_time, reply_comment,
+                    reply_update_time, is_replied, now
+                ))
+        conn.commit()
+
+
+def get_cached_google_reviews(filter_status: str = "all", star: int = None, search: str = None) -> list:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM google_reviews WHERE 1=1"
+        params = []
+        if filter_status == "unreplied":
+            query += " AND is_replied = 0"
+        elif filter_status == "replied":
+            query += " AND is_replied = 1"
+        
+        if star is not None and 1 <= star <= 5:
+            query += " AND star_rating = ?"
+            params.append(star)
+
+        if search and search.strip():
+            query += " AND (LOWER(reviewer_name) LIKE ? OR LOWER(comment) LIKE ?)"
+            s_param = f"%{search.strip().lower()}%"
+            params.extend([s_param, s_param])
+
+        query += " ORDER BY create_time DESC"
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+def update_cached_review_reply(review_id: str, reply_comment: str, update_time: str = None):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = update_time or utc_now_iso()
+        is_rep = 1 if bool(reply_comment.strip()) else 0
+        cursor.execute("""
+            UPDATE google_reviews
+            SET reply_comment = ?, reply_update_time = ?, is_replied = ?
+            WHERE review_id = ?
+        """, (reply_comment.strip(), now, is_rep, review_id))
+        conn.commit()
+
+
+def get_google_reviews_stats() -> dict:
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) AS total, AVG(star_rating) AS avg_stars FROM google_reviews")
+        row = cursor.fetchone()
+        total = row["total"] if row and row["total"] else 0
+        avg_stars = round(float(row["avg_stars"]), 1) if row and row["avg_stars"] else 5.0
+
+        cursor.execute("SELECT COUNT(*) FROM google_reviews WHERE is_replied = 1")
+        replied_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM google_reviews WHERE is_replied = 0")
+        unreplied_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT star_rating, COUNT(*) as cnt FROM google_reviews GROUP BY star_rating")
+        star_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        for r in cursor.fetchall():
+            s = r["star_rating"]
+            if s in star_counts:
+                star_counts[s] = r["cnt"]
+
+        return {
+            "total": total,
+            "average_rating": avg_stars,
+            "replied_count": replied_count,
+            "unreplied_count": unreplied_count,
+            "star_counts": star_counts
+        }
+
 
